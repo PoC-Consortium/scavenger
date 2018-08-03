@@ -1,0 +1,12 @@
+secret_phrase: "glad suffer red during single glow shut slam hill death lust although"
+account_id: 10282355196851764065
+plot_dirs:
+  - "test_data"
+url: "http://wallet.dev.burst-test.net:6876"
+# url: "http://pool.dev.burst-test.net:8124"
+worker_thread_count: 1
+reader_thread_count: 1
+nonces_per_cache: 65536               # default 65536
+target_deadline: 10885484741537822773 # default u64::MAX
+use_direct_io: true                   # default true
+get_mining_info_interval: 3000        # default 3000ms
