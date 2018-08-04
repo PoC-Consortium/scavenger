@@ -28,6 +28,12 @@ cargo build --release
 cargo test
 ```
 
+### Run
+
+```shell
+scavenger --help
+```
+
 ### Config
 
 The miner needs a **config.yaml** file with the following structure:

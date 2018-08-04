@@ -61,9 +61,9 @@ fn default_get_mining_info_interval() -> u64 {
     3000
 }
 
-pub fn load_cfg() -> Cfg {
-    let cfg_str = fs::read_to_string("config.yaml").expect("failed to find config.yaml");
-    let cfg: Cfg = serde_yaml::from_str(&cfg_str).expect("failed to parse config yaml");
+pub fn load_cfg(config: &str) -> Cfg {
+    let cfg_str = fs::read_to_string(config).expect("failed to open config");
+    let cfg: Cfg = serde_yaml::from_str(&cfg_str).expect("failed to parse config");
     if cfg.use_direct_io {
         assert!(
             cfg.nonces_per_cache % 8 == 0,

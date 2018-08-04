@@ -15,6 +15,8 @@ extern crate url;
 #[macro_use]
 extern crate cfg_if;
 extern crate filetime;
+#[macro_use]
+extern crate clap;
 
 mod burstmath;
 mod config;
@@ -26,10 +28,26 @@ mod shabals;
 mod utils;
 mod worker;
 
+use clap::{App, Arg};
 use config::load_cfg;
 use miner::Miner;
 
 fn main() {
-    let m = Miner::new(load_cfg());
+    let matches = App::new("Scavenger - a Burst miner")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .about(crate_description!())
+        .arg(
+            Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .value_name("FILE")
+                .help("Location of the config file")
+                .takes_value(true),
+        )
+        .get_matches();
+
+    let config = matches.value_of("config").unwrap_or("config.yaml");
+    let m = Miner::new(load_cfg(config));
     m.run();
 }

@@ -3,7 +3,7 @@ name = "scavenger"
 version = "1.0.0-beta"
 authors = ["PoC Consortium <bots@cryptoguru.org>"]
 description = """
-scavenger is a cryptominer for the currency burstcoin
+Scavenger - a Burst miner written in Rust
 """
 build = "build.rs"
 repository = "https://github.com/PoC-Consortium/scavenger"
@@ -30,6 +30,7 @@ sys-info = "*"
 stopwatch = "0.0.7"
 cfg-if = "0.1"
 filetime = "0.2"
+clap = "~2.30"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi"] }
