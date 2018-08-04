@@ -6,7 +6,7 @@ fn main() {
 
     let mut config = cc::Build::new();
 
-    if (target_os == Ok("macos".to_string())) {
+    if target_os == Ok("macos".to_string()) {
         config.file("src/c/shabal64-darwin.s");
     } else {
         config.file("src/c/shabal64.s");
