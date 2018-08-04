@@ -1,3 +1,5 @@
+extern crate num_cpus;
+
 use burstmath;
 use chan;
 use config::Cfg;
@@ -103,7 +105,13 @@ impl Miner {
             cfg.reader_thread_count
         };
 
-        let buffer_count = cfg.worker_thread_count * 2;
+        let worker_thread_count = if cfg.worker_thread_count == 0 {
+            num_cpus::get() + 1
+        } else {
+            cfg.worker_thread_count
+        };
+
+        let buffer_count = worker_thread_count * 2;
         let buffer_size = cfg.nonces_per_cache * SCOOP_SIZE as usize;
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::sync(buffer_count as usize);
@@ -113,8 +121,8 @@ impl Miner {
             tx_empty_buffers.send(Arc::new(Mutex::new(vec![0; buffer_size])));
         }
 
-        let (tx_nonce_data, rx_nonce_data) = mpsc::channel(cfg.worker_thread_count);
-        for _ in 0..cfg.worker_thread_count {
+        let (tx_nonce_data, rx_nonce_data) = mpsc::channel(worker_thread_count);
+        for _ in 0..worker_thread_count {
             thread::spawn(create_worker_task(
                 rx_read_replies.clone(),
                 tx_empty_buffers.clone(),

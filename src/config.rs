@@ -1,4 +1,3 @@
-extern crate num_cpus;
 extern crate serde_yaml;
 extern crate sys_info;
 
@@ -38,7 +37,7 @@ fn default_secret_phrase() -> String {
 }
 
 fn default_worker_thread_count() -> usize {
-    num_cpus::get() + 1
+    0
 }
 
 fn default_reader_thread_count() -> usize {
