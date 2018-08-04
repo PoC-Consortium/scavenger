@@ -10,7 +10,7 @@
 ### Requirements
 - new version of rust
 
-### compile, test, ...
+### Compile, test, ...
 
 Binaries are in **target/debug** or **target/release** depending on optimazation.
 
@@ -40,7 +40,7 @@ The miner needs a **config.yaml** file with the following structure:
 
 ``` yaml
 # secret phrase of account, leave out if pool mining
-secret_phrase: "you burst accounts secret phrase"
+secret_phrase: "your burst accounts secret phrase"
 
 # numeric account id
 account_id: 10282355196851764065
