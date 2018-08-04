@@ -1,8 +1,7 @@
 extern crate cc;
+use std::env;
 
 fn main() {
-    use std::env;
-
     let target_os = env::var("CARGO_CFG_TARGET_OS");
 
     let mut config = cc::Build::new();
