@@ -16,7 +16,6 @@ pub struct Plot {
     start_nonce: u64,
     nonces: u64,
     pub fh: File,
-    fh_direct_io: File,
     read_offset: u64,
     use_direct_io: bool,
 }
@@ -75,8 +74,7 @@ impl Plot {
             )));
         }
 
-        let fh = open_usining_direc_io(path)?;
-        let fh_direct_io = if use_direct_io {
+        let fh = if use_direct_io {
             open_usining_direc_io(path)?
         } else {
             File::open(path)?
@@ -89,7 +87,6 @@ impl Plot {
             start_nonce: start_nonce,
             nonces: nonces,
             fh: fh,
-            fh_direct_io: fh_direct_io,
             read_offset: 0,
             use_direct_io: use_direct_io,
         })
@@ -98,53 +95,51 @@ impl Plot {
     pub fn prepare(&mut self, scoop: u32) {
         self.read_offset = 0;
         let nonces = self.nonces;
-        self.fh
-            .seek(SeekFrom::Start(scoop as u64 * nonces as u64 * SCOOP_SIZE))
-            .unwrap();
+        let mut seek_start = scoop as u64 * nonces as u64 * SCOOP_SIZE;
+
         if self.use_direct_io {
-            self.fh_direct_io
-                .seek(SeekFrom::Start(scoop as u64 * nonces as u64 * SCOOP_SIZE))
-                .unwrap();
+            let r = seek_start % 512;
+            if r != 0 {
+                seek_start += r;
+                self.read_offset += r;
+            }
         }
+
+        self.fh.seek(SeekFrom::Start(seek_start)).unwrap();
     }
 
     pub fn read(&mut self, bs: &mut Vec<u8>, scoop: u32) -> (usize, u64, bool) {
         let read_offset = self.read_offset;
         let buffer_cap = bs.capacity();
-
-        let bytes_to_read =
-            if read_offset as usize + buffer_cap > (SCOOP_SIZE * self.nonces) as usize {
-                (SCOOP_SIZE * self.nonces) as usize - self.read_offset as usize
-            } else {
-                buffer_cap as usize
-            };
-
-        if self.use_direct_io && bytes_to_read % 512 == 0 {
-            self.fh_direct_io
-                .read_exact(&mut bs[0..bytes_to_read])
-                .expect("failed to read chunk");
-        } else {
-            self.fh
-                .read_exact(&mut bs[0..bytes_to_read])
-                .expect("failed to read chunk");
-        }
-
         let start_nonce = self.start_nonce + self.read_offset / 64;
-        self.read_offset += bytes_to_read as u64;
 
-        let finished = if self.read_offset >= SCOOP_SIZE * self.nonces {
-            true
-        } else {
+        let (bytes_to_read, finished) = if read_offset as usize + buffer_cap
+            >= (SCOOP_SIZE * self.nonces) as usize
+        {
+            let mut bytes_to_read = (SCOOP_SIZE * self.nonces) as usize - self.read_offset as usize;
+            if self.use_direct_io {
+                let r = bytes_to_read % 512;
+                if r != 0 {
+                    bytes_to_read -= r;
+                }
+            }
+
             let offset = self.read_offset;
             let nonces = self.nonces;
             let seek_addr =
                 SeekFrom::Start(offset as u64 + scoop as u64 * nonces as u64 * SCOOP_SIZE);
             self.fh.seek(seek_addr).unwrap();
-            if self.use_direct_io {
-                self.fh_direct_io.seek(seek_addr).unwrap();
-            }
-            false
+
+            self.read_offset += bytes_to_read as u64;
+
+            (bytes_to_read, true)
+        } else {
+            (buffer_cap as usize, false)
         };
+
+        self.fh
+            .read_exact(&mut bs[0..bytes_to_read])
+            .expect("failed to read chunk");
 
         (bytes_to_read, start_nonce, finished)
     }
