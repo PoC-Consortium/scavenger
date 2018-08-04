@@ -190,15 +190,18 @@ impl RequestHandler {
     }
 }
 
-fn parse_json_result<T: DeserializeOwned>(s: &hyper::Chunk) -> Result<T, PoolError> {
-    match serde_json::from_slice(s) {
+fn parse_json_result<T: DeserializeOwned>(c: &hyper::Chunk) -> Result<T, PoolError> {
+    match serde_json::from_slice(c) {
         Ok(x) => Ok(x),
-        _ => match serde_json::from_slice::<PoolErrorWrapper>(s) {
+        _ => match serde_json::from_slice::<PoolErrorWrapper>(c) {
             Ok(x) => Err(x.error),
-            _ => Err(PoolError {
-                code: 0,
-                message: "unknown error".to_owned(),
-            }),
+            _ => {
+                let v = c.to_vec();
+                Err(PoolError {
+                    code: 0,
+                    message: String::from_utf8_lossy(&v).to_string() ,
+                })
+            },
         },
     }
 }
