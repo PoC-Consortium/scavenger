@@ -2,10 +2,9 @@ extern crate rayon;
 
 use chan;
 use filetime::FileTime;
-use plot::{Plot, SCOOP_SIZE};
+use plot::Plot;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::{Read, Seek, SeekFrom};
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 
@@ -85,54 +84,26 @@ impl Reader {
             let plot_count = plots.len();
             'outer: for (i_p, p) in plots.iter().enumerate() {
                 let mut p = p.borrow_mut();
-                p.read_offset = 0;
-                let nonces = p.nonces;
-                p.fh
-                    .seek(SeekFrom::Start(scoop as u64 * nonces as u64 * SCOOP_SIZE))
-                    .unwrap();
+                p.prepare(scoop);
 
                 'inner: for buffer in rx_empty_buffers.clone() {
                     let mut bs = buffer.lock().unwrap();
 
-                    let read_offset = p.read_offset;
-
-                    let buffer_cap = bs.capacity();
-                    let bytes_to_read =
-                        if read_offset as usize + buffer_cap > (SCOOP_SIZE * p.nonces) as usize {
-                            (SCOOP_SIZE * p.nonces) as usize - p.read_offset as usize
-                        } else {
-                            buffer_cap as usize
-                        };
-
-                    p.fh
-                        .read_exact(&mut bs[0..bytes_to_read])
-                        .expect("failed to read chunk");
-
-                    p.read_offset += bytes_to_read as u64;
-                    let next_plot = p.read_offset >= SCOOP_SIZE * p.nonces;
+                    let (bytes_read, start_nonce, next_plot) = p.read(&mut *bs, scoop);
                     let finished = i_p == (plot_count - 1) && next_plot;
 
                     tx_read_replies.send(ReadReply {
                         buffer: buffer.clone(),
-                        len: bytes_to_read,
+                        len: bytes_read,
                         height: height,
                         gensig: gensig.clone(),
-                        start_nonce: p.start_nonce + (read_offset / 64) as u64,
+                        start_nonce: start_nonce,
                         finished: finished,
                     });
 
                     if next_plot {
                         break 'inner;
-                    } else {
-                        let offset = p.read_offset;
-                        let nonces = p.nonces;
-                        p.fh
-                            .seek(SeekFrom::Start(
-                                offset as u64 + scoop as u64 * nonces as u64 * SCOOP_SIZE,
-                            ))
-                            .unwrap();
                     }
-
                     if rx_interupt.try_recv() != Err(TryRecvError::Empty) {
                         break 'outer;
                     }
