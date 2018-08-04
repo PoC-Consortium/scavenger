@@ -84,12 +84,22 @@ impl Reader {
             let plot_count = plots.len();
             'outer: for (i_p, p) in plots.iter().enumerate() {
                 let mut p = p.borrow_mut();
-                p.prepare(scoop);
+                if let Err(e) = p.prepare(scoop) {
+                    eprintln!("error preparing {} for reading: {}\n\tskip one round", p.name, e);
+                    continue 'outer;
+                }
 
                 'inner: for buffer in rx_empty_buffers.clone() {
                     let mut bs = buffer.lock().unwrap();
 
-                    let (bytes_read, start_nonce, next_plot) = p.read(&mut *bs, scoop);
+                    let (bytes_read, start_nonce, next_plot) = match p.read(&mut *bs, scoop) {
+                        Ok(x) => x,
+                        Err(e) => {
+                            eprintln!("error reading chunk from {}: {}\n\tskip one round", p.name, e);
+                            (0, 0, true)
+                        }
+                    };
+
                     let finished = i_p == (plot_count - 1) && next_plot;
 
                     tx_read_replies.send(ReadReply {

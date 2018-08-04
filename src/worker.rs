@@ -49,6 +49,11 @@ pub fn create_worker_task(
     move || {
         for read_reply in rx_read_replies {
             let buffer = read_reply.buffer;
+            if read_reply.len == 0 {
+                tx_empty_buffers.send(buffer.clone());
+                continue;
+            }
+
             let mut bs = buffer.lock().unwrap();
 
             let mut deadline: u64 = u64::MAX;

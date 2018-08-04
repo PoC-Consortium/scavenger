@@ -18,6 +18,7 @@ pub struct Plot {
     pub fh: File,
     read_offset: u64,
     use_direct_io: bool,
+    pub name: String,
 }
 
 cfg_if! {
@@ -89,10 +90,11 @@ impl Plot {
             fh: fh,
             read_offset: 0,
             use_direct_io: use_direct_io,
+            name: plot_file.to_string(),
         })
     }
 
-    pub fn prepare(&mut self, scoop: u32) {
+    pub fn prepare(&mut self, scoop: u32) -> io::Result<u64> {
         self.read_offset = 0;
         let nonces = self.nonces;
         let mut seek_start = scoop as u64 * nonces as u64 * SCOOP_SIZE;
@@ -105,10 +107,10 @@ impl Plot {
             }
         }
 
-        self.fh.seek(SeekFrom::Start(seek_start)).unwrap();
+        self.fh.seek(SeekFrom::Start(seek_start))
     }
 
-    pub fn read(&mut self, bs: &mut Vec<u8>, scoop: u32) -> (usize, u64, bool) {
+    pub fn read(&mut self, bs: &mut Vec<u8>, scoop: u32) -> Result<(usize, u64, bool), io::Error> {
         let read_offset = self.read_offset;
         let buffer_cap = bs.capacity();
         let start_nonce = self.start_nonce + self.read_offset / 64;
@@ -128,7 +130,7 @@ impl Plot {
             let nonces = self.nonces;
             let seek_addr =
                 SeekFrom::Start(offset as u64 + scoop as u64 * nonces as u64 * SCOOP_SIZE);
-            self.fh.seek(seek_addr).unwrap();
+            self.fh.seek(seek_addr)?;
 
             self.read_offset += bytes_to_read as u64;
 
@@ -137,10 +139,8 @@ impl Plot {
             (buffer_cap as usize, false)
         };
 
-        self.fh
-            .read_exact(&mut bs[0..bytes_to_read])
-            .expect("failed to read chunk");
+        self.fh.read_exact(&mut bs[0..bytes_to_read])?;
 
-        (bytes_to_read, start_nonce, finished)
+        Ok((bytes_to_read, start_nonce, finished))
     }
 }
