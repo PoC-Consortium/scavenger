@@ -199,9 +199,9 @@ fn parse_json_result<T: DeserializeOwned>(c: &hyper::Chunk) -> Result<T, PoolErr
                 let v = c.to_vec();
                 Err(PoolError {
                     code: 0,
-                    message: String::from_utf8_lossy(&v).to_string() ,
+                    message: String::from_utf8_lossy(&v).to_string(),
                 })
-            },
+            }
         },
     }
 }

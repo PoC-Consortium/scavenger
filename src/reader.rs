@@ -85,7 +85,10 @@ impl Reader {
             'outer: for (i_p, p) in plots.iter().enumerate() {
                 let mut p = p.borrow_mut();
                 if let Err(e) = p.prepare(scoop) {
-                    eprintln!("error preparing {} for reading: {}\n\tskip one round", p.name, e);
+                    eprintln!(
+                        "error preparing {} for reading: {}\n\tskip one round",
+                        p.name, e
+                    );
                     continue 'outer;
                 }
 
@@ -95,7 +98,10 @@ impl Reader {
                     let (bytes_read, start_nonce, next_plot) = match p.read(&mut *bs, scoop) {
                         Ok(x) => x,
                         Err(e) => {
-                            eprintln!("error reading chunk from {}: {}\n\tskip one round", p.name, e);
+                            eprintln!(
+                                "error reading chunk from {}: {}\n\tskip one round",
+                                p.name, e
+                            );
                             (0, 0, true)
                         }
                     };

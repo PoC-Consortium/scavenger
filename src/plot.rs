@@ -133,13 +133,12 @@ impl Plot {
 
         let offset = self.read_offset;
         let nonces = self.nonces;
-        let seek_addr =
-            SeekFrom::Start(offset as u64 + scoop as u64 * nonces as u64 * SCOOP_SIZE);
+        let seek_addr = SeekFrom::Start(offset as u64 + scoop as u64 * nonces as u64 * SCOOP_SIZE);
         self.fh.seek(seek_addr)?;
 
         self.fh.read_exact(&mut bs[0..bytes_to_read])?;
-		
-		self.read_offset += bytes_to_read as u64;
+
+        self.read_offset += bytes_to_read as u64;
 
         Ok((bytes_to_read, start_nonce, finished))
     }
