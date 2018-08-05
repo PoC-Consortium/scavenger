@@ -18,5 +18,6 @@ fn main() {
         .file("src/c/shabal.c")
         .flag("-mavx2")
         .flag("-std=c99")
+        .flag("-march=native")
         .compile("libshabal.a");
 }
