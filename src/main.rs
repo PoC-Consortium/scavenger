@@ -20,12 +20,12 @@ extern crate clap;
 extern crate rand;
 #[macro_use]
 extern crate log;
-extern crate log4rs;
 extern crate chrono;
-
+extern crate log4rs;
 
 mod burstmath;
 mod config;
+mod logger;
 mod miner;
 mod plot;
 mod reader;
@@ -39,8 +39,8 @@ use config::load_cfg;
 use miner::Miner;
 
 fn main() {
-	log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
-	info!("Scavenger v.{}", "1.0");
+    logger::init_logger();
+    info!("Scavenger v.{}", "1.0");
     let matches = App::new("Scavenger - a Burst miner")
         .version(crate_version!())
         .author(crate_authors!())
