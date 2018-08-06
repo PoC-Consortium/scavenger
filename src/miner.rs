@@ -212,6 +212,7 @@ impl Miner {
                             } else if !state.scanning && wakeup_after != 0 && state.sw.elapsed_ms() > wakeup_after {
                                 println!("wakeup!");
                                 reader.borrow_mut().wakeup();
+                                state.sw.restart();
                             }
                         }
                         _ => eprintln!("error getting mining info"),
