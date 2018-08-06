@@ -10,6 +10,10 @@ cfg_if! {
                 .expect("failed to execute");
             String::from_utf8(output.stdout).expect("not utf8")
         }
+
+        pub fn get_sector_size(path: &String) -> u64 {
+            512
+        }
     } else {
         extern crate winapi;
         use std::os::windows::ffi::OsStrExt;
@@ -31,6 +35,10 @@ cfg_if! {
             let res = String::from_utf16_lossy(&volume_encoded);
             let v: Vec<&str> = res.split('\u{00}').collect();
             String::from(v[0])
+        }
+
+        pub fn get_sector_size(path: &String) -> u64 {
+            512
         }
     }
 }

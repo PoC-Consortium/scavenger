@@ -4,6 +4,7 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use utils::get_sector_size;
 
 const SCOOPS_IN_NONCE: u64 = 4096;
 const SHABAL256_HASH_SIZE: u64 = 32;
@@ -19,6 +20,7 @@ pub struct Plot {
     read_offset: u64,
     use_direct_io: bool,
     pub name: String,
+    sector_size: u64,
 }
 
 cfg_if! {
@@ -90,6 +92,7 @@ impl Plot {
             fh: fh,
             read_offset: 0,
             use_direct_io: use_direct_io,
+            sector_size: get_sector_size(&plot_file.to_string()),
             name: plot_file.to_string(),
         })
     }
@@ -100,10 +103,10 @@ impl Plot {
         let mut seek_start = scoop as u64 * nonces as u64 * SCOOP_SIZE;
 
         if self.use_direct_io {
-            let r = seek_start % 512;
+            let r = seek_start % self.sector_size;
             if r != 0 {
-                seek_start += 512 - r;
-                self.read_offset = 512 - r;
+                seek_start += self.sector_size - r;
+                self.read_offset = self.sector_size - r;
             }
         }
 
@@ -120,7 +123,7 @@ impl Plot {
         {
             let mut bytes_to_read = (SCOOP_SIZE * self.nonces) as usize - self.read_offset as usize;
             if self.use_direct_io {
-                let r = bytes_to_read % 512;
+                let r = bytes_to_read % self.sector_size as usize;
                 if r != 0 {
                     bytes_to_read -= r;
                 }
