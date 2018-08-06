@@ -12,7 +12,25 @@ cfg_if! {
         }
 
         pub fn get_sector_size(path: &String) -> u64 {
-            512
+            let output = Command::new("df")
+                .arg(path)
+                .arg("--output=source")
+                .output()
+                .expect("failed to execute");
+            let source = String::from_utf8(output.stdout).expect("not utf8");
+            let source = source.split("\n").collect::<Vec<&str>>()[1];
+
+            let output = Command::new("lsblk")
+                .arg(source)
+                .arg("-o")
+                .arg("PHY-SeC")
+                .output()
+                .expect("failed to execute");
+
+            let sector_size = String::from_utf8(output.stdout).expect("not utf8");
+            let sector_size = sector_size.split("\n").collect::<Vec<&str>>()[1].trim();
+
+            sector_size.parse::<u64>().unwrap()
         }
     } else {
         extern crate winapi;

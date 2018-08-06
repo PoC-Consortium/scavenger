@@ -92,7 +92,7 @@ impl Plot {
             fh: fh,
             read_offset: 0,
             use_direct_io: use_direct_io,
-            sector_size: get_sector_size(&plot_file.to_string()),
+            sector_size: get_sector_size(&path.to_str().unwrap().to_owned()),
             name: plot_file.to_string(),
         })
     }
