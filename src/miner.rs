@@ -32,6 +32,7 @@ pub struct Miner {
     state: Arc<Mutex<State>>,
     reader_task_count: usize,
     get_mining_info_interval: u64,
+    core: Core,
 }
 
 pub struct State {
@@ -130,6 +131,7 @@ impl Miner {
             ));
         }
 
+        let core = Core::new().unwrap();
         Miner {
             reader_task_count: drive_id_to_plots.len(),
             reader: Reader::new(
@@ -141,7 +143,12 @@ impl Miner {
             rx_nonce_data: rx_nonce_data,
             account_id: cfg.account_id,
             target_deadline: cfg.target_deadline,
-            request_handler: RequestHandler::new(cfg.url, cfg.secret_phrase),
+            request_handler: RequestHandler::new(
+                cfg.url,
+                cfg.secret_phrase,
+                cfg.timeout,
+                core.handle(),
+            ),
             state: Arc::new(Mutex::new(State {
                 height: 0,
                 best_deadline: u64::MAX,
@@ -150,12 +157,12 @@ impl Miner {
                 sw: Stopwatch::new(),
             })),
             get_mining_info_interval: cfg.get_mining_info_interval,
+            core: core,
         }
     }
 
-    pub fn run(self) {
-        let mut core = Core::new().unwrap();
-        let handle = core.handle();
+    pub fn run(mut self) {
+        let handle = self.core.handle();
         let request_handler = self.request_handler.clone();
 
         // you left me no choice!!! at least not one that I could have worked out in two weeks...
@@ -240,7 +247,7 @@ impl Miner {
                 .map_err(|e| panic!("interval errored; err={:?}", e)),
         );
 
-        core.run(future::empty::<(), ()>()).unwrap();
+        self.core.run(future::empty::<(), ()>()).unwrap();
     }
 }
 

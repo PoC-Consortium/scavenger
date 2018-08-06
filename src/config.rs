@@ -30,6 +30,9 @@ pub struct Cfg {
 
     #[serde(default = "default_get_mining_info_interval")]
     pub get_mining_info_interval: u64,
+
+    #[serde(default = "default_timeout")]
+    pub timeout: u64,
 }
 
 fn default_secret_phrase() -> String {
@@ -58,6 +61,10 @@ fn default_use_direct_io() -> bool {
 
 fn default_get_mining_info_interval() -> u64 {
     3000
+}
+
+fn default_timeout() -> u64 {
+    5000
 }
 
 pub fn load_cfg(config: &str) -> Cfg {

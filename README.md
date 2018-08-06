@@ -86,6 +86,9 @@ use_direct_io: true # default true
 
 # interval for getting mining info [ms]
 get_mining_info_interval: 3000 # default 3000ms
+
+# timeout requests to pool/wallet [ms]
+timeout: 5000  # default 5000ms
 ```
 
 ### Donate 

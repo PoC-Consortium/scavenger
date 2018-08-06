@@ -10,3 +10,4 @@ nonces_per_cache: 65536               # default 65536
 target_deadline: 10885484741537822773 # default u64::MAX
 use_direct_io: true                   # default true
 get_mining_info_interval: 3000        # default 3000ms
+timeout: 5000                         # default 5000ms

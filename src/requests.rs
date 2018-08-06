@@ -8,8 +8,10 @@ use hyper::rt::{Future, Stream};
 use hyper::{Client, Request};
 use serde::de::{self, DeserializeOwned};
 use std::fmt;
+use std::io;
+use std::time::Duration;
 use std::u64;
-use tokio_core::reactor::Handle;
+use tokio_core::reactor::{Handle, Timeout};
 use url::form_urlencoded::byte_serialize;
 
 #[derive(Clone)]
@@ -17,6 +19,8 @@ pub struct RequestHandler {
     secret_phrase_encoded: String,
     base_uri: String,
     client: Client<HttpConnector>,
+    timeout: Duration,
+    handle: Handle,
 }
 
 #[derive(Deserialize)]
@@ -84,12 +88,19 @@ where
 }
 
 impl RequestHandler {
-    pub fn new(base_uri: String, secret_phrase: String) -> RequestHandler {
+    pub fn new(
+        base_uri: String,
+        secret_phrase: String,
+        timeout: u64,
+        handle: Handle,
+    ) -> RequestHandler {
         let secret_phrase_encoded = byte_serialize(secret_phrase.as_bytes()).collect();
         RequestHandler {
             secret_phrase_encoded: secret_phrase_encoded,
             base_uri: base_uri,
             client: Client::new(),
+            timeout: Duration::from_millis(timeout),
+            handle: handle,
         }
     }
 
@@ -158,7 +169,13 @@ impl RequestHandler {
         &self,
         uri: hyper::Uri,
     ) -> impl Future<Item = T, Error = FetchError> {
-        self.client
+        let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
+        let timeout = timeout
+            .then(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "timeout")))
+            .from_err();
+
+        let req = self
+            .client
             .get(uri)
             .and_then(|res| res.into_body().concat2())
             .from_err::<FetchError>()
@@ -166,7 +183,12 @@ impl RequestHandler {
                 let res = parse_json_result(&body)?;
                 Ok(res)
             })
-            .from_err()
+            .from_err();
+
+        req.select(timeout).then(|res| match res {
+            Err((x, _)) => Err(x),
+            Ok((x, _)) => Ok(x),
+        })
     }
 
     /* TODO: solve this in a more generic way
@@ -177,8 +199,14 @@ impl RequestHandler {
         &self,
         uri: hyper::Uri,
     ) -> impl Future<Item = T, Error = FetchError> {
+        let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
+        let timeout = timeout
+            .then(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "timeout")))
+            .from_err();
+
         let req = Request::post(uri).body(hyper::Body::empty()).unwrap();
-        self.client
+        let req = self
+            .client
             .request(req)
             .and_then(|res| res.into_body().concat2())
             .from_err::<FetchError>()
@@ -186,7 +214,12 @@ impl RequestHandler {
                 let res = parse_json_result(&body)?;
                 Ok(res)
             })
-            .from_err()
+            .from_err();
+
+        req.select(timeout).then(|res| match res {
+            Err((x, _)) => Err(x),
+            Ok((x, _)) => Ok(x),
+        })
     }
 }
 
@@ -209,6 +242,7 @@ fn parse_json_result<T: DeserializeOwned>(c: &hyper::Chunk) -> Result<T, PoolErr
 pub enum FetchError {
     Http(hyper::Error),
     Pool(PoolError),
+    Timeout(io::Error),
 }
 
 impl From<hyper::Error> for FetchError {
@@ -220,5 +254,11 @@ impl From<hyper::Error> for FetchError {
 impl From<PoolError> for FetchError {
     fn from(err: PoolError) -> FetchError {
         FetchError::Pool(err)
+    }
+}
+
+impl From<io::Error> for FetchError {
+    fn from(err: io::Error) -> FetchError {
+        FetchError::Timeout(err)
     }
 }
