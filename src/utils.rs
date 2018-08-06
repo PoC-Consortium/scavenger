@@ -37,6 +37,8 @@ cfg_if! {
         use std::os::windows::ffi::OsStrExt;
         use std::ffi::OsStr;
         use std::iter::once;
+		use std::ffi::CString;
+		use std::path::Path;
 
         pub fn get_device_id(path: &String) -> String {
             let path_encoded: Vec<u16> = OsStr::new(path).encode_wide().chain(once(0)).collect();
@@ -56,7 +58,25 @@ cfg_if! {
         }
 
         pub fn get_sector_size(path: &String) -> u64 {
-            512
+			let path_encoded = Path::new(path);
+			let parent_path = path_encoded.parent().unwrap().to_str().unwrap();
+			let parent_path_encoded = CString::new(parent_path).unwrap();
+			let mut sectors_per_cluster  = 0u32;
+			let mut bytes_per_sector  = 0u32;
+			let mut number_of_free_cluster  = 0u32;
+			let mut total_number_of_cluster  = 0u32;
+            if unsafe {
+                winapi::um::fileapi::GetDiskFreeSpaceA(
+                    parent_path_encoded.as_ptr(),
+                    &mut sectors_per_cluster,
+                    &mut bytes_per_sector,
+					&mut number_of_free_cluster,
+					&mut total_number_of_cluster
+                )
+            } == 0  {
+                panic!("get sector size, filename={}",path);
+            };
+            bytes_per_sector as u64
         }
     }
 }
