@@ -68,6 +68,20 @@ impl Reader {
             .collect();
     }
 
+    pub fn wakeup(&mut self) {
+        for (_, plots) in &self.drive_id_to_plots {
+            let plots = plots.clone();
+            self.pool.spawn(move || {
+                let plots = plots.lock().unwrap();
+                let mut p = plots[0].borrow_mut();
+
+                if let Err(e) = p.seek_random() {
+                    eprintln!("error during wakeup {}: {}\n\tskip one round", p.name, e);
+                }
+            });
+        }
+    }
+
     fn create_read_task(
         &self,
         plots: Arc<Mutex<Vec<RefCell<Plot>>>>,

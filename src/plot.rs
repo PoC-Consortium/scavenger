@@ -1,3 +1,4 @@
+use rand::prelude::*;
 use std::error::Error;
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -100,17 +101,13 @@ impl Plot {
     pub fn prepare(&mut self, scoop: u32) -> io::Result<u64> {
         self.read_offset = 0;
         let nonces = self.nonces;
-        let mut seek_start = scoop as u64 * nonces as u64 * SCOOP_SIZE;
+        let mut seek_addr = scoop as u64 * nonces as u64 * SCOOP_SIZE;
 
         if self.use_direct_io {
-            let r = seek_start % self.sector_size;
-            if r != 0 {
-                seek_start += self.sector_size - r;
-                self.read_offset = self.sector_size - r;
-            }
+            self.read_offset = self.round_seek_addr(&mut seek_addr);
         }
 
-        self.fh.seek(SeekFrom::Start(seek_start))
+        self.fh.seek(SeekFrom::Start(seek_addr))
     }
 
     pub fn read(&mut self, bs: &mut Vec<u8>, scoop: u32) -> Result<(usize, u64, bool), io::Error> {
@@ -144,5 +141,28 @@ impl Plot {
         self.read_offset += bytes_to_read as u64;
 
         Ok((bytes_to_read, start_nonce, finished))
+    }
+
+    pub fn seek_random(&mut self) -> io::Result<u64> {
+        let mut rng = thread_rng();
+        let rand_scoop = rng.gen_range(0, self.nonces);
+
+        let mut seek_addr = rand_scoop as u64 * self.nonces as u64 * SCOOP_SIZE;
+        if self.use_direct_io {
+            self.round_seek_addr(&mut seek_addr);
+        }
+
+        self.fh.seek(SeekFrom::Start(seek_addr))
+    }
+
+    fn round_seek_addr(&mut self, seek_addr: &mut u64) -> u64 {
+        let r = *seek_addr % self.sector_size;
+        if r != 0 {
+            let offset = self.sector_size - r;
+            *seek_addr += offset;
+            offset
+        } else {
+            0
+        }
     }
 }

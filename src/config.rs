@@ -33,6 +33,9 @@ pub struct Cfg {
 
     #[serde(default = "default_timeout")]
     pub timeout: u64,
+
+    #[serde(default = "default_wakeup_after")]
+    pub wakeup_after: i64,
 }
 
 fn default_secret_phrase() -> String {
@@ -65,6 +68,10 @@ fn default_get_mining_info_interval() -> u64 {
 
 fn default_timeout() -> u64 {
     5000
+}
+
+fn default_wakeup_after() -> i64 {
+    240
 }
 
 pub fn load_cfg(config: &str) -> Cfg {

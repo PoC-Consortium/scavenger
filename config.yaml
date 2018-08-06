@@ -11,3 +11,4 @@ target_deadline: 10885484741537822773 # default u64::MAX
 use_direct_io: true                   # default true
 get_mining_info_interval: 3000        # default 3000ms
 timeout: 5000                         # default 5000ms
+wakeup_after: 240                     # default 240s

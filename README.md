@@ -89,6 +89,9 @@ get_mining_info_interval: 3000 # default 3000ms
 
 # timeout requests to pool/wallet [ms]
 timeout: 5000  # default 5000ms
+
+# delay after disks will be woken up (if 0 no wakeup) [s]
+wakeup_after: 240  # default 240s
 ```
 
 ### Donate 

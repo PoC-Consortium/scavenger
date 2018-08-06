@@ -33,6 +33,7 @@ pub struct Miner {
     reader_task_count: usize,
     get_mining_info_interval: u64,
     core: Core,
+    wakeup_after: i64,
 }
 
 pub struct State {
@@ -40,6 +41,7 @@ pub struct State {
     best_deadline: u64,
     base_target: u64,
     sw: Stopwatch,
+    scanning: bool,
 
     // count how many reader's scoops have been processed
     processed_reader_tasks: usize,
@@ -155,9 +157,11 @@ impl Miner {
                 base_target: 1,
                 processed_reader_tasks: 0,
                 sw: Stopwatch::new(),
+                scanning: false,
             })),
             get_mining_info_interval: cfg.get_mining_info_interval,
             core: core,
+            wakeup_after: cfg.wakeup_after * 1000, // ms -> s
         }
     }
 
@@ -171,6 +175,7 @@ impl Miner {
         let state = self.state.clone();
         // there might be a way to solve this without two nested moves
         let get_mining_info_interval = self.get_mining_info_interval;
+        let wakeup_after = self.wakeup_after;
         handle.spawn(
             Interval::new(
                 Instant::now(),
@@ -203,6 +208,10 @@ impl Miner {
                                 );
                                 state.sw.restart();
                                 state.processed_reader_tasks = 0;
+                                state.scanning = true;
+                            } else if !state.scanning && wakeup_after != 0 && state.sw.elapsed_ms() > wakeup_after {
+                                println!("wakeup!");
+                                reader.borrow_mut().wakeup();
                             }
                         }
                         _ => eprintln!("error getting mining info"),
@@ -240,6 +249,8 @@ impl Miner {
                         state.processed_reader_tasks += 1;
                         if state.processed_reader_tasks == reader_task_count {
                             println!("round finished after {}ms", state.sw.elapsed_ms());
+                            state.sw.restart();
+                            state.scanning = false;
                         }
                     }
                     Ok(())

@@ -17,6 +17,7 @@ extern crate cfg_if;
 extern crate filetime;
 #[macro_use]
 extern crate clap;
+extern crate rand;
 
 mod burstmath;
 mod config;
