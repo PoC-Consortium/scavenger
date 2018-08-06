@@ -16,7 +16,7 @@ const NONCE_SIZE: u64 = SCOOP_SIZE * SCOOPS_IN_NONCE;
 pub struct Plot {
     _account_id: u64,
     start_nonce: u64,
-    nonces: u64,
+    pub nonces: u64,
     pub fh: File,
     read_offset: u64,
     use_direct_io: bool,
@@ -84,7 +84,7 @@ impl Plot {
             File::open(path)?
         };
 
-        println!("valid plot file: {}", plot_file);
+        //println!("valid plot file: {}", plot_file);
 
         Ok(Plot {
             _account_id: account_id,

@@ -18,6 +18,11 @@ extern crate filetime;
 #[macro_use]
 extern crate clap;
 extern crate rand;
+#[macro_use]
+extern crate log;
+extern crate log4rs;
+extern crate chrono;
+
 
 mod burstmath;
 mod config;
@@ -34,6 +39,8 @@ use config::load_cfg;
 use miner::Miner;
 
 fn main() {
+	log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
+	info!("Scavenger v.{}", "1.0");
     let matches = App::new("Scavenger - a Burst miner")
         .version(crate_version!())
         .author(crate_authors!())
@@ -47,7 +54,6 @@ fn main() {
                 .takes_value(true),
         )
         .get_matches();
-
     let config = matches.value_of("config").unwrap_or("config.yaml");
     let m = Miner::new(load_cfg(config));
     m.run();
