@@ -6,18 +6,21 @@ fn main() {
 
     let mut config = cc::Build::new();
 
+    config
+        .file("src/c/mshabal_128.c")
+        .file("src/c/mshabal_256.c")
+        .file("src/c/shabal.c");
+
     if target_os == Ok("macos".to_string()) {
         config.file("src/c/shabal64-darwin.s");
     } else {
         config.file("src/c/shabal64.s");
     }
 
-    config
-        .file("src/c/mshabal_128.c")
-        .file("src/c/mshabal_256.c")
-        .file("src/c/shabal.c")
-        .flag("-mavx2")
-        .flag("-std=c99")
-        .flag("-march=native")
-        .compile("libshabal.a");
+    #[cfg(target_env = "msvc")]
+    config.flag("/arch:AVX2");
+    #[cfg(not(target_env = "msvc"))]
+    config.flag("-mavx2").flag("-std=c99").flag("-march=native");
+
+    config.compile("libshabal.a");
 }
