@@ -43,27 +43,27 @@ pub fn to_void_raw_dest(dest: &mut [u8]) -> *mut c_void {
 }
 
 extern "C" {
-    pub fn shabal_init(cc: *mut c_void, out_size: c_uint) -> ();
-    pub fn shabal(cc: *mut c_void, data: *const c_void, len: size_t) -> ();
-    pub fn shabal_close(cc: *mut c_void, ub: c_uint, n: c_uint, dst: *mut c_void) -> ();
+    pub fn sph_shabal256_init(cc: *mut c_void, out_size: c_uint) -> ();
+    pub fn sph_shabal256(cc: *mut c_void, data: *const c_void, len: size_t) -> ();
+    pub fn sph_shabal256_close(cc: *mut c_void, dst: *mut c_void) -> ();
 }
 
 pub fn shabal256_init(cc: &mut ShabalContext) {
     let void_raw_cc = to_void_raw_ctx(cc);
-    unsafe { shabal_init(void_raw_cc, 256) };
+    unsafe { sph_shabal256_init(void_raw_cc, 256) };
 }
 
 pub fn shabal256_load(cc: &mut ShabalContext, data: &[u8]) {
     let void_raw_cc = to_void_raw_ctx(cc);
     let (void_raw_data, len) = to_void_raw_data(data);
-    unsafe { shabal(void_raw_cc, void_raw_data, len) };
+    unsafe { sph_shabal256(void_raw_cc, void_raw_data, len) };
 }
 
 pub fn shabal256_close(cc: &mut ShabalContext, dest: &mut [u8; 32]) {
     let void_raw_cc = to_void_raw_ctx(cc);
     let void_raw_dest = to_void_raw_dest(dest);
     unsafe {
-        shabal_close(void_raw_cc, 0, 0, void_raw_dest);
+        sph_shabal256_close(void_raw_cc, void_raw_dest);
     };
 }
 
