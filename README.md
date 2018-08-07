@@ -54,17 +54,20 @@ The miner needs a **config.yaml** file with the following structure:
 
 ``` yaml
 # secret phrase of account, leave out if pool mining
-secret_phrase: "your burst accounts secret phrase"
+secret_phrase: 'your burst accounts secret phrase'
 
 # numeric account id
 account_id: 10282355196851764065
 
 # list of directories containing plot files
 plot_dirs:
-  - "test_data"
+  - 'C:\first\windows\plot\dir'
+  - 'C:\second\windows\plot\dir'
+  - '/first/linux/plot/dir'
+  - '/second/linux/plot/dir'
 
 # url for getting mining info + submitting nonces
-url: "http://pool.dev.burst-test.net:8124"
+url: 'http://pool.dev.burst-test.net:8124'
 
 # threads to use for calculating deadlines | defaults to num cores + 1
 worker_thread_count: 2
