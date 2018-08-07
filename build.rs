@@ -13,8 +13,5 @@ fn main() {
         .file("src/c/mshabal_128.c")
         .file("src/c/mshabal_256.c")
         .file("src/c/shabal.c")
-        .file("src/c/mshabal_128.c")
-        .file("src/c/mshabal_256.c")
-        .file("src/c/shabal.c")
         .compile("libshabal.a");
 }
