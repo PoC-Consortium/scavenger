@@ -18,9 +18,14 @@ extern crate filetime;
 #[macro_use]
 extern crate clap;
 extern crate rand;
+#[macro_use]
+extern crate log;
+extern crate chrono;
+extern crate log4rs;
 
 mod burstmath;
 mod config;
+mod logger;
 mod miner;
 mod plot;
 mod reader;
@@ -47,8 +52,10 @@ fn main() {
                 .takes_value(true),
         )
         .get_matches();
-
     let config = matches.value_of("config").unwrap_or("config.yaml");
-    let m = Miner::new(load_cfg(config));
+    info!("Scavenger v.{}", "1.0");
+    let cfg_loaded = load_cfg(config);
+    logger::init_logger(&cfg_loaded);
+    let m = Miner::new(cfg_loaded);
     m.run();
 }

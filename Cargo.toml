@@ -32,6 +32,10 @@ cfg-if = "0.1"
 filetime = "0.2"
 clap = "~2.30"
 rand = "0.5"
+log = "0.4.3"
+log4rs = { version = "0.8.0", features = ["rolling_file_appender", "compound_policy", "size_trigger", "fixed_window_roller"] }
+chrono = "0.4.5"
+
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi"] }

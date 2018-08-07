@@ -58,34 +58,36 @@ extern "C" {
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
         if is_x86_feature_detected!("avx2") {
-            println!("using avx2");
+            info!("SIMD extensions: AVX2");
             unsafe {
                 init_shabal_avx2();
             }
         } else if is_x86_feature_detected!("avx") {
-            println!("using avx");
+            info!("SIMD extensions: AVX");
             unsafe {
                 init_shabal_avx();
             }
         } else {
-            println!("using sse2");
+            info!("SIMD extensions: SSE2");
             unsafe {
                 init_shabal_sse2();
             }
         }
 
         let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> = HashMap::new();
+        let mut global_capacity = 0u64;
         for plot_dir_str in &cfg.plot_dirs {
             let dir = Path::new(plot_dir_str);
             if !dir.exists() {
-                eprintln!("path {} does not exist", plot_dir_str);
+                warn!("path {} does not exist", plot_dir_str);
                 continue;
             }
             if !dir.is_dir() {
-                eprintln!("path {} is not a directory", plot_dir_str);
+                warn!("path {} is not a directory", plot_dir_str);
                 continue;
             }
             let mut num_plots = 0;
+            let mut local_capacity = 0u64;
             for file in read_dir(dir).unwrap() {
                 let file = &file.unwrap().path();
                 if let Ok(p) = Plot::new(file, cfg.use_direct_io) {
@@ -93,14 +95,26 @@ impl Miner {
                     let plots = drive_id_to_plots
                         .entry(drive_id)
                         .or_insert(Arc::new(Mutex::new(Vec::new())));
+                    local_capacity += p.nonces;
                     plots.lock().unwrap().push(RefCell::new(p));
                     num_plots += 1;
                 }
             }
+            info!(
+                "path={}, files={}, size={} TiB",
+                plot_dir_str,
+                num_plots,
+                local_capacity / 4 / 1024 / 1024
+            );
+            global_capacity += local_capacity;
             if num_plots == 0 {
-                eprintln!("no plots in {}", plot_dir_str);
+                warn!("no plots in {}", plot_dir_str);
             }
         }
+        info!(
+            "plot files loaded: total capacity={} TiB",
+            global_capacity / 4 / 1024 / 1024
+        );
 
         let reader_thread_count = if cfg.reader_thread_count == 0 {
             drive_id_to_plots.len()
@@ -196,10 +210,7 @@ impl Miner {
                                     burstmath::decode_gensig(&mining_info.generation_signature);
                                 let scoop = burstmath::calculate_scoop(mining_info.height, &gensig);
 
-                                println!(
-                                    "new block: height: {}, scoop: {}",
-                                    mining_info.height, scoop
-                                );
+                                info!("new block: height={}, scoop={}", mining_info.height, scoop);
 
                                 reader.borrow_mut().start_reading(
                                     mining_info.height,
@@ -209,18 +220,21 @@ impl Miner {
                                 state.sw.restart();
                                 state.processed_reader_tasks = 0;
                                 state.scanning = true;
-                            } else if !state.scanning && wakeup_after != 0 && state.sw.elapsed_ms() > wakeup_after {
-                                println!("wakeup!");
+                            } else if !state.scanning
+                                && wakeup_after != 0
+                                && state.sw.elapsed_ms() > wakeup_after
+                            {
+                                info!("HDD, wakeup!");
                                 reader.borrow_mut().wakeup();
                                 state.sw.restart();
                             }
                         }
-                        _ => eprintln!("error getting mining info"),
+                        _ => warn!("error getting mining info"),
                     }
                     future::ok(())
                 })
             })
-                .map_err(|e| panic!("interval errored; err={:?}", e)),
+                .map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         let account_id = self.account_id;
@@ -244,19 +258,22 @@ impl Miner {
                             deadline,
                             0,
                         );
-                        println!("nonce {} -> deadline: {}", nonce_data.nonce, deadline);
+                        info!(
+                            "deadline found: nonce={}, deadline={}",
+                            nonce_data.nonce, deadline
+                        );
                     }
                     if nonce_data.reader_task_processed {
                         state.processed_reader_tasks += 1;
                         if state.processed_reader_tasks == reader_task_count {
-                            println!("round finished after {}ms", state.sw.elapsed_ms());
+                            info!("round finished: roundtime={}ms", state.sw.elapsed_ms());
                             state.sw.restart();
                             state.scanning = false;
                         }
                     }
                     Ok(())
                 })
-                .map_err(|e| panic!("interval errored; err={:?}", e)),
+                .map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         self.core.run(future::empty::<(), ()>()).unwrap();

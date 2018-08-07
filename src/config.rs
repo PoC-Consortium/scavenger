@@ -34,12 +34,40 @@ pub struct Cfg {
     #[serde(default = "default_timeout")]
     pub timeout: u64,
 
+    #[serde(default = "default_logfile_max_count")]
+    pub logfile_max_count: u32,
+
+    #[serde(default = "default_logfile_max_size")]
+    pub logfile_max_size: u64,
+
     #[serde(default = "default_wakeup_after")]
     pub wakeup_after: i64,
+
+    #[serde(default = "default_console_log_level")]
+    pub console_log_level: String,
+
+    #[serde(default = "default_logfile_log_level")]
+    pub logfile_log_level: String,
 }
 
 fn default_secret_phrase() -> String {
     "".to_owned()
+}
+
+fn default_console_log_level() -> String {
+    "Info".to_owned()
+}
+
+fn default_logfile_log_level() -> String {
+    "Warn".to_owned()
+}
+
+fn default_logfile_max_count() -> u32 {
+    10
+}
+
+fn default_logfile_max_size() -> u64 {
+    20
 }
 
 fn default_worker_thread_count() -> usize {

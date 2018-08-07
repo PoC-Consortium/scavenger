@@ -16,3 +16,7 @@ use_direct_io: true                   # default true
 get_mining_info_interval: 3000        # default 3000ms
 timeout: 5000                         # default 5000ms
 wakeup_after: 240                     # default 240s
+console_log_level: 'Info'             # default Info, Options (Off, Error, Warn Info)
+logfile_log_level: 'Warn'             # default Warn, Options (Off, Error, Warn Info)
+logfile_max_count: 10                 # maximum number of log files to keep
+logfile_max_size : 20                 # maximum size per logfile in MiB
