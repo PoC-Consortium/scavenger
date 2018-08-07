@@ -38,9 +38,7 @@ use clap::{App, Arg};
 use config::load_cfg;
 use miner::Miner;
 
-fn main() {
-    logger::init_logger();
-    info!("Scavenger v.{}", "1.0");
+fn main() {    
     let matches = App::new("Scavenger - a Burst miner")
         .version(crate_version!())
         .author(crate_authors!())
@@ -55,6 +53,9 @@ fn main() {
         )
         .get_matches();
     let config = matches.value_of("config").unwrap_or("config.yaml");
-    let m = Miner::new(load_cfg(config));
+	info!("Scavenger v.{}", "1.0");
+	let cfg_loaded = load_cfg(config);
+	logger::init_logger(&cfg_loaded);
+    let m = Miner::new(cfg_loaded);
     m.run();
 }
