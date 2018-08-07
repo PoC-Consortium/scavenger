@@ -47,33 +47,8 @@ pub struct State {
     processed_reader_tasks: usize,
 }
 
-extern "C" {
-    pub fn init_shabal_avx2() -> ();
-
-    pub fn init_shabal_avx() -> ();
-
-    pub fn init_shabal_sse2() -> ();
-}
-
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
-        if is_x86_feature_detected!("avx2") {
-            info!("SIMD extensions: AVX2");
-            unsafe {
-                init_shabal_avx2();
-            }
-        } else if is_x86_feature_detected!("avx") {
-            info!("SIMD extensions: AVX");
-            unsafe {
-                init_shabal_avx();
-            }
-        } else {
-            info!("SIMD extensions: SSE2");
-            unsafe {
-                init_shabal_sse2();
-            }
-        }
-
         let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> = HashMap::new();
         let mut global_capacity = 0u64;
         for plot_dir_str in &cfg.plot_dirs {

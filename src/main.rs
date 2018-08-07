@@ -38,6 +38,33 @@ use clap::{App, Arg};
 use config::load_cfg;
 use miner::Miner;
 
+extern "C" {
+    pub fn init_shabal_avx2() -> ();
+
+    pub fn init_shabal_avx() -> ();
+
+    pub fn init_shabal_sse2() -> ();
+}
+
+fn init_simd_extensions() {
+    if is_x86_feature_detected!("avx2") {
+        info!("SIMD extensions: AVX2");
+        unsafe {
+            init_shabal_avx2();
+        }
+    } else if is_x86_feature_detected!("avx") {
+        info!("SIMD extensions: AVX");
+        unsafe {
+            init_shabal_avx();
+        }
+    } else {
+        info!("SIMD extensions: SSE2");
+        unsafe {
+            init_shabal_sse2();
+        }
+    }
+}
+
 fn main() {
     let matches = App::new("Scavenger - a Burst miner")
         .version(crate_version!())
@@ -53,9 +80,14 @@ fn main() {
         )
         .get_matches();
     let config = matches.value_of("config").unwrap_or("config.yaml");
+
     info!("Scavenger v.{}", "1.0");
+
     let cfg_loaded = load_cfg(config);
     logger::init_logger(&cfg_loaded);
+
+    init_simd_extensions();
+
     let m = Miner::new(cfg_loaded);
     m.run();
 }
