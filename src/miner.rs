@@ -50,7 +50,7 @@ pub struct State {
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
         let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> = HashMap::new();
-        let mut global_capacity = 0u64;
+        let mut global_capacity: f64 = 0.0;
         for plot_dir_str in &cfg.plot_dirs {
             let dir = Path::new(plot_dir_str);
             if !dir.exists() {
@@ -62,7 +62,7 @@ impl Miner {
                 continue;
             }
             let mut num_plots = 0;
-            let mut local_capacity = 0u64;
+            let mut local_capacity: f64 = 0.0;
             for file in read_dir(dir).unwrap() {
                 let file = &file.unwrap().path();
                 if let Ok(p) = Plot::new(file, cfg.use_direct_io) {
@@ -70,16 +70,16 @@ impl Miner {
                     let plots = drive_id_to_plots
                         .entry(drive_id)
                         .or_insert(Arc::new(Mutex::new(Vec::new())));
-                    local_capacity += p.nonces;
+                    local_capacity += p.nonces as f64;
                     plots.lock().unwrap().push(RefCell::new(p));
                     num_plots += 1;
                 }
             }
             info!(
-                "path={}, files={}, size={} TiB",
+                "path={}, files={}, size={:.4} TiB",
                 plot_dir_str,
                 num_plots,
-                local_capacity / 4 / 1024 / 1024
+                local_capacity / 4.0 / 1024.0 / 1024.0
             );
             global_capacity += local_capacity;
             if num_plots == 0 {
@@ -87,8 +87,8 @@ impl Miner {
             }
         }
         info!(
-            "plot files loaded: total capacity={} TiB",
-            global_capacity / 4 / 1024 / 1024
+            "plot files loaded: total capacity={:.4} TiB",
+            global_capacity / 4.0 / 1024.0 / 1024.0
         );
 
         let reader_thread_count = if cfg.reader_thread_count == 0 {
