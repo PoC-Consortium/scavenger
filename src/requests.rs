@@ -23,6 +23,30 @@ pub struct RequestHandler {
     handle: Handle,
 }
 
+pub enum FetchError {
+    Http(hyper::Error),
+    Pool(PoolError),
+    Timeout(io::Error),
+}
+
+impl From<hyper::Error> for FetchError {
+    fn from(err: hyper::Error) -> FetchError {
+        FetchError::Http(err)
+    }
+}
+
+impl From<PoolError> for FetchError {
+    fn from(err: PoolError) -> FetchError {
+        FetchError::Pool(err)
+    }
+}
+
+impl From<io::Error> for FetchError {
+    fn from(err: io::Error) -> FetchError {
+        FetchError::Timeout(err)
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiningInfo {
@@ -105,10 +129,7 @@ impl RequestHandler {
     }
 
     pub fn get_mining_info(&self) -> Box<Future<Item = MiningInfo, Error = FetchError>> {
-        let url = (self.base_uri.clone() + &"/burst?requestType=getMiningInfo".to_string())
-            .parse()
-            .unwrap();
-        Box::new(self.get_json(url))
+        Box::new(self.do_req(self.get_req("/burst?requestType=getMiningInfo")))
     }
 
     pub fn submit_nonce(
@@ -120,17 +141,20 @@ impl RequestHandler {
         d: u64,
         retried: i32,
     ) {
-        let mut url = self.base_uri.clone() +
-            &format!("/burst?requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
-                     account_id, nonce, self.secret_phrase_encoded, height);
+        let mut path = format!(
+            "/burst?requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
+            account_id, nonce, self.secret_phrase_encoded, height
+        );
         // if pool mining also send the deadline (usefull for proxies)
         if self.secret_phrase_encoded == "" {
-            url += &format!("&deadline={}", d);
+            path += &format!("&deadline={}", d);
         }
-        let url = url.parse().unwrap();
+
+        let req = self.post_req(&path);
+
         let rh = self.clone();
         let inner_handle = handle.clone();
-        handle.spawn(self.post_json(url).then(
+        handle.spawn(self.do_req(req).then(
             move |result: Result<SubmitNonceResonse, FetchError>| {
                 match result {
                     Ok(result) => {
@@ -165,46 +189,26 @@ impl RequestHandler {
         ));
     }
 
-    fn get_json<T: DeserializeOwned>(
-        &self,
-        uri: hyper::Uri,
-    ) -> impl Future<Item = T, Error = FetchError> {
-        let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
-        let timeout = timeout
-            .then(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "timeout")))
-            .from_err();
-
-        let req = self
-            .client
-            .get(uri)
-            .and_then(|res| res.into_body().concat2())
-            .from_err::<FetchError>()
-            .and_then(|body| {
-                let res = parse_json_result(&body)?;
-                Ok(res)
-            })
-            .from_err();
-
-        req.select(timeout).then(|res| match res {
-            Err((x, _)) => Err(x),
-            Ok((x, _)) => Ok(x),
-        })
+    fn uri_for(&self, path: &str) -> hyper::Uri {
+        (self.base_uri.clone() + path).parse().unwrap()
     }
 
-    /* TODO: solve this in a more generic way
-    This should be solvable with generics in a much nicer way. However, learning rust is already
-    painful enough.
-     */
-    fn post_json<T: DeserializeOwned>(
-        &self,
-        uri: hyper::Uri,
-    ) -> impl Future<Item = T, Error = FetchError> {
-        let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
-        let timeout = timeout
-            .then(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "timeout")))
-            .from_err();
+    fn post_req(&self, path: &str) -> Request<hyper::Body> {
+        Request::post(self.uri_for(path))
+            .body(hyper::Body::empty())
+            .unwrap()
+    }
 
-        let req = Request::post(uri).body(hyper::Body::empty()).unwrap();
+    fn get_req(&self, path: &str) -> Request<hyper::Body> {
+        Request::get(self.uri_for(path))
+            .body(hyper::Body::empty())
+            .unwrap()
+    }
+
+    fn do_req<T: DeserializeOwned>(
+        &self,
+        req: Request<hyper::Body>,
+    ) -> impl Future<Item = T, Error = FetchError> {
         let req = self
             .client
             .request(req)
@@ -213,7 +217,11 @@ impl RequestHandler {
             .and_then(|body| {
                 let res = parse_json_result(&body)?;
                 Ok(res)
-            })
+            }).from_err();
+
+        let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
+        let timeout = timeout
+            .then(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "timeout")))
             .from_err();
 
         req.select(timeout).then(|res| match res {
@@ -236,29 +244,5 @@ fn parse_json_result<T: DeserializeOwned>(c: &hyper::Chunk) -> Result<T, PoolErr
                 })
             }
         },
-    }
-}
-
-pub enum FetchError {
-    Http(hyper::Error),
-    Pool(PoolError),
-    Timeout(io::Error),
-}
-
-impl From<hyper::Error> for FetchError {
-    fn from(err: hyper::Error) -> FetchError {
-        FetchError::Http(err)
-    }
-}
-
-impl From<PoolError> for FetchError {
-    fn from(err: PoolError) -> FetchError {
-        FetchError::Pool(err)
-    }
-}
-
-impl From<io::Error> for FetchError {
-    fn from(err: io::Error) -> FetchError {
-        FetchError::Timeout(err)
     }
 }
