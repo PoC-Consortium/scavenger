@@ -11,15 +11,42 @@ cfg_if! {
             String::from_utf8(output.stdout).expect("not utf8")
         }
 
-        pub fn get_sector_size(path: &str) -> u64 {
+        // On unix, get the device id from 'df' command
+        fn get_device_id_unix(path: &str) -> String {
             let output = Command::new("df")
-                .arg(path)
-                .arg("--output=source")
-                .output()
-                .expect("failed to execute");
-            let source = String::from_utf8(output.stdout).expect("not utf8");
-            let source = source.split('\n').collect::<Vec<&str>>()[1];
+                 .arg(path)
+                 .arg("--output=source")
+                 .output()
+                 .expect("failed to execute");
+             let source = String::from_utf8(output.stdout).expect("not utf8");
+             source.split('\n').collect::<Vec<&str>>()[1].to_string()
+         }
 
+        // On macos, use df and 'diskutil info <device>' to get the Device Block Size line and extract the size
+        fn get_sector_size_macos(path: &str) -> u64 {
+            let source = get_device_id_unix(path);
+            let output = Command::new("diskutil")
+                .arg("info")
+                .arg(source)
+                .output()
+                .expect("failed to execute 'diskutil info'");
+            let source = String::from_utf8(output.stdout).expect("not utf8");
+            let mut sector_size: u64 = 0;
+            for line in source.split('\n').collect::<Vec<&str>>() {
+                if line.trim().starts_with("Device Block Size") {
+                    let source = line.rsplit(' ').collect::<Vec<&str>>()[1];  // e.g. in reverse: "Bytes 512 Size Block Device"
+                    sector_size = source.parse::<u64>().unwrap();
+                }
+            }
+            if sector_size == 0 {
+                panic!("Abort: Unable to determine disk physical sector size from diskutil info")
+            }
+            sector_size
+        }
+
+        // On unix, use df and lsblk to extract the device sector size
+        fn get_sector_size_unix(path: &str) -> u64 {
+            let source = get_device_id_unix(path);
             let output = Command::new("lsblk")
                 .arg(source)
                 .arg("-o")
@@ -32,6 +59,15 @@ cfg_if! {
 
             sector_size.parse::<u64>().unwrap()
         }
+
+        pub fn get_sector_size(path: &str) -> u64 {
+            if cfg!(target_os = "macos") {
+                get_sector_size_macos(path)
+            } else {
+                get_sector_size_unix(path)
+            }
+        }
+
     } else {
         extern crate winapi;
         use std::os::windows::ffi::OsStrExt;
@@ -90,5 +126,12 @@ mod test {
         if cfg!(unix) {
             assert_ne!("", get_device_id(&"Cargo.toml".to_string()));
         }
+    }
+
+    #[test]
+    fn test_get_sector_size() {
+        // this should be true for any platform where this test runs
+        // but it doesn't exercise all platform variants
+        assert_ne!(0, get_sector_size("."));
     }
 }
