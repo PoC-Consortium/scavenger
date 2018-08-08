@@ -64,7 +64,8 @@ impl Reader {
                     self.create_read_task(plots.clone(), height, scoop, gensig.clone());
                 self.pool.spawn(task);
                 interupt
-            }).collect();
+            })
+            .collect();
     }
 
     pub fn wakeup(&mut self) {
@@ -75,7 +76,10 @@ impl Reader {
                 let mut p = plots[0].borrow_mut();
 
                 if let Err(e) = p.seek_random() {
-                    eprintln!("error during wakeup {}: {}\n\tskip one round", p.name, e);
+                    error!(
+                        "wakeup: error during wakeup {}: {} -> skip one round",
+                        p.name, e
+                    );
                 }
             });
         }
@@ -98,8 +102,8 @@ impl Reader {
             'outer: for (i_p, p) in plots.iter().enumerate() {
                 let mut p = p.borrow_mut();
                 if let Err(e) = p.prepare(scoop) {
-                    eprintln!(
-                        "error preparing {} for reading: {}\n\tskip one round",
+                    error!(
+                        "reader: error preparing {} for reading: {} -> skip one round",
                         p.name, e
                     );
                     continue 'outer;
@@ -111,8 +115,8 @@ impl Reader {
                     let (bytes_read, start_nonce, next_plot) = match p.read(&mut *bs, scoop) {
                         Ok(x) => x,
                         Err(e) => {
-                            eprintln!(
-                                "error reading chunk from {}: {}\n\tskip one round",
+                            error!(
+                                "reader: error reading chunk from {}: {} -> skip one round",
                                 p.name, e
                             );
                             (0, 0, true)

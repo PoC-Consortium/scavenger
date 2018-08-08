@@ -159,17 +159,19 @@ impl RequestHandler {
                 match result {
                     Ok(result) => {
                         if d != result.deadline {
-                            eprintln!("deadlines mismatch, miner: {} pool: {}", d, result.deadline);
+                            error!(
+                                "pool: deadlines mismatch, deadline_miner={}, deadline_pool={}",
+                                d, result.deadline
+                            );
                         }
                     }
                     Err(FetchError::Pool(e)) => {
-                        eprintln!(
-                            "error submitting nonce:\n\tcode: {}\n\tmessage: {}",
-                            e.code, e.message,
+                        error!("submit: error submitting nonce, height={}, nonce={}, deadline={}\n\tcode: {}\n\tmessage: {}",
+                            height, nonce, d, e.code, e.message,
                         );
                     }
                     Err(_) => {
-                        eprintln!("error submitting nonce:\n\tretry: {}", retried,);
+                        warn!("submit: error submitting nonce, retry={}", retried,);
                         if retried < 3 {
                             rh.submit_nonce(
                                 inner_handle,
@@ -180,7 +182,7 @@ impl RequestHandler {
                                 retried + 1,
                             );
                         } else {
-                            eprintln!("error submitting nonce, exhausted retries");
+                            error!("submit: error submitting nonce, exhausted retries");
                         }
                     }
                 };
@@ -217,7 +219,8 @@ impl RequestHandler {
             .and_then(|body| {
                 let res = parse_json_result(&body)?;
                 Ok(res)
-            }).from_err();
+            })
+            .from_err();
 
         let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
         let timeout = timeout
