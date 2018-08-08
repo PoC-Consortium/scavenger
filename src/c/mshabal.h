@@ -213,13 +213,11 @@ extern "C" {
   void
 	  simd128_mshabal_openclose_fast(mshabal_context_fast *sc,
 		  void *u1, void *u2,
-		  void *dst0, void *dst1, void *dst2, void *dst3,
-		  unsigned n);
+		  void *dst0, void *dst1, void *dst2, void *dst3);
   void
 	  simd256_mshabal_openclose_fast(mshabal256_context_fast *sc,
 		  void *u1, void *u2,
-		  void *dst0, void *dst1, void *dst2, void *dst3, void *dst4, void *dst5, void *dst6, void *dst7,
-		  unsigned n);
+		  void *dst0, void *dst1, void *dst2, void *dst3, void *dst4, void *dst5, void *dst6, void *dst7);
 #ifdef  __cplusplus
 }
 #endif

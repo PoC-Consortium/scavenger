@@ -76,7 +76,7 @@ void find_best_deadline_sse2(char *scoops, uint64_t nonce_count, char *gensig, u
       u2.words[j + 3] = *(mshabal_u32 *)(&scoops[(i + 3) * 64 + 32] + o);
     }
 
-    simd128_mshabal_openclose_fast(&x1, &u1, &u2, res0, res1, res2, res3, 0);
+    simd128_mshabal_openclose_fast(&x1, &u1, &u2, res0, res1, res2, res3);
 
     d0 = *((uint64_t *) res0);
     d1 = *((uint64_t *) res1);

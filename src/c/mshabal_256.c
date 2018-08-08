@@ -359,37 +359,6 @@
     sc->ptr = len;
   }
 
-  /* see shabal_small.h */
-  void
-	 simd256_mshabal_close(mshabal256_context *sc,
-    unsigned ub0, unsigned ub1, unsigned ub2, unsigned ub3,
-    unsigned ub4, unsigned ub5, unsigned ub6, unsigned ub7,
-    unsigned n,
-    void *dst0, void *dst1, void *dst2, void *dst3,
-    void *dst4, void *dst5, void *dst6, void *dst7)
-  {
-	unsigned z,off, out_size_w32;
-    
-    for (z = 0; z < 4; z++) {
-      simd256_mshabal_compress(sc, sc->xbuf0, sc->xbuf1, sc->xbuf2, sc->xbuf3, sc->xbuf4, sc->xbuf5, sc->xbuf6, sc->xbuf7, 1);
-      if (sc->Wlow-- == 0)
-        sc->Whigh--;
-    }
-    out_size_w32 = sc->out_size >> 5;
-    off = MSHABAL256_FACTOR * 4 * (28 + (16 - out_size_w32));
-	  for (z = 0; z < out_size_w32; z++) {
-		  unsigned y = off + MSHABAL256_FACTOR * (z << 2);
-		  ((u32 *)dst0)[z] = sc->state[y + 0];
-		  ((u32 *)dst1)[z] = sc->state[y + 1];
-		  ((u32 *)dst2)[z] = sc->state[y + 2];
-		  ((u32 *)dst3)[z] = sc->state[y + 3];
-		  ((u32 *)dst4)[z] = sc->state[y + 4];
-		  ((u32 *)dst5)[z] = sc->state[y + 5];
-		  ((u32 *)dst6)[z] = sc->state[y + 6];
-		  ((u32 *)dst7)[z] = sc->state[y + 7];
-	  }
-  }
-
 //Johnnys double pointer no memmove no register buffering burst mining only optimisation functions (tm) :-p
 
    static void
@@ -711,8 +680,7 @@
   void
 	  simd256_mshabal_openclose_fast(mshabal256_context_fast *sc,
 		  void *u1, void *u2, 
-		  void *dst0, void *dst1, void *dst2, void *dst3, void *dst4, void *dst5, void *dst6, void *dst7, 
-		  unsigned n)
+		  void *dst0, void *dst1, void *dst2, void *dst3, void *dst4, void *dst5, void *dst6, void *dst7)
   {
 	  unsigned z, off, out_size_w32;
 	  //run shabal

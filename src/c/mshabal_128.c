@@ -312,28 +312,6 @@ extern "C" {
 	  sc->ptr = len;
   }
 
-  /* see shabal_small.h */
-  void  simd128_mshabal_close(mshabal_context *sc,
-	  unsigned ub0, unsigned ub1, unsigned ub2, unsigned ub3, unsigned n,
-	  void *dst0, void *dst1, void *dst2, void *dst3)
-  {
-	  unsigned off, z, out_size_w32;
-
-	  for (z = 0; z < 4; z++) {
-		  simd128_mshabal_compress(sc, sc->xbuf0, sc->xbuf1, sc->xbuf2, sc->xbuf3, 1);
-		  if (sc->Wlow-- == 0)  sc->Whigh--;
-	  }
-	  out_size_w32 = sc->out_size >> 5;
-	  off = 4 * (28 + (16 - out_size_w32));
-	  for (z = 0; z < out_size_w32; z++) {
-		  unsigned y = off + (z << 2);
-		  ((u32 *)dst0)[z] = sc->state[y + 0];
-		  ((u32 *)dst1)[z] = sc->state[y + 1];
-		  ((u32 *)dst2)[z] = sc->state[y + 2];
-		  ((u32 *)dst3)[z] = sc->state[y + 3];
-	  }
-  }
-
   static void
 	  simd128_mshabal_compress_fast(mshabal_context_fast *sc,
 		  void *u1, void *u2,
@@ -646,8 +624,7 @@ extern "C" {
   void
 	  simd128_mshabal_openclose_fast(mshabal_context_fast *sc,
 		  void *u1, void *u2,
-		  void *dst0, void *dst1, void *dst2, void *dst3,
-		  unsigned n)
+		  void *dst0, void *dst1, void *dst2, void *dst3)
   {
 	  unsigned z, off, out_size_w32;
 	  //run shabal
