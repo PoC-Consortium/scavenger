@@ -13,7 +13,12 @@ fn main() {
         .file("src/c/mshabal_128.c");
 
     if is_x86_feature_detected!("avx") {
-        config.file("src/c/mshabal_256.c").file("src/c/shabal.c");
+        #[cfg(not(target_env = "msvc"))]
+        config.flag("-mavx2");
+
+        config
+            .file("src/c/mshabal_256.c")
+            .file("src/c/shabal.c");
     } else {
         config.file("src/c/shabal_sse2.c");
     }
