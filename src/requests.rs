@@ -160,8 +160,8 @@ impl RequestHandler {
                     Ok(result) => {
                         if d != result.deadline {
                             error!(
-                                "pool: deadlines mismatch, deadline_miner={}, deadline_pool={}",
-                                d, result.deadline
+                                "submit: deadlines mismatch, height={}, deadline_miner={}, deadline_pool={}",
+                                height, d, result.deadline
                             );
                         }
                     }
@@ -219,7 +219,8 @@ impl RequestHandler {
             .and_then(|body| {
                 let res = parse_json_result(&body)?;
                 Ok(res)
-            }).from_err();
+            })
+            .from_err();
 
         let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
         let timeout = timeout
