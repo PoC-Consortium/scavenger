@@ -12,32 +12,26 @@ use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::filter::threshold::ThresholdFilter;
 
-pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
-    let level_console = match (&cfg.console_log_level).as_str() {
-        "Trace" => log::LevelFilter::Trace,
-        "Debug" => log::LevelFilter::Debug,
-        "Info" => log::LevelFilter::Info,
-        "Warn" => log::LevelFilter::Warn,
-        "Error" => log::LevelFilter::Error,
-        "Off" => log::LevelFilter::Off,
-        _ => log::LevelFilter::Info,
-    };
+fn to_log_level(s: &String, default: log::LevelFilter) -> log::LevelFilter {
+    match s.to_lowercase().as_str() {
+        "trace" => log::LevelFilter::Trace,
+        "debug" => log::LevelFilter::Debug,
+        "info" => log::LevelFilter::Info,
+        "warn" => log::LevelFilter::Warn,
+        "error" => log::LevelFilter::Error,
+        "off" => log::LevelFilter::Off,
+        _ => default,
+    }
+}
 
-    let level_logfile = match (&cfg.logfile_log_level).as_str() {
-        "Trace" => log::LevelFilter::Trace,
-        "Debug" => log::LevelFilter::Debug,
-        "Info" => log::LevelFilter::Info,
-        "Warn" => log::LevelFilter::Warn,
-        "Error" => log::LevelFilter::Error,
-        "Off" => log::LevelFilter::Off,
-        _ => log::LevelFilter::Warn,
-    };
+pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
+    let level_console = to_log_level(&cfg.console_log_level, log::LevelFilter::Info);
+    let level_logfile = to_log_level(&cfg.logfile_log_level, log::LevelFilter::Warn);
 
     let stdout = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}",
-        )))
-        .build();
+        ))).build();
 
     let roller = FixedWindowRoller::builder()
         .base(1)
@@ -53,34 +47,29 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
                     .build("stdout", Box::new(stdout)),
-            )
-            .build(Root::builder().appender("stdout").build(LevelFilter::Info))
+            ).build(Root::builder().appender("stdout").build(LevelFilter::Info))
             .unwrap();
     } else {
         let logfile = RollingFileAppender::builder()
             .encoder(Box::new(PatternEncoder::new(
                 "{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}",
-            )))
-            .build("log/scavenger.1.log", policy)
+            ))).build("log/scavenger.1.log", policy)
             .unwrap();
         config = Config::builder()
             .appender(
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
                     .build("stdout", Box::new(stdout)),
-            )
-            .appender(
+            ).appender(
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_logfile)))
                     .build("logfile", Box::new(logfile)),
-            )
-            .build(
+            ).build(
                 Root::builder()
                     .appender("stdout")
                     .appender("logfile")
                     .build(LevelFilter::Info),
-            )
-            .unwrap();
+            ).unwrap();
     }
 
     log4rs::init_config(config).unwrap()
