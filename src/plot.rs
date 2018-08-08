@@ -28,7 +28,7 @@ cfg_if! {
     if #[cfg(unix)] {
         use std::os::unix::fs::OpenOptionsExt;
 
-        const O_DIRECT: i32 = 0o0040000;
+        const O_DIRECT: i32 = 0o0_040_000;
 
         pub fn open_usining_direc_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
             OpenOptions::new()
@@ -60,7 +60,7 @@ impl Plot {
         }
 
         let plot_file = path.file_name().unwrap().to_str().unwrap();
-        let parts: Vec<&str> = plot_file.split("_").collect();
+        let parts: Vec<&str> = plot_file.split('_').collect();
         if parts.len() != 3 {
             return Err(From::from("plot file has wrong format"));
         }
@@ -88,11 +88,11 @@ impl Plot {
 
         Ok(Plot {
             _account_id: account_id,
-            start_nonce: start_nonce,
-            nonces: nonces,
-            fh: fh,
+            start_nonce,
+            nonces,
+            fh,
             read_offset: 0,
-            use_direct_io: use_direct_io,
+            use_direct_io,
             sector_size: get_sector_size(&path.to_str().unwrap().to_owned()),
             name: plot_file.to_string(),
         })
@@ -101,7 +101,7 @@ impl Plot {
     pub fn prepare(&mut self, scoop: u32) -> io::Result<u64> {
         self.read_offset = 0;
         let nonces = self.nonces;
-        let mut seek_addr = scoop as u64 * nonces as u64 * SCOOP_SIZE;
+        let mut seek_addr = u64::from(scoop) * nonces as u64 * SCOOP_SIZE;
 
         if self.use_direct_io {
             self.read_offset = self.round_seek_addr(&mut seek_addr);
@@ -133,7 +133,8 @@ impl Plot {
 
         let offset = self.read_offset;
         let nonces = self.nonces;
-        let seek_addr = SeekFrom::Start(offset as u64 + scoop as u64 * nonces as u64 * SCOOP_SIZE);
+        let seek_addr =
+            SeekFrom::Start(offset as u64 + u64::from(scoop) * nonces as u64 * SCOOP_SIZE);
         self.fh.seek(seek_addr)?;
 
         self.fh.read_exact(&mut bs[0..bytes_to_read])?;

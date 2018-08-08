@@ -23,23 +23,19 @@ impl ::std::default::Default for ShabalContext {
 
 pub fn to_void_raw_ctx<T>(cc: &mut T) -> *mut c_void {
     let raw_cc = cc as *mut T;
-    let void_raw_cc = raw_cc as *mut c_void;
-
-    return void_raw_cc;
+    raw_cc as *mut c_void
 }
 
 pub fn to_void_raw_data(data: &[u8]) -> (*const c_void, size_t) {
     let void_raw_data = data.as_ptr() as *const c_void;
     let len = data.len() as size_t;
 
-    return (void_raw_data, len);
+    (void_raw_data, len)
 }
 
 pub fn to_void_raw_dest(dest: &mut [u8]) -> *mut c_void {
-    let raw_dest = dest.as_mut() as *mut [u8];
-    let void_raw_dest = raw_dest as *mut c_void;
-
-    return void_raw_dest;
+    let raw_dest = dest as *mut [u8];
+    raw_dest as *mut c_void
 }
 
 extern "C" {
@@ -75,5 +71,5 @@ pub fn shabal256(data: &[u8]) -> [u8; 32] {
     shabal256_load(&mut cc, data);
     shabal256_close(&mut cc, &mut dest);
 
-    return dest;
+    dest
 }

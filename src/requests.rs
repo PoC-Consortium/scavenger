@@ -114,17 +114,17 @@ where
 impl RequestHandler {
     pub fn new(
         base_uri: String,
-        secret_phrase: String,
+        secret_phrase: &str,
         timeout: u64,
         handle: Handle,
     ) -> RequestHandler {
         let secret_phrase_encoded = byte_serialize(secret_phrase.as_bytes()).collect();
         RequestHandler {
-            secret_phrase_encoded: secret_phrase_encoded,
-            base_uri: base_uri,
+            secret_phrase_encoded,
+            base_uri,
             client: Client::new(),
             timeout: Duration::from_millis(timeout),
-            handle: handle,
+            handle,
         }
     }
 
@@ -134,7 +134,7 @@ impl RequestHandler {
 
     pub fn submit_nonce(
         &self,
-        handle: Handle,
+        handle: &Handle,
         account_id: u64,
         nonce: u64,
         height: u64,
@@ -174,7 +174,7 @@ impl RequestHandler {
                         warn!("submit: error submitting nonce, retry={}", retried,);
                         if retried < 3 {
                             rh.submit_nonce(
-                                inner_handle,
+                                &inner_handle,
                                 account_id,
                                 nonce,
                                 height,
@@ -219,8 +219,7 @@ impl RequestHandler {
             .and_then(|body| {
                 let res = parse_json_result(&body)?;
                 Ok(res)
-            })
-            .from_err();
+            }).from_err();
 
         let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
         let timeout = timeout

@@ -12,7 +12,7 @@ use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::filter::threshold::ThresholdFilter;
 
-fn to_log_level(s: &String, default: log::LevelFilter) -> log::LevelFilter {
+fn to_log_level(s: &str, default: log::LevelFilter) -> log::LevelFilter {
     match s.to_lowercase().as_str() {
         "trace" => log::LevelFilter::Trace,
         "debug" => log::LevelFilter::Debug,
@@ -40,22 +40,21 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
     let trigger = SizeTrigger::new(&cfg.logfile_max_size * 1024 * 1024);
     let policy = Box::new(CompoundPolicy::new(Box::new(trigger), Box::new(roller)));
 
-    let config: Config;
-    if level_logfile == log::LevelFilter::Off {
-        config = Config::builder()
+    let config = if level_logfile == log::LevelFilter::Off {
+        Config::builder()
             .appender(
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
                     .build("stdout", Box::new(stdout)),
             ).build(Root::builder().appender("stdout").build(LevelFilter::Info))
-            .unwrap();
+            .unwrap()
     } else {
         let logfile = RollingFileAppender::builder()
             .encoder(Box::new(PatternEncoder::new(
                 "{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}",
             ))).build("log/scavenger.1.log", policy)
             .unwrap();
-        config = Config::builder()
+        Config::builder()
             .appender(
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
@@ -69,8 +68,8 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                     .appender("stdout")
                     .appender("logfile")
                     .build(LevelFilter::Info),
-            ).unwrap();
-    }
+            ).unwrap()
+    };
 
     log4rs::init_config(config).unwrap()
 }

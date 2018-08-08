@@ -69,7 +69,7 @@ impl Miner {
                     let drive_id = get_device_id(&file.to_str().unwrap().to_string());
                     let plots = drive_id_to_plots
                         .entry(drive_id)
-                        .or_insert(Arc::new(Mutex::new(Vec::new())));
+                        .or_insert_with(|| Arc::new(Mutex::new(Vec::new())));
                     local_capacity += p.nonces as f64;
                     plots.lock().unwrap().push(RefCell::new(p));
                     num_plots += 1;
@@ -131,12 +131,12 @@ impl Miner {
                 rx_empty_buffers,
                 tx_read_replies,
             ),
-            rx_nonce_data: rx_nonce_data,
+            rx_nonce_data,
             account_id: cfg.account_id,
             target_deadline: cfg.target_deadline,
             request_handler: RequestHandler::new(
                 cfg.url,
-                cfg.secret_phrase,
+                &cfg.secret_phrase,
                 cfg.timeout,
                 core.handle(),
             ),
@@ -149,7 +149,7 @@ impl Miner {
                 scanning: false,
             })),
             get_mining_info_interval: cfg.get_mining_info_interval,
-            core: core,
+            core,
             wakeup_after: cfg.wakeup_after * 1000, // ms -> s
         }
     }
@@ -190,7 +190,7 @@ impl Miner {
                                 reader.borrow_mut().start_reading(
                                     mining_info.height,
                                     scoop,
-                                    Arc::new(gensig),
+                                    &Arc::new(gensig),
                                 );
                                 state.sw.restart();
                                 state.processed_reader_tasks = 0;
@@ -225,7 +225,7 @@ impl Miner {
                     if state.best_deadline > deadline && deadline < target_deadline {
                         state.best_deadline = deadline;
                         request_handler.submit_nonce(
-                            inner_handle.clone(),
+                            &inner_handle,
                             account_id,
                             nonce_data.nonce,
                             nonce_data.height,

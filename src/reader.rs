@@ -32,7 +32,7 @@ impl Reader {
         rx_empty_buffers: chan::Receiver<Arc<Mutex<Vec<u8>>>>,
         tx_read_replies: chan::Sender<ReadReply>,
     ) -> Reader {
-        for (_, plots) in &drive_id_to_plots {
+        for plots in drive_id_to_plots.values() {
             let mut plots = plots.lock().unwrap();
             plots.sort_by_key(|p| {
                 let m = p.borrow().fh.metadata().unwrap();
@@ -41,18 +41,18 @@ impl Reader {
         }
 
         Reader {
-            drive_id_to_plots: drive_id_to_plots,
+            drive_id_to_plots,
             pool: rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
                 .unwrap(),
-            rx_empty_buffers: rx_empty_buffers,
-            tx_read_replies: tx_read_replies,
+            rx_empty_buffers,
+            tx_read_replies,
             interupts: Vec::new(),
         }
     }
 
-    pub fn start_reading(&mut self, height: u64, scoop: u32, gensig: Arc<[u8; 32]>) {
+    pub fn start_reading(&mut self, height: u64, scoop: u32, gensig: &Arc<[u8; 32]>) {
         for interupt in &self.interupts {
             interupt.send(()).ok();
         }
@@ -64,12 +64,11 @@ impl Reader {
                     self.create_read_task(plots.clone(), height, scoop, gensig.clone());
                 self.pool.spawn(task);
                 interupt
-            })
-            .collect();
+            }).collect();
     }
 
     pub fn wakeup(&mut self) {
-        for (_, plots) in &self.drive_id_to_plots {
+        for plots in self.drive_id_to_plots.values() {
             let plots = plots.clone();
             self.pool.spawn(move || {
                 let plots = plots.lock().unwrap();
@@ -128,10 +127,10 @@ impl Reader {
                     tx_read_replies.send(ReadReply {
                         buffer: buffer.clone(),
                         len: bytes_read,
-                        height: height,
+                        height,
                         gensig: gensig.clone(),
-                        start_nonce: start_nonce,
-                        finished: finished,
+                        start_nonce,
+                        finished,
                     });
 
                     if next_plot {

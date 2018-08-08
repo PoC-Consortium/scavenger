@@ -2,7 +2,7 @@ cfg_if! {
     if #[cfg(unix)] {
         use std::process::Command;
 
-        pub fn get_device_id(path: &String) -> String {
+        pub fn get_device_id(path: &str) -> String {
             let output = Command::new("stat")
                 .arg(path)
                 .arg("-c %D")
@@ -11,14 +11,14 @@ cfg_if! {
             String::from_utf8(output.stdout).expect("not utf8")
         }
 
-        pub fn get_sector_size(path: &String) -> u64 {
+        pub fn get_sector_size(path: &str) -> u64 {
             let output = Command::new("df")
                 .arg(path)
                 .arg("--output=source")
                 .output()
                 .expect("failed to execute");
             let source = String::from_utf8(output.stdout).expect("not utf8");
-            let source = source.split("\n").collect::<Vec<&str>>()[1];
+            let source = source.split('\n').collect::<Vec<&str>>()[1];
 
             let output = Command::new("lsblk")
                 .arg(source)
@@ -28,7 +28,7 @@ cfg_if! {
                 .expect("failed to execute");
 
             let sector_size = String::from_utf8(output.stdout).expect("not utf8");
-            let sector_size = sector_size.split("\n").collect::<Vec<&str>>()[1].trim();
+            let sector_size = sector_size.split('\n').collect::<Vec<&str>>()[1].trim();
 
             sector_size.parse::<u64>().unwrap()
         }

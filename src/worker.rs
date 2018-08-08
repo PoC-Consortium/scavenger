@@ -2,7 +2,6 @@ use chan;
 use futures::sync::mpsc;
 use futures::{Future, Sink};
 use reader::ReadReply;
-use std::mem;
 use std::sync::{Arc, Mutex};
 use std::u64;
 
@@ -62,25 +61,25 @@ pub fn create_worker_task(
             unsafe {
                 if is_x86_feature_detected!("avx2") {
                     find_best_deadline_avx2(
-                        mem::transmute(bs.as_ptr()),
+                        bs.as_ptr() as *mut c_void,
                         (read_reply.len as u64 + padded as u64) / 64,
-                        mem::transmute(read_reply.gensig.as_ptr()),
+                        read_reply.gensig.as_ptr() as *const c_void,
                         &mut deadline,
                         &mut offset,
                     );
                 } else if is_x86_feature_detected!("avx") {
                     find_best_deadline_avx(
-                        mem::transmute(bs.as_ptr()),
+                        bs.as_ptr() as *mut c_void,
                         (read_reply.len as u64 + padded as u64) / 64,
-                        mem::transmute(read_reply.gensig.as_ptr()),
+                        read_reply.gensig.as_ptr() as *const c_void,
                         &mut deadline,
                         &mut offset,
                     );
                 } else {
                     find_best_deadline_sse2(
-                        mem::transmute(bs.as_ptr()),
+                        bs.as_ptr() as *mut c_void,
                         (read_reply.len as u64 + padded as u64) / 64,
-                        mem::transmute(read_reply.gensig.as_ptr()),
+                        read_reply.gensig.as_ptr() as *const c_void,
                         &mut deadline,
                         &mut offset,
                     );
@@ -91,7 +90,7 @@ pub fn create_worker_task(
                 .clone()
                 .send(NonceData {
                     height: read_reply.height,
-                    deadline: deadline,
+                    deadline,
                     nonce: offset + read_reply.start_nonce,
                     reader_task_processed: read_reply.finished,
                 }).wait()
