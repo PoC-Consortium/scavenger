@@ -64,8 +64,7 @@ impl Reader {
                     self.create_read_task(plots.clone(), height, scoop, gensig.clone());
                 self.pool.spawn(task);
                 interupt
-            })
-            .collect();
+            }).collect();
     }
 
     pub fn wakeup(&mut self) {

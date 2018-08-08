@@ -208,8 +208,7 @@ impl Miner {
                     }
                     future::ok(())
                 })
-            })
-                .map_err(|e| panic!("interval errored: err={:?}", e)),
+            }).map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         let account_id = self.account_id;
@@ -247,8 +246,7 @@ impl Miner {
                         }
                     }
                     Ok(())
-                })
-                .map_err(|e| panic!("interval errored: err={:?}", e)),
+                }).map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         self.core.run(future::empty::<(), ()>()).unwrap();

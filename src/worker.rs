@@ -94,8 +94,7 @@ pub fn create_worker_task(
                     deadline: deadline,
                     nonce: offset + read_reply.start_nonce,
                     reader_task_processed: read_reply.finished,
-                })
-                .wait()
+                }).wait()
                 .expect("failed to send nonce data");
             tx_empty_buffers.send(buffer.clone());
         }
