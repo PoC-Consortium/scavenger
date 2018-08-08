@@ -7,7 +7,7 @@
  * ==========================(LICENSE BEGIN)============================
  *
  * Copyright (c) 2007-2010  Projet RNRT SAPHIR
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -15,10 +15,10 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -39,15 +39,14 @@
 #include <stddef.h>
 #include "sph_types.h"
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
  * Output size (in bits) for Shabal-256.
  */
-#define SPH_SIZE_shabal256   256
-
+#define SPH_SIZE_shabal256 256
 
 /**
  * This structure is a context for Shabal computations: it contains the
@@ -61,10 +60,10 @@ extern "C" {
  */
 typedef struct {
 #ifndef DOXYGEN_IGNORE
-	unsigned char buf[64];    /* first field, for alignment */
-	size_t ptr;
-	sph_u32 A[12], B[16], C[16];
-	sph_u32 Whigh, Wlow;
+    unsigned char buf[64]; /* first field, for alignment */
+    size_t ptr;
+    sph_u32 A[12], B[16], C[16];
+    sph_u32 Whigh, Wlow;
 #endif
 } sph_shabal_context;
 
@@ -74,12 +73,13 @@ typedef struct {
 typedef sph_shabal_context sph_shabal256_context;
 
 /**
- * Initialize a Shabal-256 context. This process performs no memory allocation.
+ * Initialize a Shabal-256 context. This process performs no memory
+ * allocation.
  *
  * @param cc   the Shabal-256 context (pointer to a
  *             <code>sph_shabal256_context</code>)
  */
-void sph_shabal256_init(sph_shabal_context *cc);
+void sph_shabal256_init(sph_shabal_context* cc);
 
 /**
  * Process some data bytes. It is acceptable that <code>len</code> is zero
@@ -89,7 +89,7 @@ void sph_shabal256_init(sph_shabal_context *cc);
  * @param data   the input data
  * @param len    the input data length (in bytes)
  */
-void sph_shabal256(void *cc, const unsigned char *data, size_t len);
+void sph_shabal256(void* cc, const unsigned char* data, size_t len);
 
 /**
  * Terminate the current Shabal-256 computation and output the result into
@@ -100,7 +100,7 @@ void sph_shabal256(void *cc, const unsigned char *data, size_t len);
  * @param cc    the Shabal-256 context
  * @param dst   the destination buffer
  */
-void sph_shabal256_close(void *cc, void *dst);
+void sph_shabal256_close(void* cc, void* dst);
 
 /**
  * Add a few additional bits (0 to 7) to the current computation, then
@@ -115,10 +115,10 @@ void sph_shabal256_close(void *cc, void *dst);
  * @param n     the number of extra bits (0 to 7)
  * @param dst   the destination buffer
  */
-void sph_shabal256_addbits_and_close(
-	void *cc, unsigned ub, unsigned n, void *dst);
+void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n,
+                                     void* dst);
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 }
 #endif
 #endif
