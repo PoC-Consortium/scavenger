@@ -7,7 +7,7 @@ cfg_if! {
                 .arg(path)
                 .arg("-c %D")
                 .output()
-                .expect("failed to execute");
+                .expect("failed to execute 'stat -c %D'");
             String::from_utf8(output.stdout).expect("not utf8")
         }
 
@@ -17,7 +17,7 @@ cfg_if! {
                  .arg(path)
                  .arg("--output=source")
                  .output()
-                 .expect("failed to execute");
+                 .expect("failed to execute 'df --output=source'");
              let source = String::from_utf8(output.stdout).expect("not utf8");
              source.split('\n').collect::<Vec<&str>>()[1].to_string()
          }
@@ -52,7 +52,7 @@ cfg_if! {
                 .arg("-o")
                 .arg("PHY-SeC")
                 .output()
-                .expect("failed to execute");
+                .expect("failed to execute 'lsblk -o PHY-SeC'");
 
             let sector_size = String::from_utf8(output.stdout).expect("not utf8");
             let sector_size = sector_size.split('\n').collect::<Vec<&str>>()[1].trim();
