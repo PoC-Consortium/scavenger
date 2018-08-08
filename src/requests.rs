@@ -219,8 +219,7 @@ impl RequestHandler {
             .and_then(|body| {
                 let res = parse_json_result(&body)?;
                 Ok(res)
-            })
-            .from_err();
+            }).from_err();
 
         let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
         let timeout = timeout
