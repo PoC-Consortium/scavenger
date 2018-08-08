@@ -47,49 +47,66 @@ pub struct State {
     processed_reader_tasks: usize,
 }
 
-impl Miner {
-    pub fn new(cfg: Cfg) -> Miner {
-        let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> = HashMap::new();
-        let mut global_capacity: f64 = 0.0;
-        for plot_dir_str in &cfg.plot_dirs {
-            let dir = Path::new(plot_dir_str);
-            if !dir.exists() {
-                warn!("path {} does not exist", plot_dir_str);
-                continue;
-            }
-            if !dir.is_dir() {
-                warn!("path {} is not a directory", plot_dir_str);
-                continue;
-            }
-            let mut num_plots = 0;
-            let mut local_capacity: f64 = 0.0;
-            for file in read_dir(dir).unwrap() {
-                let file = &file.unwrap().path();
-                if let Ok(p) = Plot::new(file, cfg.use_direct_io) {
-                    let drive_id = get_device_id(&file.to_str().unwrap().to_string());
-                    let plots = drive_id_to_plots
-                        .entry(drive_id)
-                        .or_insert_with(|| Arc::new(Mutex::new(Vec::new())));
-                    local_capacity += p.nonces as f64;
-                    plots.lock().unwrap().push(RefCell::new(p));
-                    num_plots += 1;
-                }
-            }
-            info!(
-                "path={}, files={}, size={:.4} TiB",
-                plot_dir_str,
-                num_plots,
-                local_capacity / 4.0 / 1024.0 / 1024.0
-            );
-            global_capacity += local_capacity;
-            if num_plots == 0 {
-                warn!("no plots in {}", plot_dir_str);
+fn scan_plots(
+    plot_dirs: &[String],
+    use_direct_io: bool,
+) -> HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> {
+    let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> = HashMap::new();
+    let mut global_capacity: f64 = 0.0;
+
+    for plot_dir_str in plot_dirs {
+        let dir = Path::new(plot_dir_str);
+
+        if !dir.exists() {
+            warn!("path {} does not exist", plot_dir_str);
+            continue;
+        }
+        if !dir.is_dir() {
+            warn!("path {} is not a directory", plot_dir_str);
+            continue;
+        }
+
+        let mut num_plots = 0;
+        let mut local_capacity: f64 = 0.0;
+        for file in read_dir(dir).unwrap() {
+            let file = &file.unwrap().path();
+
+            if let Ok(p) = Plot::new(file, use_direct_io) {
+                let drive_id = get_device_id(&file.to_str().unwrap().to_string());
+                let plots = drive_id_to_plots
+                    .entry(drive_id)
+                    .or_insert_with(|| Arc::new(Mutex::new(Vec::new())));
+
+                local_capacity += p.nonces as f64;
+                plots.lock().unwrap().push(RefCell::new(p));
+                num_plots += 1;
             }
         }
+
         info!(
-            "plot files loaded: total capacity={:.4} TiB",
-            global_capacity / 4.0 / 1024.0 / 1024.0
+            "path={}, files={}, size={:.4} TiB",
+            plot_dir_str,
+            num_plots,
+            local_capacity / 4.0 / 1024.0 / 1024.0
         );
+
+        global_capacity += local_capacity;
+        if num_plots == 0 {
+            warn!("no plots in {}", plot_dir_str);
+        }
+    }
+
+    info!(
+        "plot files loaded: total capacity={:.4} TiB",
+        global_capacity / 4.0 / 1024.0 / 1024.0
+    );
+
+    drive_id_to_plots
+}
+
+impl Miner {
+    pub fn new(cfg: Cfg) -> Miner {
+        let drive_id_to_plots = scan_plots(&cfg.plot_dirs, cfg.use_direct_io);
 
         let reader_thread_count = if cfg.reader_thread_count == 0 {
             drive_id_to_plots.len()
