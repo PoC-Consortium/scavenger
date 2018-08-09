@@ -67,7 +67,7 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                 Root::builder()
                     .appender("stdout")
                     .appender("logfile")
-                    .build(LevelFilter::Info),
+                    .build(LevelFilter::Trace),
             ).unwrap()
     };
 
