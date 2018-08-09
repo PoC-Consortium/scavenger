@@ -46,7 +46,9 @@ static void simd128_mshabal_compress(mshabal_context* sc,
                                      const unsigned char* buf2,
                                      const unsigned char* buf3, size_t num) {
 #ifdef __AVX__
-    /* _mm256_zeroupper(); */
+#ifdef _MSC_VER
+    _mm256_zeroupper();
+#endif
 #endif
 
     union {
@@ -310,7 +312,9 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1,
 static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1,
                                           void* u2, size_t num) {
 #ifdef __AVX__
-    /* _mm256_zeroupper(); */
+#ifdef _MSC_VER
+    _mm256_zeroupper();
+#endif
 #endif
     union input {
         u32 words[64];
