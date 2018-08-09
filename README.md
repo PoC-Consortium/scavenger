@@ -28,20 +28,6 @@ cargo build --release
 cargo test
 ```
 
-If you get an **illegal instruction** error when you run the miner after building it yourself you can try
-to add a **-O2 flag** in the **build.rs** file:
-
-``` rust
-config
-    .file("src/c/mshabal_128.c")
-    .file("src/c/mshabal_256.c")
-    .file("src/c/shabal.c")
-    .flag("-mavx2")
-    .flag("-std=c99")
-    .flag("-O2")
-    .compile("libshabal.a");
-```
-
 ### Run
 
 ```shell
