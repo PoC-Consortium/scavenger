@@ -1,11 +1,11 @@
 use chan;
 use futures::sync::mpsc;
 use futures::{Future, Sink};
+use libc::{c_void, uint64_t};
+use ocl;
 use reader::ReadReply;
 use std::sync::{Arc, Mutex};
 use std::u64;
-
-use libc::{c_void, uint64_t};
 
 extern "C" {
     pub fn find_best_deadline_avx2(
@@ -58,6 +58,7 @@ pub fn create_worker_task(
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
             let padded = pad(&mut bs, read_reply.len, 8 * 64);
+            /*
             unsafe {
                 if is_x86_feature_detected!("avx2") {
                     find_best_deadline_avx2(
@@ -85,6 +86,15 @@ pub fn create_worker_task(
                     );
                 }
             }
+			*/
+            //dirty testing
+            ocl::find_best_deadline_gpu(
+                bs.as_ptr() as *mut c_void,
+                (read_reply.len as u64 + padded as u64) / 64,
+                read_reply.gensig.as_ptr() as *const c_void,
+                &mut deadline,
+                &mut offset,
+            );
 
             tx_nonce_data
                 .clone()
@@ -93,7 +103,8 @@ pub fn create_worker_task(
                     deadline,
                     nonce: offset + read_reply.start_nonce,
                     reader_task_processed: read_reply.finished,
-                }).wait()
+                })
+                .wait()
                 .expect("failed to send nonce data");
             tx_empty_buffers.send(buffer.clone());
         }

@@ -27,6 +27,7 @@ mod burstmath;
 mod config;
 mod logger;
 mod miner;
+mod ocl;
 mod plot;
 mod reader;
 mod requests;
@@ -77,7 +78,8 @@ fn main() {
                 .value_name("FILE")
                 .help("Location of the config file")
                 .takes_value(true),
-        ).get_matches();
+        )
+        .get_matches();
 
     let config = matches.value_of("config").unwrap_or("config.yaml");
 
@@ -87,6 +89,8 @@ fn main() {
     logger::init_logger(&cfg_loaded);
 
     init_simd_extensions();
+
+    ocl::init_gpu(&cfg_loaded);
 
     let m = Miner::new(cfg_loaded);
     m.run();

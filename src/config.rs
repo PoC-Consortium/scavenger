@@ -19,6 +19,15 @@ pub struct Cfg {
     #[serde(default = "default_reader_thread_count")]
     pub reader_thread_count: usize,
 
+    #[serde(default = "default_gpu_worker_thread_count")]
+    pub gpu_worker_thread_count: usize,
+
+    #[serde(default = "default_gpu_platform")]
+    pub gpu_platform: usize,
+
+    #[serde(default = "default_gpu_device")]
+    pub gpu_device: usize,
+
     #[serde(default = "default_nonces_per_cache")]
     pub nonces_per_cache: usize,
 
@@ -75,6 +84,18 @@ fn default_worker_thread_count() -> usize {
 }
 
 fn default_reader_thread_count() -> usize {
+    0
+}
+
+fn default_gpu_worker_thread_count() -> usize {
+    0
+}
+
+fn default_gpu_platform() -> usize {
+    0
+}
+
+fn default_gpu_device() -> usize {
     0
 }
 
