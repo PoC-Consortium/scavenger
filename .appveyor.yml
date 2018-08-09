@@ -48,31 +48,31 @@ build: false
 test_script:
   - cargo test --verbose --all
 
-before_deploy:
-  # Generate artifacts for release
-  - cargo build --release
-  - mkdir staging
-  - copy target\release\rg.exe staging
-  - ps: copy target\release\build\scavenger-*\out\_rg.ps1 staging
-  - cd staging
-    # release zipfile will look like 'rust-everywhere-v1.2.3-x86_64-pc-windows-msvc'
-  - 7z a ../%PROJECT_NAME%-%APPVEYOR_REPO_TAG_NAME%-%TARGET%.zip *
-  - appveyor PushArtifact ../%PROJECT_NAME%-%APPVEYOR_REPO_TAG_NAME%-%TARGET%.zip
+# before_deploy:
+#   # Generate artifacts for release
+#   - cargo build --release
+#   - mkdir staging
+#   - copy target\release\rg.exe staging
+#   - ps: copy target\release\build\scavenger-*\out\_rg.ps1 staging
+#   - cd staging
+#     # release zipfile will look like 'rust-everywhere-v1.2.3-x86_64-pc-windows-msvc'
+#   - 7z a ../%PROJECT_NAME%-%APPVEYOR_REPO_TAG_NAME%-%TARGET%.zip *
+#   - appveyor PushArtifact ../%PROJECT_NAME%-%APPVEYOR_REPO_TAG_NAME%-%TARGET%.zip
 
-deploy:
-  description: 'Automatically deployed release'
-  # All the zipped artifacts will be deployed
-  artifact: /.*\.zip/
-  auth_token:
-    secure: vv4vBCEosGlyQjaEC1+kraP2P6O4CQSa+Tw50oHWFTGcmuXxaWS0/yEXbxsIRLpw
-  provider: GitHub
-  # deploy when a new tag is pushed and only on the stable channel
-  on:
-    # channel to use to produce the release artifacts
-    # NOTE make sure you only release *once* per target
-    # TODO you may want to pick a different channel
-    CHANNEL: stable
-    appveyor_repo_tag: true
+# deploy:
+#   description: 'Automatically deployed release'
+#   # All the zipped artifacts will be deployed
+#   artifact: /.*\.zip/
+#   auth_token:
+#     secure: vv4vBCEosGlyQjaEC1+kraP2P6O4CQSa+Tw50oHWFTGcmuXxaWS0/yEXbxsIRLpw
+#   provider: GitHub
+#   # deploy when a new tag is pushed and only on the stable channel
+#   on:
+#     # channel to use to produce the release artifacts
+#     # NOTE make sure you only release *once* per target
+#     # TODO you may want to pick a different channel
+#     CHANNEL: stable
+#     appveyor_repo_tag: true
 
 branches:
   only:
