@@ -26,6 +26,8 @@ fn main() {
         config.file("src/c/mshabal_256.c").file("src/c/shabal.c");
     } else {
         config.file("src/c/shabal_sse2.c");
+        #[cfg(not(target_env = "msvc"))]
+        config.flag("-fno-strict-aliasing");
     }
 
     config.compile("libshabal.a");
