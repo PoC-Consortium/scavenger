@@ -40,6 +40,14 @@ pub struct Cfg {
     #[serde(default = "default_logfile_max_size")]
     pub logfile_max_size: u64,
 
+    /// Console log pattern
+    #[serde(default = "default_console_log_pattern")]
+    pub console_log_pattern: String,
+
+    /// Logfile log pattern
+    #[serde(default = "default_logfile_log_pattern")]
+    pub logfile_log_pattern: String,
+
     #[serde(default = "default_wakeup_after")]
     pub wakeup_after: i64,
 
@@ -68,6 +76,14 @@ fn default_logfile_max_count() -> u32 {
 
 fn default_logfile_max_size() -> u64 {
     20
+}
+
+fn default_console_log_pattern() -> String {
+    "{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}".to_owned()
+}
+
+fn default_logfile_log_pattern() -> String {
+    "{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{f}:{L}] [{t}] - {M}:{m}{n}".to_owned()
 }
 
 fn default_worker_thread_count() -> usize {
@@ -112,4 +128,16 @@ pub fn load_cfg(config: &str) -> Cfg {
         );
     }
     cfg
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_cfg() {
+        let cfg = load_cfg("config.yaml");
+        assert_eq!(cfg.timeout, 5000);
+        assert_eq!(cfg.plot_dirs, vec!["test_data"]);
+    }
 }
