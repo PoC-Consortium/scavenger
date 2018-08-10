@@ -35,6 +35,7 @@ void find_best_deadline_sse2(char* scoops, uint64_t nonce_count, char* gensig,
     uint64_t d0, d1, d2, d3;
     char res0[32], res1[32], res2[32], res3[32];
     char end[32];
+    uint64_t *res0P, *res1P, *res2P, *res3P;  // for casting resN to unit64_t*
 
     end[0] = -128;
     memset(&end[1], 0, 31);
@@ -85,10 +86,17 @@ void find_best_deadline_sse2(char* scoops, uint64_t nonce_count, char* gensig,
 
         simd128_mshabal_openclose_fast(&x1, &u1, &u2, res0, res1, res2, res3);
 
-        d0 = *((uint64_t*)res0);
-        d1 = *((uint64_t*)res1);
-        d2 = *((uint64_t*)res2);
-        d3 = *((uint64_t*)res3);
+        res0P = (uint64_t*)res0;  // split the cast from the dereference below to prevent strict aliasing warnings
+        d0 = *res0P;
+
+        res1P = (uint64_t*)res1;
+        d1 = *res1P;
+
+        res2P = (uint64_t*)res2;
+        d2 = *res2P;
+
+        res3P = (uint64_t*)res3;
+        d3 = *res3P;
 
         SET_BEST_DEADLINE(d0, i + 0);
         SET_BEST_DEADLINE(d1, i + 1);
