@@ -28,5 +28,6 @@ fn main() {
         config.file("src/c/shabal_sse2.c");
     }
 
+    config.flag("-O2"); // -O3 fails on xeon and maybe others
     config.compile("libshabal.a");
 }
