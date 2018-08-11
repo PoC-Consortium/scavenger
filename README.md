@@ -1,4 +1,6 @@
  <img align="right" src="https://i.imgur.com/LG63EqK.png" height="200">
+ 
+ [![Build Status](https://travis-ci.org/PoC-Consortium/scavenger.svg?branch=master)](https://travis-ci.org/PoC-Consortium/scavenger)
 
 # Scavenger - Burstminer in Rust
 
