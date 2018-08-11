@@ -84,8 +84,6 @@ impl Plot {
             File::open(path)?
         };
 
-        info!("valid plot file: {}", plot_file);
-
         Ok(Plot {
             _account_id: account_id,
             start_nonce,
