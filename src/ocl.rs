@@ -519,10 +519,6 @@ __kernel void reduce_best(__global unsigned long* deadlines, unsigned int length
 		best[get_group_id(0)] = best_pos[0];
 	}
 }
-        __kernel void add(__global float* buffer, float scalar) {
-            buffer[get_global_id(0)] += scalar;
-        }
-
 "##;
 
 /// Convert the info or error to a string for printing:
@@ -567,7 +563,7 @@ pub fn init_gpu(cfg: &Cfg) {
 }
 
 pub fn find_best_deadline_gpu(
-    scoops: *mut c_void,
+    scoops: *const c_void,
     nonce_count: uint64_t,
     gensig: Arc<[u8; 32]>,
     best_deadline: *mut uint64_t,
@@ -577,7 +573,7 @@ pub fn find_best_deadline_gpu(
 
     // (1) Define which platform and device(s) to use. Create a context,
     // queue, and program
-    info!("OCL: create context, queue, program, kernel...");
+
     let platform_id = core::default_platform().unwrap();
     let device_ids = core::get_device_ids(&platform_id, None, None).unwrap();
     let device_id = device_ids[0];
@@ -595,11 +591,10 @@ pub fn find_best_deadline_gpu(
     ).unwrap();
     let queue = core::create_command_queue(&context, &device_id, None).unwrap();
     let kernel1 = core::create_kernel(&program, "calculate_deadlines").unwrap();
-    let kernel2 = core::create_kernel(&program, "reduce_best").unwrap();
-    info!("OCL: prep done.");
+    //let kernel2 = core::create_kernel(&program, "reduce_best").unwrap();
 
     // (2) Define dims
-    info!("OCL: Determine work sizes...");
+
     /*get work_group_size 
 	let max_workgroup_size : usize;
 	match core::get_device_info(&device_id, DeviceInfo::MaxWorkGroupSize).unwrap() {
@@ -626,39 +621,32 @@ pub fn find_best_deadline_gpu(
         workgroup_count = workgroup_count + 1;
     }
 
-    let dims = [nc, 1, 1];
-    let dims2 = [8, 1, 1];
-
-    info!("Nonces in Chunk={}", nc);
-    info!("Kernel WorkGroupSize={}", kernel_workgroup_size);
-    info!("WorkGroupCount={}", workgroup_count);
-    info!(
-        "Total Nonce Buffer={}MiB",
-        kernel_workgroup_size * workgroup_count * 64 / 1024 / 1024
-    );
-    info!("OCL: done...");
+    let dims = [kernel_workgroup_size * workgroup_count, 1, 1];
+    let dims2 = [kernel_workgroup_size, 1, 1];
 
     // Prepare kernel 1
     let gensig_buff = vec![0u8; 32];
     let gensig_gpu = unsafe {
         core::create_buffer(&context, core::MEM_READ_ONLY, 32, Some(&gensig_buff)).unwrap()
     };
-    info!("Prepare nonce data...");
+
     //nonce data, 64 byte per nonce, read only
     let data: Vec<u8>;
     unsafe {
-        data = Vec::from_raw_parts(scoops as *mut u8, dims[0] * 64, dims[0] * 64);
+        data = Vec::from_raw_parts(scoops as *mut u8, nc * 64, nc * 64);
     }
+
+    let datatest = vec![0u8; 64 * kernel_workgroup_size * workgroup_count];
     let data_gpu = unsafe {
-        core::create_buffer(&context, core::MEM_READ_ONLY, dims[0] * 64, Some(&data)).unwrap()
+        core::create_buffer(&context, core::MEM_READ_ONLY, dims[0] * 64, Some(&datatest)).unwrap()
     };
-    info!("Prepare deadline data...");
+
     //deadlines, 64bit (8 byte) per deadline, read & write
-    let mut deadlines = vec![0u64; nc];
+    let mut deadlines = vec![0u64; kernel_workgroup_size * workgroup_count];
     let deadlines_gpu = unsafe {
         core::create_buffer(&context, core::MEM_READ_WRITE, dims[0], Some(&deadlines)).unwrap()
     };
-    info!("Define buffer uploads....");
+
     let mut event = Event::null();
     let mut event2 = Event::null();
     unsafe {
@@ -672,6 +660,7 @@ pub fn find_best_deadline_gpu(
             Some(&mut event),
         ).unwrap();
     }
+
     unsafe {
         core::enqueue_write_buffer(
             &queue,
@@ -683,11 +672,11 @@ pub fn find_best_deadline_gpu(
             Some(&mut event2),
         ).unwrap();
     }
-    info!("Define kernel args...");
+
     core::set_kernel_arg(&kernel1, 0, ArgVal::mem(&gensig_gpu)).unwrap();
     core::set_kernel_arg(&kernel1, 1, ArgVal::mem(&data_gpu)).unwrap();
     core::set_kernel_arg(&kernel1, 2, ArgVal::mem(&deadlines_gpu)).unwrap();
-    info!("Run kernel...");
+
     // Run kernel1: Calculate deadlines
     unsafe {
         // (4) Run the kernel:
@@ -715,15 +704,6 @@ pub fn find_best_deadline_gpu(
             None::<&mut Event>,
         ).unwrap();
     }
-    info!("GPU first 8 deadlines:");
-    info!("DL0: {}", deadlines[0]);
-    info!("DL1: {}", deadlines[1]);
-    info!("DL2: {}", deadlines[2]);
-    info!("DL3: {}", deadlines[3]);
-    info!("DL4: {}", deadlines[4]);
-    info!("DL5: {}", deadlines[5]);
-    info!("DL6: {}", deadlines[6]);
-    info!("DL7: {}", deadlines[7]);
 
     // cheating! I should reduce deadlines with kernel2, but didn't manage yet...
     unsafe {
@@ -733,8 +713,12 @@ pub fn find_best_deadline_gpu(
                 *best_offset = i as u64;
             }
         }
+        info!(
+            "GPU: best_deadline={}, best offset={}",
+            *best_deadline, *best_offset
+        );
     }
-	/* 
+    /* 
 	    // Prepare kernel 2
     //reduce_best(__global unsigned long* deadlines, unsigned int length, __local unsigned int* best_pos, __local unsigned long* best_deadline, __global unsigned int* best) {
     //    best_deadline: *mut uint64_t,
@@ -765,5 +749,4 @@ pub fn find_best_deadline_gpu(
         core::set_kernel_arg(&kernel2, 4, ArgVal::mem(&best_gpu)).unwrap();
     }
 	*/
-    
 }

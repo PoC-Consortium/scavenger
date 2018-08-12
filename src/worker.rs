@@ -89,11 +89,11 @@ pub fn create_worker_task(
             }
 
             //super dirty testing
-            info!("unadjusted deadline:{}", deadline);
+            info!("CPU: best_deadline={}, best offset={}", deadline, offset);
 
             //check with gpu
             ocl::find_best_deadline_gpu(
-                bs.as_ptr() as *mut c_void,
+                bs.as_ptr() as *const c_void,
                 (read_reply.len as u64 + padded as u64) / 64,
                 //read_reply.gensig.as_ptr() as *const c_void,
                 read_reply.gensig, // as *const c_void,
@@ -116,7 +116,7 @@ pub fn create_worker_task(
     }
 }
 
-fn pad(b: &mut [u8], l: usize, p: usize) -> usize {
+pub fn pad(b: &mut [u8], l: usize, p: usize) -> usize {
     let r = p - l % p;
     if r != p {
         for i in 0..r {
