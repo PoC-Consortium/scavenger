@@ -4,9 +4,10 @@
 
 extern crate ocl_core as core;
 use libc::{c_void, uint64_t};
-use std::mem;
 //use self::core::{ArgVal, ContextProperties, DeviceInfo, Event, PlatformInfo, Status};
-use self::core::{Status, Event, ArgVal, PlatformInfo, DeviceInfo, ContextProperties,KernelWorkGroupInfo}; 
+use self::core::{
+    ArgVal, ContextProperties, DeviceInfo, Event, KernelWorkGroupInfo, PlatformInfo, Status,
+};
 
 use config::Cfg;
 use std::ffi::CString;
@@ -577,7 +578,7 @@ pub fn find_best_deadline_gpu(
     // (1) Define which platform and device(s) to use. Create a context,
     // queue, and program
     info!("OCL: create context, queue, program, kernel...");
-	let platform_id = core::default_platform().unwrap();
+    let platform_id = core::default_platform().unwrap();
     let device_ids = core::get_device_ids(&platform_id, None, None).unwrap();
     let device_id = device_ids[0];
     let context_properties = ContextProperties::new().platform(platform_id);
@@ -593,87 +594,102 @@ pub fn find_best_deadline_gpu(
         None,
     ).unwrap();
     let queue = core::create_command_queue(&context, &device_id, None).unwrap();
-	let kernel1 = core::create_kernel(&program, "calculate_deadlines").unwrap();
-	let kernel2 = core::create_kernel(&program, "reduce_best").unwrap();
-	info!("OCL: prep done.");
+    let kernel1 = core::create_kernel(&program, "calculate_deadlines").unwrap();
+    let kernel2 = core::create_kernel(&program, "reduce_best").unwrap();
+    info!("OCL: prep done.");
 
     // (2) Define dims
-	info!("OCL: Determine work sizes...");
-	//get work_group_size
-	let mut max_workgroup_size : usize;
+    info!("OCL: Determine work sizes...");
+    /*get work_group_size 
+	let max_workgroup_size : usize;
 	match core::get_device_info(&device_id, DeviceInfo::MaxWorkGroupSize).unwrap() {
         core::DeviceInfoResult::MaxWorkGroupSize(max_size) => {
             max_workgroup_size = max_size;
         }
         _ => panic!("Unexpected error"),
     }
-	//get kernel size
-	let kernel_workgroup_size : usize;
-	match core::get_kernel_work_group_info(&kernel1,&device_id, KernelWorkGroupInfo::WorkGroupSize).unwrap() {
+	*/
+    //get kernel size
+    let kernel_workgroup_size: usize;
+    match core::get_kernel_work_group_info(&kernel1, &device_id, KernelWorkGroupInfo::WorkGroupSize)
+        .unwrap()
+    {
         core::KernelWorkGroupInfoResult::WorkGroupSize(kws) => {
             kernel_workgroup_size = kws;
         }
         _ => panic!("Unexpected error"),
     }
 
-    let mut nc = nonce_count as usize; 
-	let mut workgroup_count = nc / kernel_workgroup_size;
-	if nc % kernel_workgroup_size != 0 { workgroup_count =  workgroup_count + 1;}
-	
-	
-	let dims = [nc,1,1];
-    let dims2 = [8,1,1];
-	
-	info!("Nonces in Chunk={}",nc);
-	info!("Kernel WorkGroupSize={}",kernel_workgroup_size);
-	info!("WorkGroupCount={}",workgroup_count);
-	info!("Total Nonce Buffer={}MiB",kernel_workgroup_size*workgroup_count*64/1024/1024);
-	info!("OCL: done...");
+    let nc = nonce_count as usize;
+    let mut workgroup_count = nc / kernel_workgroup_size;
+    if nc % kernel_workgroup_size != 0 {
+        workgroup_count = workgroup_count + 1;
+    }
 
+    let dims = [nc, 1, 1];
+    let dims2 = [8, 1, 1];
 
-    // (2) Create a `Buffer`:
-    let mut vec = vec![0.0f32; dims[0]];
-    let buffer = unsafe {
-        core::create_buffer(
-            &context,
-            core::MEM_READ_WRITE | core::MEM_COPY_HOST_PTR,
-            dims[0],
-            Some(&vec),
-        ).unwrap()
-    };
+    info!("Nonces in Chunk={}", nc);
+    info!("Kernel WorkGroupSize={}", kernel_workgroup_size);
+    info!("WorkGroupCount={}", workgroup_count);
+    info!(
+        "Total Nonce Buffer={}MiB",
+        kernel_workgroup_size * workgroup_count * 64 / 1024 / 1024
+    );
+    info!("OCL: done...");
 
-
-    // (3) Create a kernel with arguments matching those in the source above:
-    let kernel = core::create_kernel(&program, "add").unwrap();
-    core::set_kernel_arg(&kernel, 0, ArgVal::mem(&buffer)).unwrap();
-    core::set_kernel_arg(&kernel, 1, ArgVal::scalar(&10.0f32)).unwrap();
-
-
-	// Prepare kernel 1
-    let mut gensig_buff = vec![0u8; 32];
-	let gensig_gpu = unsafe {core::create_buffer(&context,core::MEM_READ_ONLY,32,Some(&gensig_buff)).unwrap()
+    // Prepare kernel 1
+    let gensig_buff = vec![0u8; 32];
+    let gensig_gpu = unsafe {
+        core::create_buffer(&context, core::MEM_READ_ONLY, 32, Some(&gensig_buff)).unwrap()
     };
     info!("Prepare nonce data...");
-	//nonce data, 64 byte per nonce, read only
-	let data : Vec<u8>;
-    unsafe { data = Vec::from_raw_parts(scoops as *mut u8, dims[0]*64, dims[0]*64); }
-	let data_gpu = unsafe {core::create_buffer(&context,core::MEM_READ_ONLY,dims[0]*64,Some(&data)).unwrap()};
+    //nonce data, 64 byte per nonce, read only
+    let data: Vec<u8>;
+    unsafe {
+        data = Vec::from_raw_parts(scoops as *mut u8, dims[0] * 64, dims[0] * 64);
+    }
+    let data_gpu = unsafe {
+        core::create_buffer(&context, core::MEM_READ_ONLY, dims[0] * 64, Some(&data)).unwrap()
+    };
     info!("Prepare deadline data...");
-	//deadlines, 64bit (8 byte) per deadline, read & write
-	let mut deadlines = vec![0u64; nc];
-	let deadlines_gpu = unsafe {core::create_buffer(&context,core::MEM_READ_WRITE,dims[0],Some(&deadlines)).unwrap()};
+    //deadlines, 64bit (8 byte) per deadline, read & write
+    let mut deadlines = vec![0u64; nc];
+    let deadlines_gpu = unsafe {
+        core::create_buffer(&context, core::MEM_READ_WRITE, dims[0], Some(&deadlines)).unwrap()
+    };
     info!("Define buffer uploads....");
-	let mut event = Event::null();
-	let mut event2 = Event::null();
-	unsafe {core::enqueue_write_buffer(&queue, &gensig_gpu, false, 0,  &*Arc::into_raw(gensig), None::<Event>, Some(&mut event)).unwrap();}
-	unsafe {core::enqueue_write_buffer(&queue, &data_gpu, false, 0,  &data, None::<Event>, Some(&mut event2)).unwrap();	}
+    let mut event = Event::null();
+    let mut event2 = Event::null();
+    unsafe {
+        core::enqueue_write_buffer(
+            &queue,
+            &gensig_gpu,
+            false,
+            0,
+            &*Arc::into_raw(gensig),
+            None::<Event>,
+            Some(&mut event),
+        ).unwrap();
+    }
+    unsafe {
+        core::enqueue_write_buffer(
+            &queue,
+            &data_gpu,
+            false,
+            0,
+            &data,
+            None::<Event>,
+            Some(&mut event2),
+        ).unwrap();
+    }
     info!("Define kernel args...");
     core::set_kernel_arg(&kernel1, 0, ArgVal::mem(&gensig_gpu)).unwrap();
     core::set_kernel_arg(&kernel1, 1, ArgVal::mem(&data_gpu)).unwrap();
     core::set_kernel_arg(&kernel1, 2, ArgVal::mem(&deadlines_gpu)).unwrap();
     info!("Run kernel...");
-	// Run kernel 1 
-	   unsafe {
+    // Run kernel1: Calculate deadlines
+    unsafe {
         // (4) Run the kernel:
         core::enqueue_kernel(
             &queue,
@@ -685,12 +701,10 @@ pub fn find_best_deadline_gpu(
             None::<Event>,
             None::<&mut Event>,
         ).unwrap();
-		   }
+    }
 
-
-	   //stupid check to see if dls are fine
-	     // (5) Read results from the device into a vector:
-		 unsafe {
+    //debug check to see if dls are fine, remove later
+    unsafe {
         core::enqueue_read_buffer(
             &queue,
             &deadlines_gpu,
@@ -700,61 +714,56 @@ pub fn find_best_deadline_gpu(
             None::<Event>,
             None::<&mut Event>,
         ).unwrap();
-		 }
-   //info!("Deadlines in GPU: {:?}",deadlines);
-   
-    info!("GPU deadlines:");
+    }
+    info!("GPU first 8 deadlines:");
     info!("DL0: {}", deadlines[0]);
- 	info!("DL1: {}", deadlines[1]);
-  	info!("DL2: {}", deadlines[2]);
-   	info!("DL3: {}", deadlines[3]);
+    info!("DL1: {}", deadlines[1]);
+    info!("DL2: {}", deadlines[2]);
+    info!("DL3: {}", deadlines[3]);
     info!("DL4: {}", deadlines[4]);
-	info!("DL5: {}", deadlines[5]);
-	info!("DL6: {}", deadlines[6]);
-	info!("DL7: {}", deadlines[7]);
+    info!("DL5: {}", deadlines[5]);
+    info!("DL6: {}", deadlines[6]);
+    info!("DL7: {}", deadlines[7]);
 
+    // cheating! I should reduce deadlines with kernel2, but didn't manage yet...
+    unsafe {
+        for i in 0..deadlines.len() {
+            if deadlines[i] < *best_deadline {
+                *best_deadline = deadlines[i];
+                *best_offset = i as u64;
+            }
+        }
+    }
+	/* 
+	    // Prepare kernel 2
+    //reduce_best(__global unsigned long* deadlines, unsigned int length, __local unsigned int* best_pos, __local unsigned long* best_deadline, __global unsigned int* best) {
+    //    best_deadline: *mut uint64_t,
+    // best_offset: *mut uint64_t,
 
-	// Prepare kernel 2
-   //reduce_best(__global unsigned long* deadlines, unsigned int length, __local unsigned int* best_pos, __local unsigned long* best_deadline, __global unsigned int* best) {
+    let best_buff = vec![0u8; 400];
+    let best_gpu = unsafe {
+        core::create_buffer(&context, core::MEM_WRITE_ONLY, 400, Some(&best_buff)).unwrap()
+    };
 
-  // info!("Deadlines in GPU: {}",dl1);
-  
-   // core::set_kernel_arg(&kernel2, 0, ArgVal::mem(&gpu_mem)).unwrap();
-   // core::set_kernel_arg(&kernel2, 1, ArgVal::scalar(nc)).unwrap();
-   // core::set_kernel_arg(&kernel2, 2, ArgVal::mem(&deadlines_gpu)).unwrap();
-   // core::set_kernel_arg(&kernel2, 3, ArgVal::mem(&deadlines_gpu)).unwrap();
-//	core::set_kernel_arg(&kernel2, 4, ArgVal::mem(&deadlines_gpu)).unwrap();
-	// Run kernel 2 
-	
-
-
-
+    let nc2: u32;
+    nc2 = nc as u32;
+    let bestdl_gpu = vec![0u8; 4 * 8];
+    let best_deadline_gpu = unsafe {
+        core::create_buffer(&context, core::MEM_WRITE_ONLY, 4 * 8, Some(&bestdl_gpu)).unwrap()
+    };
 
     unsafe {
-        // (4) Run the kernel:
-        core::enqueue_kernel(
-            &queue,
-            &kernel,
-            1,
-            None,
-            &dims,
-            None,
-            None::<Event>,
-            None::<&mut Event>,
-        ).unwrap();
-
-        // (5) Read results from the device into a vector:
-        core::enqueue_read_buffer(
-            &queue,
-            &buffer,
-            true,
-            0,
-            &mut vec,
-            None::<Event>,
-            None::<&mut Event>,
-        ).unwrap();
+        info!("Arg1");
+        core::set_kernel_arg(&kernel2, 0, ArgVal::mem(&data_gpu)).unwrap();
+        info!("Arg2");
+        core::set_kernel_arg(&kernel2, 1, ArgVal::scalar(&nc2)).unwrap();
+        info!("Arg3");
+        core::set_kernel_arg(&kernel2, 2, ArgVal::mem(&best_deadline_gpu)).unwrap();
+        info!("Arg4");
+        core::set_kernel_arg(&kernel2, 3, ArgVal::scalar(&*best_deadline)).unwrap();
+        info!("Arg5");
+        core::set_kernel_arg(&kernel2, 4, ArgVal::mem(&best_gpu)).unwrap();
     }
-
-    // Print an element:
-    warn!("The value at index [{}] is now '{}'!", 4, vec[4]);;
+	*/
+    
 }
