@@ -2,7 +2,7 @@ secret_phrase: 'glad suffer red during single glow shut slam hill death lust alt
 account_id: 10282355196851764065
 plot_dirs:
   - 'test_data'
-#  - 'C:\first\windows\plot\dir'
+ # - 'D:\plot'
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'

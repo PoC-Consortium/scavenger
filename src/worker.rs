@@ -57,6 +57,7 @@ pub fn create_worker_task(
 
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
+
             let padded = pad(&mut bs, read_reply.len, 8 * 64);
             /*
             unsafe {
@@ -87,11 +88,25 @@ pub fn create_worker_task(
                 }
             }
 			*/
-            //dirty testing
+            //super dirty testing
+            //calculate dl with avx2 as reference
+             unsafe {
+                    find_best_deadline_avx2(
+                        bs.as_ptr() as *mut c_void,
+                        (read_reply.len as u64 + padded as u64) / 64,
+                        read_reply.gensig.as_ptr() as *const c_void,
+                        &mut deadline,
+                        &mut offset,
+                    );
+             }
+            info!("unadjusted deadline AVX2:{}",deadline);
+            
+            //check with gpu
             ocl::find_best_deadline_gpu(
                 bs.as_ptr() as *mut c_void,
                 (read_reply.len as u64 + padded as u64) / 64,
-                read_reply.gensig.as_ptr() as *const c_void,
+                //read_reply.gensig.as_ptr() as *const c_void,
+                read_reply.gensig,// as *const c_void,
                 &mut deadline,
                 &mut offset,
             );
