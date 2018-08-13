@@ -1,10 +1,10 @@
 extern crate cc;
 
 fn main() {
-    let mut config = cc::Build::new();
+    let mut shared_config = cc::Build::new();
 
     #[cfg(target_env = "msvc")]
-    config
+    shared_config
         .flag("/O2")
         .flag("/Oi")
         .flag("/Ot")
@@ -13,7 +13,9 @@ fn main() {
         .flag("/GL");
 
     #[cfg(not(target_env = "msvc"))]
-    config.flag("-std=c99").flag("-mtune=native");
+    shared_config.flag("-std=c99").flag("-mtune=native");
+
+    let mut config = shared_config.clone();
 
     config
         .file("src/c/sph_shabal.c")
@@ -22,7 +24,7 @@ fn main() {
         .file("src/c/shabal_avx.c")
         .compile("shabal");
 
-    let mut config = cc::Build::new();
+    let mut config = shared_config.clone();
 
     #[cfg(target_env = "msvc")]
     config.flag("/arch:AVX2");
