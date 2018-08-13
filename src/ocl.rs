@@ -11,7 +11,9 @@ use self::core::{
 
 use config::Cfg;
 use std::ffi::CString;
+use std::mem;
 use std::sync::Arc;
+use std::u64;
 
 static SRC: &'static str = r##"
 typedef unsigned int sph_u32;
@@ -604,6 +606,7 @@ pub fn find_best_deadline_gpu(
         _ => panic!("Unexpected error"),
     }
 	*/
+
     //get kernel size
     let kernel_workgroup_size: usize;
     match core::get_kernel_work_group_info(&kernel1, &device_id, KernelWorkGroupInfo::WorkGroupSize)
@@ -648,7 +651,9 @@ pub fn find_best_deadline_gpu(
     };
 
     let mut event = Event::null();
+
     let mut event2 = Event::null();
+
     unsafe {
         core::enqueue_write_buffer(
             &queue,
@@ -692,7 +697,7 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    //debug check to see if dls are fine, remove later
+    //Download Dls to check if they are fine, To be removed
     unsafe {
         core::enqueue_read_buffer(
             &queue,
@@ -705,7 +710,7 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    // cheating! I should reduce deadlines with kernel2, but didn't manage yet...
+    // cheating! I should reduce deadlines with kernel2, but had not time for this yet....
     unsafe {
         for i in 0..deadlines.len() {
             if deadlines[i] < *best_deadline {
@@ -713,15 +718,12 @@ pub fn find_best_deadline_gpu(
                 *best_offset = i as u64;
             }
         }
-        info!(
-            "GPU: best_deadline={}, best offset={}",
-            *best_deadline, *best_offset
-        );
     }
+
     /* 
-	    // Prepare kernel 2
-    //reduce_best(__global unsigned long* deadlines, unsigned int length, __local unsigned int* best_pos, __local unsigned long* best_deadline, __global unsigned int* best) {
-    //    best_deadline: *mut uint64_t,
+	// Prepare kernel 2
+    // reduce_best(__global unsigned long* deadlines, unsigned int length, __local unsigned int* best_pos, __local unsigned long* best_deadline, __global unsigned int* best) {
+    // best_deadline: *mut uint64_t,
     // best_offset: *mut uint64_t,
 
     let best_buff = vec![0u8; 400];
@@ -749,4 +751,7 @@ pub fn find_best_deadline_gpu(
         core::set_kernel_arg(&kernel2, 4, ArgVal::mem(&best_gpu)).unwrap();
     }
 	*/
+
+    //Die Zeit heilt Wunden doch vergessen kann ich nicht...
+    mem::forget(data);
 }

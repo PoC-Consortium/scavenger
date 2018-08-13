@@ -89,17 +89,25 @@ pub fn create_worker_task(
             }
 
             //super dirty testing
-            info!("CPU: best_deadline={}, best offset={}", deadline, offset);
+            //info!("CPU: best_deadline={}, best offset={}", deadline, offset);
 
-            //check with gpu
+            //clean deadline and offset
+            let backup = deadline;
+            deadline = u64::MAX;
+            offset = 0;
+
+            //calc with gpu
             ocl::find_best_deadline_gpu(
                 bs.as_ptr() as *const c_void,
                 (read_reply.len as u64 + padded as u64) / 64,
                 //read_reply.gensig.as_ptr() as *const c_void,
-                read_reply.gensig, // as *const c_void,
+                read_reply.gensig.clone(), // as *const c_void,
                 &mut deadline,
                 &mut offset,
             );
+
+            //info!("GPU: best_deadline={}, best offset={}", deadline, offset);
+            assert!(backup == deadline, "GPU<>CPU");
 
             tx_nonce_data
                 .clone()
@@ -108,8 +116,7 @@ pub fn create_worker_task(
                     deadline,
                     nonce: offset + read_reply.start_nonce,
                     reader_task_processed: read_reply.finished,
-                })
-                .wait()
+                }).wait()
                 .expect("failed to send nonce data");
             tx_empty_buffers.send(buffer.clone());
         }
