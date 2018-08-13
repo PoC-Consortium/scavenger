@@ -40,10 +40,8 @@ typedef mshabal_u32 u32;
 #define T32(x) ((x)&C32(0xFFFFFFFF))
 #define ROTL32(x, n) T32(((x) << (n)) | ((x) >> (32 - (n))))
 
-static void simd128_mshabal_compress(mshabal_context* sc,
-                                     const unsigned char* buf0,
-                                     const unsigned char* buf1,
-                                     const unsigned char* buf2,
+static void simd128_mshabal_compress(mshabal_context* sc, const unsigned char* buf0,
+                                     const unsigned char* buf1, const unsigned char* buf2,
                                      const unsigned char* buf3, size_t num) {
 #ifdef __AVX__
 #ifdef _MSC_VER
@@ -82,22 +80,20 @@ static void simd128_mshabal_compress(mshabal_context* sc,
         A[1] = _mm_xor_si128(A[1], _mm_set1_epi32(sc->Whigh));
 
         for (j = 0; j < 16; j++)
-            B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17),
-                                _mm_srli_epi32(B[j], 15));
+            B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17), _mm_srli_epi32(B[j], 15));
 
-#define PP(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                             \
-    do {                                                                     \
-        __m128i tt;                                                          \
-        tt = _mm_or_si128(_mm_slli_epi32(xa1, 15), _mm_srli_epi32(xa1, 17)); \
-        tt = _mm_add_epi32(_mm_slli_epi32(tt, 2), tt);                       \
-        tt = _mm_xor_si128(_mm_xor_si128(xa0, tt), xc);                      \
-        tt = _mm_add_epi32(_mm_slli_epi32(tt, 1), tt);                       \
-        tt = _mm_xor_si128(_mm_xor_si128(tt, xb1),                           \
-                           _mm_xor_si128(_mm_andnot_si128(xb3, xb2), xm));   \
-        xa0 = tt;                                                            \
-        tt = xb0;                                                            \
-        tt = _mm_or_si128(_mm_slli_epi32(tt, 1), _mm_srli_epi32(tt, 31));    \
-        xb0 = _mm_xor_si128(tt, _mm_xor_si128(xa0, one));                    \
+#define PP(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                                                   \
+    do {                                                                                           \
+        __m128i tt;                                                                                \
+        tt = _mm_or_si128(_mm_slli_epi32(xa1, 15), _mm_srli_epi32(xa1, 17));                       \
+        tt = _mm_add_epi32(_mm_slli_epi32(tt, 2), tt);                                             \
+        tt = _mm_xor_si128(_mm_xor_si128(xa0, tt), xc);                                            \
+        tt = _mm_add_epi32(_mm_slli_epi32(tt, 1), tt);                                             \
+        tt = _mm_xor_si128(_mm_xor_si128(tt, xb1), _mm_xor_si128(_mm_andnot_si128(xb3, xb2), xm)); \
+        xa0 = tt;                                                                                  \
+        tt = xb0;                                                                                  \
+        tt = _mm_or_si128(_mm_slli_epi32(tt, 1), _mm_srli_epi32(tt, 31));                          \
+        xb0 = _mm_xor_si128(tt, _mm_xor_si128(xa0, one));                                          \
     } while (0)
 
         PP(A[0x0], A[0xB], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
@@ -267,8 +263,8 @@ void simd128_mshabal_init(mshabal_context* sc, unsigned out_size) {
 }
 
 /* see shabal_small.h */
-void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1,
-                     const void* data2, const void* data3, size_t len) {
+void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1, const void* data2,
+                     const void* data3, size_t len) {
     size_t ptr, num;
     ptr = sc->ptr;
     if (ptr != 0) {
@@ -285,8 +281,7 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1,
             memcpy(sc->buf1 + ptr, data1, clen);
             memcpy(sc->buf2 + ptr, data2, clen);
             memcpy(sc->buf3 + ptr, data3, clen);
-            simd128_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3,
-                                     1);
+            simd128_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
             data0 = (const unsigned char*)data0 + clen;
             data1 = (const unsigned char*)data1 + clen;
             data2 = (const unsigned char*)data2 + clen;
@@ -297,9 +292,8 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1,
 
     num = 1;
     if (num != 0) {
-        simd128_mshabal_compress(
-            sc, (const unsigned char*)data0, (const unsigned char*)data1,
-            (const unsigned char*)data2, (const unsigned char*)data3, num);
+        simd128_mshabal_compress(sc, (const unsigned char*)data0, (const unsigned char*)data1,
+                                 (const unsigned char*)data2, (const unsigned char*)data3, num);
         sc->xbuf0 = (unsigned char*)data0 + (num << 6);
         sc->xbuf1 = (unsigned char*)data1 + (num << 6);
         sc->xbuf2 = (unsigned char*)data2 + (num << 6);
@@ -309,8 +303,8 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1,
     sc->ptr = len;
 }
 
-static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1,
-                                          void* u2, size_t num) {
+static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1, void* u2,
+                                          size_t num) {
 #ifdef __AVX__
 #ifdef _MSC_VER
     _mm256_zeroupper();
@@ -341,22 +335,20 @@ static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1,
         A[1] = _mm_xor_si128(A[1], _mm_set1_epi32(sc->Whigh));
 
         for (j = 0; j < 16; j++)
-            B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17),
-                                _mm_srli_epi32(B[j], 15));
+            B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17), _mm_srli_epi32(B[j], 15));
 
-#define PP(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                             \
-    do {                                                                     \
-        __m128i tt;                                                          \
-        tt = _mm_or_si128(_mm_slli_epi32(xa1, 15), _mm_srli_epi32(xa1, 17)); \
-        tt = _mm_add_epi32(_mm_slli_epi32(tt, 2), tt);                       \
-        tt = _mm_xor_si128(_mm_xor_si128(xa0, tt), xc);                      \
-        tt = _mm_add_epi32(_mm_slli_epi32(tt, 1), tt);                       \
-        tt = _mm_xor_si128(_mm_xor_si128(tt, xb1),                           \
-                           _mm_xor_si128(_mm_andnot_si128(xb3, xb2), xm));   \
-        xa0 = tt;                                                            \
-        tt = xb0;                                                            \
-        tt = _mm_or_si128(_mm_slli_epi32(tt, 1), _mm_srli_epi32(tt, 31));    \
-        xb0 = _mm_xor_si128(tt, _mm_xor_si128(xa0, one));                    \
+#define PP(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                                                   \
+    do {                                                                                           \
+        __m128i tt;                                                                                \
+        tt = _mm_or_si128(_mm_slli_epi32(xa1, 15), _mm_srli_epi32(xa1, 17));                       \
+        tt = _mm_add_epi32(_mm_slli_epi32(tt, 2), tt);                                             \
+        tt = _mm_xor_si128(_mm_xor_si128(xa0, tt), xc);                                            \
+        tt = _mm_add_epi32(_mm_slli_epi32(tt, 1), tt);                                             \
+        tt = _mm_xor_si128(_mm_xor_si128(tt, xb1), _mm_xor_si128(_mm_andnot_si128(xb3, xb2), xm)); \
+        xa0 = tt;                                                                                  \
+        tt = xb0;                                                                                  \
+        tt = _mm_or_si128(_mm_slli_epi32(tt, 1), _mm_srli_epi32(tt, 31));                          \
+        xb0 = _mm_xor_si128(tt, _mm_xor_si128(xa0, one));                                          \
     } while (0)
 
         PP(A[0x0], A[0xB], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
@@ -484,8 +476,7 @@ static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1,
         A[1] = _mm_xor_si128(A[1], _mm_set1_epi32(sc->Whigh));
 
         for (j = 0; j < 16; j++)
-            B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17),
-                                _mm_srli_epi32(B[j], 15));
+            B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17), _mm_srli_epi32(B[j], 15));
 
         PP(A[0x0], A[0xB], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M2(0x0));
         PP(A[0x1], A[0x0], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M2(0x1));
@@ -605,9 +596,8 @@ static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1,
     }
 }
 
-void simd128_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1,
-                                    void* u2, void* dst0, void* dst1,
-                                    void* dst2, void* dst3) {
+void simd128_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0,
+                                    void* dst1, void* dst2, void* dst3) {
     unsigned z, off, out_size_w32;
     // run shabal
     simd128_mshabal_compress_fast(sc, u1, u2, 1);

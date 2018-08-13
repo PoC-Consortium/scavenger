@@ -1027,8 +1027,7 @@ typedef long long sph_s64;
 /*
  * 64-bit Sparc architecture (implies v9).
  */
-#elif ((defined __sparc__ || defined __sparc) && defined __arch64__) || \
-    defined __sparcv9
+#elif ((defined __sparc__ || defined __sparc) && defined __arch64__) || defined __sparcv9
 
 #define SPH_DETECT_BIG_ENDIAN 1
 #define SPH_DETECT_UPTR sph_u64
@@ -1040,8 +1039,7 @@ typedef long long sph_s64;
 /*
  * 32-bit Sparc.
  */
-#elif (defined __sparc__ || defined __sparc) && \
-    !(defined __sparcv9 || defined __arch64__)
+#elif (defined __sparc__ || defined __sparc) && !(defined __sparcv9 || defined __arch64__)
 
 #define SPH_DETECT_BIG_ENDIAN 1
 #define SPH_DETECT_UPTR sph_u32
@@ -1074,8 +1072,7 @@ typedef long long sph_s64;
 /*
  * PowerPC.
  */
-#elif defined __powerpc__ || defined __POWERPC__ || defined __ppc__ || \
-    defined _ARCH_PPC
+#elif defined __powerpc__ || defined __POWERPC__ || defined __ppc__ || defined _ARCH_PPC
 
 /*
  * Note: we do not declare cross-endian access to be "fast": even if
@@ -1100,8 +1097,7 @@ typedef long long sph_s64;
 /*
  * Itanium, 64-bit.
  */
-#elif defined __ia64 || defined __ia64__ || defined __itanium__ || \
-    defined _M_IA64
+#elif defined __ia64 || defined __ia64__ || defined __itanium__ || defined _M_IA64
 
 #if defined __BIG_ENDIAN__ || defined _BIG_ENDIAN
 #define SPH_DETECT_BIG_ENDIAN 1
@@ -1192,8 +1188,7 @@ static SPH_INLINE sph_u32 sph_bswap32(sph_u32 x) {
 #if SPH_64
 
 static SPH_INLINE sph_u64 sph_bswap64(sph_u64 x) {
-    return ((sph_u64)sph_bswap32((sph_u32)x) << 32) |
-           (sph_u64)sph_bswap32((sph_u32)(x >> 32));
+    return ((sph_u64)sph_bswap32((sph_u32)x) << 32) | (sph_u64)sph_bswap32((sph_u32)(x >> 32));
 }
 
 #endif
@@ -1270,10 +1265,8 @@ static SPH_INLINE sph_u32 sph_bswap32(sph_u32 x) {
  */
 static SPH_INLINE sph_u64 sph_bswap64(sph_u64 x) {
     x = SPH_T64((x << 32) | (x >> 32));
-    x = ((x & SPH_C64(0xFFFF0000FFFF0000)) >> 16) |
-        ((x & SPH_C64(0x0000FFFF0000FFFF)) << 16);
-    x = ((x & SPH_C64(0xFF00FF00FF00FF00)) >> 8) |
-        ((x & SPH_C64(0x00FF00FF00FF00FF)) << 8);
+    x = ((x & SPH_C64(0xFFFF0000FFFF0000)) >> 16) | ((x & SPH_C64(0x0000FFFF0000FFFF)) << 16);
+    x = ((x & SPH_C64(0xFF00FF00FF00FF00)) >> 8) | ((x & SPH_C64(0x00FF00FF00FF00FF)) << 8);
     return x;
 }
 
@@ -1299,21 +1292,17 @@ static SPH_INLINE sph_u64 sph_bswap64(sph_u64 x) {
  * assembly.
  */
 
-#define SPH_SPARCV9_SET_ASI                                  \
-    sph_u32 sph_sparcv9_asi;                                 \
-    __asm__ __volatile__("rd %%asi,%0\n\twr %%g0,0x88,%%asi" \
-                         : "=r"(sph_sparcv9_asi));
+#define SPH_SPARCV9_SET_ASI  \
+    sph_u32 sph_sparcv9_asi; \
+    __asm__ __volatile__("rd %%asi,%0\n\twr %%g0,0x88,%%asi" : "=r"(sph_sparcv9_asi));
 
-#define SPH_SPARCV9_RESET_ASI \
-    __asm__ __volatile__("wr %%g0,%0,%%asi" : : "r"(sph_sparcv9_asi));
+#define SPH_SPARCV9_RESET_ASI __asm__ __volatile__("wr %%g0,%0,%%asi" : : "r"(sph_sparcv9_asi));
 
-#define SPH_SPARCV9_DEC32LE(base, idx)                     \
-    ({                                                     \
-        sph_u32 sph_sparcv9_tmp;                           \
-        __asm__ __volatile__("lda [%1+" #idx "*4]%%asi,%0" \
-                             : "=r"(sph_sparcv9_tmp)       \
-                             : "r"(base));                 \
-        sph_sparcv9_tmp;                                   \
+#define SPH_SPARCV9_DEC32LE(base, idx)                                                           \
+    ({                                                                                           \
+        sph_u32 sph_sparcv9_tmp;                                                                 \
+        __asm__ __volatile__("lda [%1+" #idx "*4]%%asi,%0" : "=r"(sph_sparcv9_tmp) : "r"(base)); \
+        sph_sparcv9_tmp;                                                                         \
     })
 
 #endif

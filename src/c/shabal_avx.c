@@ -1,13 +1,14 @@
-#include "shabal_sse2.h"
+#include "shabal_avx.h"
+#include <immintrin.h>
 #include <string.h>
-#include <x86intrin.h>
 #include "common.h"
 #include "mshabal.h"
 
+// context for 4-dimensional shabal (128bit)
 mshabal_context global_128;
 mshabal_context_fast global_128_fast;
 
-void init_shabal_sse2() {
+void init_shabal_avx() {
     simd128_mshabal_init(&global_128, 256);
     global_128_fast.out_size = global_128.out_size;
     for (int i = 0; i < 176; i++) global_128_fast.state[i] = global_128.state[i];
@@ -15,8 +16,8 @@ void init_shabal_sse2() {
     global_128_fast.Wlow = global_128.Wlow;
 }
 
-void find_best_deadline_sse2(char* scoops, uint64_t nonce_count, char* gensig,
-                             uint64_t* best_deadline, uint64_t* best_offset) {
+void find_best_deadline_avx(char* scoops, uint64_t nonce_count, char* gensig,
+                            uint64_t* best_deadline, uint64_t* best_offset) {
     uint64_t d0 = 0, d1 = 0, d2 = 0, d3 = 0;
     char end[32];
 

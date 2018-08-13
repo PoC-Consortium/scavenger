@@ -105,10 +105,9 @@ void mshabal256_init(mshabal256_context* sc);
  * corresponding instance is deactivated (the final value obtained from
  * that instance is undefined).
  */
-void mshabal256(mshabal256_context* sc, const void* data0, const void* data1,
-                const void* data2, const void* data3, const void* data4,
-                const void* data5, const void* data6, const void* data7,
-                size_t len);
+void mshabal256(mshabal256_context* sc, const void* data0, const void* data1, const void* data2,
+                const void* data3, const void* data4, const void* data5, const void* data6,
+                const void* data7, size_t len);
 
 /*
  * Terminate the Shabal computation incarnated by the provided context
@@ -133,9 +132,9 @@ void mshabal256(mshabal256_context* sc, const void* data0, const void* data1,
  * mshabal256_close() function does NOT imply a hidden call to
  * mshabal256_init().
  */
-void mshabal256_close(mshabal256_context* sc, uint32_t* dst0, uint32_t* dst1,
-                      uint32_t* dst2, uint32_t* dst3, uint32_t* dst4,
-                      uint32_t* dst5, uint32_t* dst6, uint32_t* dst7);
+void mshabal256_close(mshabal256_context* sc, uint32_t* dst0, uint32_t* dst1, uint32_t* dst2,
+                      uint32_t* dst3, uint32_t* dst4, uint32_t* dst5, uint32_t* dst6,
+                      uint32_t* dst7);
 
 #ifdef __cplusplus
 }

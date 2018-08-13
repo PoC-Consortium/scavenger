@@ -10,23 +10,27 @@ fn main() {
         .flag("/Ot")
         .flag("/Oy")
         .flag("/GT")
-        .flag("/GL")
-        .flag("/arch:AVX2");
+        .flag("/GL");
+
     #[cfg(not(target_env = "msvc"))]
     config.flag("-std=c99").flag("-mtune=native");
 
     config
         .file("src/c/sph_shabal.c")
-        .file("src/c/mshabal_128.c");
+        .file("src/c/mshabal_128.c")
+        .file("src/c/shabal_sse2.c")
+        .file("src/c/shabal_avx.c")
+        .compile("shabal.a");
 
-    if is_x86_feature_detected!("avx") {
-        #[cfg(not(target_env = "msvc"))]
-        config.flag("-mavx2");
+    #[cfg(target_env = "msvc")]
+    config.flag("/arch:AVX2");
 
-        config.file("src/c/mshabal_256.c").file("src/c/shabal.c");
-    } else {
-        config.file("src/c/shabal_sse2.c");
-    }
+    #[cfg(not(target_env = "msvc"))]
+    config.flag("-mavx2");
 
-    config.compile("libshabal.a");
+    config
+        .clone()
+        .file("src/c/mshabal_256.c")
+        .file("src/c/shabal_avx2.c")
+        .compile("shabal_avx2.a");
 }
