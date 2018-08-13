@@ -13,7 +13,7 @@ fn main() {
         .flag("/GL")
         .flag("/arch:AVX2");
     #[cfg(not(target_env = "msvc"))]
-    config.flag("-std=c99").flag("-march=native");
+    config.flag("-std=c99").flag("-mtune=native");
 
     config
         .file("src/c/sph_shabal.c")
