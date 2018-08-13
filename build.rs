@@ -20,7 +20,7 @@ fn main() {
         .file("src/c/mshabal_128.c")
         .file("src/c/shabal_sse2.c")
         .file("src/c/shabal_avx.c")
-        .compile("shabal.a");
+        .compile("shabal");
 
     #[cfg(target_env = "msvc")]
     config.flag("/arch:AVX2");
@@ -32,5 +32,5 @@ fn main() {
         .clone()
         .file("src/c/mshabal_256.c")
         .file("src/c/shabal_avx2.c")
-        .compile("shabal_avx2.a");
+        .compile("shabal_avx2");
 }
