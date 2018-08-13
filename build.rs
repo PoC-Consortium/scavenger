@@ -22,6 +22,8 @@ fn main() {
         .file("src/c/shabal_avx.c")
         .compile("shabal");
 
+    let mut config = cc::Build::new();
+
     #[cfg(target_env = "msvc")]
     config.flag("/arch:AVX2");
 
@@ -29,7 +31,6 @@ fn main() {
     config.flag("-mavx2");
 
     config
-        .clone()
         .file("src/c/mshabal_256.c")
         .file("src/c/shabal_avx2.c")
         .compile("shabal_avx2");
