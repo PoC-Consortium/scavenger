@@ -711,6 +711,7 @@ pub fn find_best_deadline_gpu(
     }
 
     // cheating! I should reduce deadlines with kernel2, but had not time for this yet....
+
     unsafe {
         for i in 0..deadlines.len() {
             if deadlines[i] < *best_deadline {

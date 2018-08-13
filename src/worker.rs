@@ -59,7 +59,7 @@ pub fn create_worker_task(
             let mut offset: u64 = 0;
 
             let padded = pad(&mut bs, read_reply.len, 8 * 64);
-
+            /*
             unsafe {
                 if is_x86_feature_detected!("avx2") {
                     find_best_deadline_avx2(
@@ -87,7 +87,7 @@ pub fn create_worker_task(
                     );
                 }
             }
-
+*/
             //super dirty testing
             //info!("CPU: best_deadline={}, best offset={}", deadline, offset);
 
@@ -107,7 +107,7 @@ pub fn create_worker_task(
             );
 
             //info!("GPU: best_deadline={}, best offset={}", deadline, offset);
-            assert!(backup == deadline, "GPU<>CPU");
+            // assert!(backup == deadline, "GPU<>CPU");
 
             tx_nonce_data
                 .clone()
