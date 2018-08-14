@@ -1,4 +1,6 @@
  <img align="right" src="https://i.imgur.com/LG63EqK.png" height="200">
+ 
+ [![Build Status](https://travis-ci.org/PoC-Consortium/scavenger.svg?branch=master)](https://travis-ci.org/PoC-Consortium/scavenger)
 
 # Scavenger - Burstminer in Rust
 
@@ -26,20 +28,6 @@ cargo build --release
 
 # test
 cargo test
-```
-
-If you get an **illegal instruction** error when you run the miner after building it yourself you can try
-to add a **-O2 flag** in the **build.rs** file:
-
-``` rust
-config
-    .file("src/c/mshabal_128.c")
-    .file("src/c/mshabal_256.c")
-    .file("src/c/shabal.c")
-    .flag("-mavx2")
-    .flag("-std=c99")
-    .flag("-O2")
-    .compile("libshabal.a");
 ```
 
 ### Run
@@ -95,6 +83,9 @@ timeout: 5000  # default 5000ms
 
 # delay after disks will be woken up (if 0 no wakeup) [s]
 wakeup_after: 240  # default 240s
+
+# pin worker threads to cpu cores
+cpu_thread_pinning: false # pin worker threads to cpu cores | default false
 ```
 
 ### Donate 

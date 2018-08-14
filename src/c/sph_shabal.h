@@ -115,8 +115,7 @@ void sph_shabal256_close(void* cc, void* dst);
  * @param n     the number of extra bits (0 to 7)
  * @param dst   the destination buffer
  */
-void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n,
-                                     void* dst);
+void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n, void* dst);
 
 #ifdef __cplusplus
 }

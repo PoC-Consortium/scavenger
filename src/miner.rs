@@ -3,6 +3,7 @@ extern crate num_cpus;
 use burstmath;
 use chan;
 use config::Cfg;
+use core_affinity;
 use futures::sync::mpsc;
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
@@ -114,8 +115,9 @@ impl Miner {
             cfg.reader_thread_count
         };
 
+        let cpu_core_count = num_cpus::get();
         let worker_thread_count = if cfg.worker_thread_count == 0 {
-            num_cpus::get() + 1
+            cpu_core_count + 1
         } else {
             cfg.worker_thread_count
         };
@@ -130,13 +132,21 @@ impl Miner {
             tx_empty_buffers.send(Arc::new(Mutex::new(vec![0; buffer_size])));
         }
 
+        let core_ids = core_affinity::get_core_ids().unwrap();
         let (tx_nonce_data, rx_nonce_data) = mpsc::channel(worker_thread_count);
-        for _ in 0..worker_thread_count {
-            thread::spawn(create_worker_task(
-                rx_read_replies.clone(),
-                tx_empty_buffers.clone(),
-                tx_nonce_data.clone(),
-            ));
+        for id in 0..worker_thread_count {
+            let core_id = core_ids[id % core_ids.len()];
+            thread::spawn({
+                if cfg.cpu_thread_pinning {
+                    core_affinity::set_for_current(core_id);
+                }
+
+                create_worker_task(
+                    rx_read_replies.clone(),
+                    tx_empty_buffers.clone(),
+                    tx_nonce_data.clone(),
+                )
+            });
         }
 
         let core = Core::new().unwrap();
@@ -272,7 +282,6 @@ impl Miner {
 
 #[cfg(test)]
 mod test {
-    use super::*;
 
     #[test]
     fn test_new_miner() {}

@@ -51,7 +51,7 @@ cfg_if! {
 }
 
 impl Plot {
-    pub fn new(path: &PathBuf, use_direct_io: bool) -> Result<Plot, Box<Error>> {
+    pub fn new(path: &PathBuf, mut use_direct_io: bool) -> Result<Plot, Box<Error>> {
         if !path.is_file() {
             return Err(From::from(format!(
                 "{} is not a file",
@@ -84,7 +84,15 @@ impl Plot {
             File::open(path)?
         };
 
-        info!("valid plot file: {}", plot_file);
+        let plot_file_name = plot_file.to_string();
+        let sector_size = get_sector_size(&path.to_str().unwrap().to_owned());
+        if use_direct_io && sector_size / 64 > nonces {
+            warn!(
+                "not enough nonces for using direct io: plot={}",
+                plot_file_name
+            );
+            use_direct_io = false;
+        }
 
         Ok(Plot {
             _account_id: account_id,
@@ -93,8 +101,8 @@ impl Plot {
             fh,
             read_offset: 0,
             use_direct_io,
-            sector_size: get_sector_size(&path.to_str().unwrap().to_owned()),
-            name: plot_file.to_string(),
+            sector_size,
+            name: plot_file_name,
         })
     }
 

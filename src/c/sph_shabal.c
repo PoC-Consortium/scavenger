@@ -260,11 +260,11 @@
         SWAP(BF, CF); \
     } while (0)
 
-#define PERM_ELT(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                        \
-    do {                                                                      \
-        xa0 = SPH_T32((xa0 ^ (((xa1 << 15) | (xa1 >> 17)) * 5U) ^ xc) * 3U) ^ \
-              xb1 ^ (xb2 & ~xb3) ^ xm;                                        \
-        xb0 = SPH_T32(~(((xb0 << 1) | (xb0 >> 31)) ^ xa0));                   \
+#define PERM_ELT(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                                             \
+    do {                                                                                           \
+        xa0 = SPH_T32((xa0 ^ (((xa1 << 15) | (xa1 >> 17)) * 5U) ^ xc) * 3U) ^ xb1 ^ (xb2 & ~xb3) ^ \
+              xm;                                                                                  \
+        xb0 = SPH_T32(~(((xb0 << 1) | (xb0 >> 31)) ^ xa0));                                        \
     } while (0)
 
 #define PERM_STEP_0                                 \
@@ -391,27 +391,22 @@
         if ((Wlow = SPH_T32(Wlow + 1)) == 0) Whigh = SPH_T32(Whigh + 1); \
     } while (0)
 
-static const sph_u32 A_init_256[] = {
-    SPH_C32(0x52F84552), SPH_C32(0xE54B7999), SPH_C32(0x2D8EE3EC),
-    SPH_C32(0xB9645191), SPH_C32(0xE0078B86), SPH_C32(0xBB7C44C9),
-    SPH_C32(0xD2B5C1CA), SPH_C32(0xB0D2EB8C), SPH_C32(0x14CE5A45),
-    SPH_C32(0x22AF50DC), SPH_C32(0xEFFDBC6B), SPH_C32(0xEB21B74A)};
+static const sph_u32 A_init_256[] = {SPH_C32(0x52F84552), SPH_C32(0xE54B7999), SPH_C32(0x2D8EE3EC),
+                                     SPH_C32(0xB9645191), SPH_C32(0xE0078B86), SPH_C32(0xBB7C44C9),
+                                     SPH_C32(0xD2B5C1CA), SPH_C32(0xB0D2EB8C), SPH_C32(0x14CE5A45),
+                                     SPH_C32(0x22AF50DC), SPH_C32(0xEFFDBC6B), SPH_C32(0xEB21B74A)};
 
 static const sph_u32 B_init_256[] = {
-    SPH_C32(0xB555C6EE), SPH_C32(0x3E710596), SPH_C32(0xA72A652F),
-    SPH_C32(0x9301515F), SPH_C32(0xDA28C1FA), SPH_C32(0x696FD868),
-    SPH_C32(0x9CB6BF72), SPH_C32(0x0AFE4002), SPH_C32(0xA6E03615),
-    SPH_C32(0x5138C1D4), SPH_C32(0xBE216306), SPH_C32(0xB38B8890),
-    SPH_C32(0x3EA8B96B), SPH_C32(0x3299ACE4), SPH_C32(0x30924DD4),
-    SPH_C32(0x55CB34A5)};
+    SPH_C32(0xB555C6EE), SPH_C32(0x3E710596), SPH_C32(0xA72A652F), SPH_C32(0x9301515F),
+    SPH_C32(0xDA28C1FA), SPH_C32(0x696FD868), SPH_C32(0x9CB6BF72), SPH_C32(0x0AFE4002),
+    SPH_C32(0xA6E03615), SPH_C32(0x5138C1D4), SPH_C32(0xBE216306), SPH_C32(0xB38B8890),
+    SPH_C32(0x3EA8B96B), SPH_C32(0x3299ACE4), SPH_C32(0x30924DD4), SPH_C32(0x55CB34A5)};
 
 static const sph_u32 C_init_256[] = {
-    SPH_C32(0xB405F031), SPH_C32(0xC4233EBA), SPH_C32(0xB3733979),
-    SPH_C32(0xC0DD9D55), SPH_C32(0xC51C28AE), SPH_C32(0xA327B8E1),
-    SPH_C32(0x56C56167), SPH_C32(0xED614433), SPH_C32(0x88B59D60),
-    SPH_C32(0x60E2CEBA), SPH_C32(0x758B4B8B), SPH_C32(0x83E82A7F),
-    SPH_C32(0xBC968828), SPH_C32(0xE6E00BF7), SPH_C32(0xBA839E55),
-    SPH_C32(0x9B491C60)};
+    SPH_C32(0xB405F031), SPH_C32(0xC4233EBA), SPH_C32(0xB3733979), SPH_C32(0xC0DD9D55),
+    SPH_C32(0xC51C28AE), SPH_C32(0xA327B8E1), SPH_C32(0x56C56167), SPH_C32(0xED614433),
+    SPH_C32(0x88B59D60), SPH_C32(0x60E2CEBA), SPH_C32(0x758B4B8B), SPH_C32(0x83E82A7F),
+    SPH_C32(0xBC968828), SPH_C32(0xE6E00BF7), SPH_C32(0xBA839E55), SPH_C32(0x9B491C60)};
 
 /* END -- automatically generated code. */
 
@@ -484,8 +479,7 @@ void sph_shabal256(void* cc, const unsigned char* data, size_t len) {
     sc->ptr = ptr;
 }
 
-static void shabal_close(void* cc, unsigned ub, unsigned n, void* dst,
-                         unsigned size_words) {
+static void shabal_close(void* cc, unsigned ub, unsigned n, void* dst, unsigned size_words) {
     sph_shabal_context* sc;
     unsigned char* buf;
     size_t ptr;
@@ -539,12 +533,9 @@ static void shabal_close(void* cc, unsigned ub, unsigned n, void* dst,
 }
 
 /* see sph_shabal.h */
-void sph_shabal256_close(void* cc, void* dst) {
-    shabal_close(cc, 0, 0, dst, 8);
-}
+void sph_shabal256_close(void* cc, void* dst) { shabal_close(cc, 0, 0, dst, 8); }
 
 /* see sph_shabal.h */
-void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n,
-                                     void* dst) {
+void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n, void* dst) {
     shabal_close(cc, ub, n, dst, 8);
 }

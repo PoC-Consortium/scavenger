@@ -16,10 +16,20 @@ use_direct_io: true                   # default true
 get_mining_info_interval: 3000        # default 3000ms
 timeout: 5000                         # default 5000ms
 wakeup_after: 240                     # default 240s
-console_log_level: 'Info'             # default Info, Options (Off, Error, Warn Info)
-logfile_log_level: 'Warn'             # default Warn, Options (Off, Error, Warn Info)
+console_log_level: 'Info'             # default Info, Options (Off, Error, Warn, Info, Debug, Trace)
+logfile_log_level: 'Warn'             # default Warn, Options (Off, Error, Warn, Info, Debug, Trace)
 logfile_max_count: 10                 # maximum number of log files to keep
 logfile_max_size : 20                 # maximum size per logfile in MiB
 gpu_worker_thread_count: 1            # number of GPU workers (0 = CPU only)
 gpu_platform: 0                       # select GPU platform
 gpu_device: 0                         # select GPU device
+
+# Low noise log patterns
+console_log_pattern: '{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}'
+logfile_log_pattern: '{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}'
+
+cpu_thread_pinning: false # default false
+
+# More detailed log patterns
+#console_log_pattern: '{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}'
+#logfile_log_pattern: '{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}]-[{t}] [{f}:{L}] - {M}:{m}{n}'

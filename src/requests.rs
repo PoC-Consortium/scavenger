@@ -1,4 +1,5 @@
 extern crate hyper;
+extern crate hyper_rustls;
 extern crate serde_json;
 extern crate url;
 
@@ -18,7 +19,7 @@ use url::form_urlencoded::byte_serialize;
 pub struct RequestHandler {
     secret_phrase_encoded: String,
     base_uri: String,
-    client: Client<HttpConnector>,
+    client: Client<hyper_rustls::HttpsConnector<HttpConnector>>,
     timeout: Duration,
     handle: Handle,
 }
@@ -119,10 +120,13 @@ impl RequestHandler {
         handle: Handle,
     ) -> RequestHandler {
         let secret_phrase_encoded = byte_serialize(secret_phrase.as_bytes()).collect();
+        let https = hyper_rustls::HttpsConnector::new(4);
+        let client: Client<_, hyper::Body> = Client::builder().build(https);
+
         RequestHandler {
             secret_phrase_encoded,
             base_uri,
-            client: Client::new(),
+            client,
             timeout: Duration::from_millis(timeout),
             handle,
         }

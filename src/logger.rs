@@ -29,9 +29,8 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
     let level_logfile = to_log_level(&cfg.logfile_log_level, log::LevelFilter::Warn);
 
     let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new(
-            "{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}",
-        ))).build();
+        .encoder(Box::new(PatternEncoder::new(&cfg.console_log_pattern)))
+        .build();
 
     let roller = FixedWindowRoller::builder()
         .base(1)
@@ -50,9 +49,8 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
             .unwrap()
     } else {
         let logfile = RollingFileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new(
-                "{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}",
-            ))).build("log/scavenger.1.log", policy)
+            .encoder(Box::new(PatternEncoder::new(&cfg.logfile_log_pattern)))
+            .build("log/scavenger.1.log", policy)
             .unwrap();
         Config::builder()
             .appender(
@@ -67,9 +65,56 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                 Root::builder()
                     .appender("stdout")
                     .appender("logfile")
-                    .build(LevelFilter::Info),
+                    .build(LevelFilter::Trace),
             ).unwrap()
     };
-
     log4rs::init_config(config).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_log_level() {
+        assert_eq!(
+            to_log_level("Trace", log::LevelFilter::Error),
+            log::LevelFilter::Trace
+        );
+        assert_eq!(
+            to_log_level("Foo", log::LevelFilter::Error),
+            log::LevelFilter::Error
+        );
+        assert_eq!(
+            to_log_level("DEBUG", log::LevelFilter::Error),
+            log::LevelFilter::Debug
+        );
+        assert_eq!(
+            to_log_level("InFo", log::LevelFilter::Error),
+            log::LevelFilter::Info
+        );
+        assert_eq!(
+            to_log_level("eRROR", log::LevelFilter::Info),
+            log::LevelFilter::Error
+        );
+        assert_eq!(
+            to_log_level("WARN", log::LevelFilter::Info),
+            log::LevelFilter::Warn
+        );
+        assert_eq!(
+            to_log_level("Off", log::LevelFilter::Info),
+            log::LevelFilter::Off
+        );
+    }
+
+    #[test]
+    fn test_init_logger() {
+        use config::load_cfg;
+        let mut cfg = load_cfg("config.yaml");
+        cfg.console_log_level = log::LevelFilter::Error.to_string(); // we dont want to see this during tests
+        let _ = init_logger(&cfg);
+        trace!("TRACE");
+        debug!("DEBUG");
+        info!("INFO");
+    }
 }
