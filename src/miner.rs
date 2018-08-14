@@ -3,6 +3,7 @@ extern crate num_cpus;
 use burstmath;
 use chan;
 use config::Cfg;
+use core_affinity;
 use futures::sync::mpsc;
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
@@ -22,7 +23,6 @@ use tokio::timer::Interval;
 use tokio_core::reactor::Core;
 use utils::get_device_id;
 use worker::{create_worker_task, NonceData};
-use core_affinity;
 
 pub struct Miner {
     reader: Reader,
@@ -131,7 +131,6 @@ impl Miner {
         for _ in 0..buffer_count {
             tx_empty_buffers.send(Arc::new(Mutex::new(vec![0; buffer_size])));
         }
-
 
         let core_ids = core_affinity::get_core_ids().unwrap();
         let (tx_nonce_data, rx_nonce_data) = mpsc::channel(worker_thread_count);

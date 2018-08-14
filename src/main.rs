@@ -21,8 +21,8 @@ extern crate rand;
 #[macro_use]
 extern crate log;
 extern crate chrono;
-extern crate log4rs;
 extern crate core_affinity;
+extern crate log4rs;
 
 mod burstmath;
 mod config;

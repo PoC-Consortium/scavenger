@@ -31,9 +31,7 @@ fn main() {
     #[cfg(not(target_env = "msvc"))]
     config.flag("-mavx");
 
-    config
-        .file("src/c/shabal_avx.c")
-        .compile("shabal_avx");
+    config.file("src/c/shabal_avx.c").compile("shabal_avx");
 
     let mut config = shared_config.clone();
 
