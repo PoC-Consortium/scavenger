@@ -21,8 +21,21 @@ fn main() {
         .file("src/c/sph_shabal.c")
         .file("src/c/mshabal_128.c")
         .file("src/c/shabal_sse2.c")
+        .compile("shabal_sse");
+
+    let mut config = shared_config.clone();
+
+    #[cfg(target_env = "msvc")]
+    config.flag("/arch:AVX");
+
+    #[cfg(not(target_env = "msvc"))]
+    config.flag("-mavx");
+
+    config
+        .file("src/c/sph_shabal.c")
+        .file("src/c/mshabal_128.c")
         .file("src/c/shabal_avx.c")
-        .compile("shabal");
+        .compile("shabal_avx");
 
     let mut config = shared_config.clone();
 
@@ -35,5 +48,5 @@ fn main() {
     config
         .file("src/c/mshabal_256.c")
         .file("src/c/shabal_avx2.c")
-        .compile("shabal_avx2");
+        .compile("shabalsd_avx2");
 }
