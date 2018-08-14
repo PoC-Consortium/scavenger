@@ -54,12 +54,14 @@ pub fn create_worker_task(
             }
 
             let mut bs = buffer.lock().unwrap();
-
+            let padded = pad(&mut bs, read_reply.len, 8 * 64);
+            /*
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
 
-            let padded = pad(&mut bs, read_reply.len, 8 * 64);
-            /*
+            
+            
+            
             unsafe {
                 if is_x86_feature_detected!("avx2") {
                     find_best_deadline_avx2(
@@ -87,27 +89,14 @@ pub fn create_worker_task(
                     );
                 }
             }
-*/
-            //super dirty testing
-            //info!("CPU: best_deadline={}, best offset={}", deadline, offset);
-
-            //clean deadline and offset
-            let backup = deadline;
-            deadline = u64::MAX;
-            offset = 0;
+            */
 
             //calc with gpu
-            ocl::find_best_deadline_gpu(
+            let (deadline, offset) = ocl::find_best_deadline_gpu(
                 bs.as_ptr() as *const c_void,
                 (read_reply.len as u64 + padded as u64) / 64,
-                //read_reply.gensig.as_ptr() as *const c_void,
-                read_reply.gensig.clone(), // as *const c_void,
-                &mut deadline,
-                &mut offset,
+                read_reply.gensig,
             );
-
-            //info!("GPU: best_deadline={}, best offset={}", deadline, offset);
-            // assert!(backup == deadline, "GPU<>CPU");
 
             tx_nonce_data
                 .clone()
