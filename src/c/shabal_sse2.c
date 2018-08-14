@@ -1,8 +1,8 @@
 #include "shabal_sse2.h"
+#include <immintrin.h>
 #include <string.h>
-#include <x86intrin.h>
 #include "common.h"
-#include "mshabal.h"
+#include "mshabal_128.h"
 
 mshabal_context global_128;
 mshabal_context_fast global_128_fast;

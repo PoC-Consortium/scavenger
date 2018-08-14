@@ -24,7 +24,7 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "mshabal.h"
+#include "mshabal_128.h"
 
 #ifdef __cplusplus
 extern "C" {

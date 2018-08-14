@@ -2,7 +2,7 @@
 #include <immintrin.h>
 #include <string.h>
 #include "common.h"
-#include "mshabal.h"
+#include "mshabal_128.h"
 
 // context for 4-dimensional shabal (128bit)
 mshabal_context global_128;
