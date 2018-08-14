@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "mshabal.h"
+#include "mshabal_256.h"
 
 void init_shabal_avx2();
 

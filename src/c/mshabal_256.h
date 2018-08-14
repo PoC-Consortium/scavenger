@@ -7,25 +7,25 @@
  * Total bandwidth appear to be up to twice that of a plain 32-bit
  * Shabal implementation.
  *
- * A computation uses a mshabal256_context structure. That structure is
+ * A computation uses a mshabal_context structure. That structure is
  * supposed to be allocated and released by the caller, e.g. as a
  * local or global variable, or on the heap. The structure contents
- * are initialized with mshabal256_init(). Once the structure has been
- * initialized, data is input as chunks, with the mshabal256() functions.
+ * are initialized with mshabal_init(). Once the structure has been
+ * initialized, data is input as chunks, with the mshabal() functions.
  * Chunks for the four parallel instances are provided simultaneously
  * and must have the same length. It is allowed not to use some of the
- * instances; the corresponding parameters in mshabal256() are then NULL.
+ * instances; the corresponding parameters in mshabal() are then NULL.
  * However, using NULL as a chunk for one of the instances effectively
  * deactivates that instance; this cannot be used to "skip" a chunk
  * for one instance.
  *
- * The computation is finalized with mshabal256_close(). Some extra message
+ * The computation is finalized with mshabal_close(). Some extra message
  * bits (0 to 7) can be input. The outputs of the four parallel instances
  * are written in the provided buffers. There again, NULL can be
  * provided as parameter is the output of one of the instances is not
  * needed.
  *
- * A mshabal256_context instance is self-contained and holds no pointer.
+ * A mshabal_context instance is self-contained and holds no pointer.
  * Thus, it can be cloned (e.g. with memcpy()) or moved (as long as
  * proper alignment is maintained). This implementation uses no state
  * variable beyond the context instance; this, it is thread-safe and
@@ -53,8 +53,8 @@
  * <thomas.pornin@cryptolog.com>
  */
 
-#ifndef MSHABAL256_H__
-#define MSHABAL256_H__
+#ifndef MSHABAL_H__
+#define MSHABAL_H__
 
 #include <limits.h>
 
@@ -66,13 +66,35 @@ extern "C" {
  * We need an integer type with width 32-bit or more (preferably, with
  * a width of exactly 32 bits).
  */
+#if defined __STDC__ && __STDC_VERSION__ >= 199901L
 #include <stdint.h>
+#ifdef UINT32_MAX
+typedef uint32_t mshabal_u32;
+#else
+typedef uint_fast32_t mshabal_u32;
+#endif
+#else
+#if ((UINT_MAX >> 11) >> 11) >= 0x3FF
+typedef unsigned int mshabal_u32;
+#else
+typedef unsigned long mshabal_u32;
+#endif
+#endif
 
 /*
  * The context structure for a Shabal computation. Contents are
  * private. Such a structure should be allocated and released by
  * the caller, in any memory area.
  */
+
+#define MSHABAL256_FACTOR 2
+
+/*
+ * The context structure for a Shabal computation. Contents are
+ * private. Such a structure should be allocated and released by
+ * the caller, in any memory area.
+ */
+#pragma pack(1)
 typedef struct {
     unsigned char buf0[64];
     unsigned char buf1[64];
@@ -82,16 +104,36 @@ typedef struct {
     unsigned char buf5[64];
     unsigned char buf6[64];
     unsigned char buf7[64];
+    unsigned char* xbuf0;
+    unsigned char* xbuf1;
+    unsigned char* xbuf2;
+    unsigned char* xbuf3;
+    unsigned char* xbuf4;
+    unsigned char* xbuf5;
+    unsigned char* xbuf6;
+    unsigned char* xbuf7;
     size_t ptr;
-    uint32_t state[352];
-    uint32_t Whigh, Wlow;
+    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL256_FACTOR];
+    mshabal_u32 Whigh, Wlow;
+    unsigned out_size;
 } mshabal256_context;
 
+#pragma pack(1)
+typedef struct {
+    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL256_FACTOR];
+    mshabal_u32 Whigh, Wlow;
+    unsigned out_size;
+} mshabal256_context_fast;
+
+#pragma pack()
+
 /*
- * Initialize a context structure. The output size is assumed to be
- * fixed to 256bit
+ * Initialize a context structure. The output size must be a multiple
+ * of 32, between 32 and 512 (inclusive). The output size is expressed
+ * in bits.
  */
-void mshabal256_init(mshabal256_context* sc);
+
+void simd256_mshabal_init(mshabal256_context* sc, unsigned out_size);
 
 /*
  * Process some more data bytes; four chunks of data, pointed to by
@@ -105,10 +147,9 @@ void mshabal256_init(mshabal256_context* sc);
  * corresponding instance is deactivated (the final value obtained from
  * that instance is undefined).
  */
-void mshabal256(mshabal256_context* sc, const void* data0, const void* data1, const void* data2,
-                const void* data3, const void* data4, const void* data5, const void* data6,
-                const void* data7, size_t len);
 
+void simd256_mshabal(mshabal256_context* sc, void* data0, void* data1, void* data2, void* data3,
+                     void* data4, void* data5, void* data6, void* data7, size_t len);
 /*
  * Terminate the Shabal computation incarnated by the provided context
  * structure. "n" shall be a value between 0 and 7 (inclusive): this is
@@ -123,19 +164,27 @@ void mshabal256(mshabal256_context* sc, const void* data0, const void* data1, co
  * The Shabal output for each of the parallel instances is written out
  * in the areas pointed to by, respectively, dst0, dst1, dst2 and dst3.
  * These areas shall be wide enough to accomodate the result (result
- * size was specified as parameter to mshabal256_init()). It is acceptable
+ * size was specified as parameter to mshabal_init()). It is acceptable
  * to use NULL for any of those pointers, if the result from the
  * corresponding instance is not needed.
  *
  * After this call, the context structure is invalid. The caller shall
- * release it, or reinitialize it with mshabal256_init(). The
- * mshabal256_close() function does NOT imply a hidden call to
- * mshabal256_init().
+ * release it, or reinitialize it with mshabal_init(). The mshabal_close()
+ * function does NOT imply a hidden call to mshabal_init().
  */
-void mshabal256_close(mshabal256_context* sc, uint32_t* dst0, uint32_t* dst1, uint32_t* dst2,
-                      uint32_t* dst3, uint32_t* dst4, uint32_t* dst5, uint32_t* dst6,
-                      uint32_t* dst7);
 
+void simd256_mshabal_close(mshabal256_context* sc, unsigned ub0, unsigned ub1, unsigned ub2,
+                           unsigned ub3, unsigned ub4, unsigned ub5, unsigned ub6, unsigned ub7,
+                           unsigned n, void* dst0, void* dst1, void* dst2, void* dst3, void* dst4,
+                           void* dst5, void* dst6, void* dst7);
+
+/*
+ * Combined open and close routines
+ */
+
+void simd256_mshabal_openclose_fast(mshabal256_context_fast* sc, void* u1, void* u2, void* dst0,
+                                    void* dst1, void* dst2, void* dst3, void* dst4, void* dst5,
+                                    void* dst6, void* dst7);
 #ifdef __cplusplus
 }
 #endif

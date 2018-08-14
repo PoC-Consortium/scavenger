@@ -23,8 +23,7 @@
 #include <immintrin.h>
 #include <stddef.h>
 #include <string.h>
-
-#include "mshabal.h"
+#include "mshabal_128.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4146)
