@@ -83,6 +83,9 @@ timeout: 5000  # default 5000ms
 
 # delay after disks will be woken up (if 0 no wakeup) [s]
 wakeup_after: 240  # default 240s
+
+# pin worker threads to cpu cores
+cpu_thread_pinning: false # pin worker threads to cpu cores | default false
 ```
 
 ### Donate 

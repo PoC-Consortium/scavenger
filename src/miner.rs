@@ -138,7 +138,9 @@ impl Miner {
         for id in 0..worker_thread_count {
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
-                core_affinity::set_for_current(core_id);
+                if cfg.cpu_thread_pinning {
+                    core_affinity::set_for_current(core_id);
+                }
 
                 create_worker_task(
                     rx_read_replies.clone(),

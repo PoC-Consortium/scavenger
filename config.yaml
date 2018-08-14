@@ -25,6 +25,8 @@ logfile_max_size : 20                 # maximum size per logfile in MiB
 console_log_pattern: '{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}'
 logfile_log_pattern: '{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}'
 
+cpu_thread_pinning: false # default false
+
 # More detailed log patterns
 #console_log_pattern: '{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}'
 #logfile_log_pattern: '{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}]-[{t}] [{f}:{L}] - {M}:{m}{n}'

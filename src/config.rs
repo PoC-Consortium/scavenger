@@ -56,6 +56,9 @@ pub struct Cfg {
 
     #[serde(default = "default_logfile_log_level")]
     pub logfile_log_level: String,
+
+    #[serde(default = "default_cpu_thread_pinning")]
+    pub cpu_thread_pinning: bool,
 }
 
 fn default_secret_phrase() -> String {
@@ -116,6 +119,10 @@ fn default_timeout() -> u64 {
 
 fn default_wakeup_after() -> i64 {
     240
+}
+
+fn default_cpu_thread_pinning() -> bool {
+    false
 }
 
 pub fn load_cfg(config: &str) -> Cfg {
