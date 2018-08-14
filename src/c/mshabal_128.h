@@ -112,44 +112,6 @@ typedef struct {
 #define MSHABAL256_FACTOR 2
 
 /*
- * The context structure for a Shabal computation. Contents are
- * private. Such a structure should be allocated and released by
- * the caller, in any memory area.
- */
-#pragma pack(1)
-typedef struct {
-    unsigned char buf0[64];
-    unsigned char buf1[64];
-    unsigned char buf2[64];
-    unsigned char buf3[64];
-    unsigned char buf4[64];
-    unsigned char buf5[64];
-    unsigned char buf6[64];
-    unsigned char buf7[64];
-    unsigned char* xbuf0;
-    unsigned char* xbuf1;
-    unsigned char* xbuf2;
-    unsigned char* xbuf3;
-    unsigned char* xbuf4;
-    unsigned char* xbuf5;
-    unsigned char* xbuf6;
-    unsigned char* xbuf7;
-    size_t ptr;
-    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL256_FACTOR];
-    mshabal_u32 Whigh, Wlow;
-    unsigned out_size;
-} mshabal256_context;
-
-#pragma pack(1)
-typedef struct {
-    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL256_FACTOR];
-    mshabal_u32 Whigh, Wlow;
-    unsigned out_size;
-} mshabal256_context_fast;
-
-#pragma pack()
-
-/*
  * Initialize a context structure. The output size must be a multiple
  * of 32, between 32 and 512 (inclusive). The output size is expressed
  * in bits.
