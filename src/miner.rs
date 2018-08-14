@@ -22,6 +22,7 @@ use tokio::timer::Interval;
 use tokio_core::reactor::Core;
 use utils::get_device_id;
 use worker::{create_worker_task, NonceData};
+use core_affinity;
 
 pub struct Miner {
     reader: Reader,
@@ -131,12 +132,16 @@ impl Miner {
         }
 
         let (tx_nonce_data, rx_nonce_data) = mpsc::channel(worker_thread_count);
-        for _ in 0..worker_thread_count {
-            thread::spawn(create_worker_task(
-                rx_read_replies.clone(),
-                tx_empty_buffers.clone(),
-                tx_nonce_data.clone(),
-            ));
+        for id in core_affinity::get_core_ids().unwrap() {
+            thread::spawn({
+                core_affinity::set_for_current(id);
+
+                create_worker_task(
+                    rx_read_replies.clone(),
+                    tx_empty_buffers.clone(),
+                    tx_nonce_data.clone(),
+                )
+            });
         }
 
         let core = Core::new().unwrap();

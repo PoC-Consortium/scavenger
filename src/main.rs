@@ -22,6 +22,7 @@ extern crate rand;
 extern crate log;
 extern crate chrono;
 extern crate log4rs;
+extern crate core_affinity;
 
 mod burstmath;
 mod config;
