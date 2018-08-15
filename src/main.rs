@@ -79,8 +79,7 @@ fn main() {
                 .value_name("FILE")
                 .help("Location of the config file")
                 .takes_value(true),
-        )
-        .get_matches();
+        ).get_matches();
 
     let config = matches.value_of("config").unwrap_or("config.yaml");
 

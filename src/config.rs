@@ -13,14 +13,14 @@ pub struct Cfg {
     #[serde(default = "default_secret_phrase")]
     pub secret_phrase: String,
 
-    #[serde(default = "default_worker_thread_count")]
-    pub worker_thread_count: usize,
-
-    #[serde(default = "default_reader_thread_count")]
-    pub reader_thread_count: usize,
+    #[serde(default = "default_cpu_worker_thread_count")]
+    pub cpu_worker_thread_count: usize,
 
     #[serde(default = "default_gpu_worker_thread_count")]
     pub gpu_worker_thread_count: usize,
+
+    #[serde(default = "default_reader_thread_count")]
+    pub reader_thread_count: usize,
 
     #[serde(default = "default_gpu_platform")]
     pub gpu_platform: usize,
@@ -98,15 +98,15 @@ fn default_logfile_log_pattern() -> String {
     "{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{f}:{L}] [{t}] - {M}:{m}{n}".to_owned()
 }
 
-fn default_worker_thread_count() -> usize {
-    0
-}
-
-fn default_reader_thread_count() -> usize {
+fn default_cpu_worker_thread_count() -> usize {
     0
 }
 
 fn default_gpu_worker_thread_count() -> usize {
+    0
+}
+
+fn default_reader_thread_count() -> usize {
     0
 }
 

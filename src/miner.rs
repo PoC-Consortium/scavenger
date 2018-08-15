@@ -115,14 +115,10 @@ impl Miner {
             cfg.reader_thread_count
         };
 
-        let cpu_core_count = num_cpus::get();
-        let worker_thread_count = if cfg.worker_thread_count == 0 {
-            cpu_core_count + 1
-        } else {
-            cfg.worker_thread_count
-        };
+        let cpu_worker_thread_count =  cfg.cpu_worker_thread_count;
+        let gpu_worker_thread_count =  cfg.gpu_worker_thread_count;
 
-        let buffer_count = worker_thread_count * 2;
+        let buffer_count = (cpu_worker_thread_count + gpu_worker_thread_count) * 2;
         let buffer_size = cfg.nonces_per_cache * SCOOP_SIZE as usize;
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::sync(buffer_count as usize);
@@ -133,8 +129,20 @@ impl Miner {
         }
 
         let core_ids = core_affinity::get_core_ids().unwrap();
-        let (tx_nonce_data, rx_nonce_data) = mpsc::channel(worker_thread_count);
-        for id in 0..worker_thread_count {
+        let (tx_nonce_data, rx_nonce_data) = mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
+        
+        for _id in 0..gpu_worker_thread_count {
+            thread::spawn({
+                create_worker_task(
+                    rx_read_replies.clone(),
+                    tx_empty_buffers.clone(),
+                    tx_nonce_data.clone(),
+                    true
+                )
+            });
+        }
+        
+        for id in 0..cpu_worker_thread_count {
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
                 if cfg.cpu_thread_pinning {
@@ -145,6 +153,7 @@ impl Miner {
                     rx_read_replies.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
+                    false
                 )
             });
         }

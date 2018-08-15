@@ -3,7 +3,7 @@
 //! Set `INFO_FORMAT_MULTILINE` to `false` for compact printing.
 
 extern crate ocl_core as core;
-use libc::{c_void, uint64_t};
+use libc::c_void;
 //use self::core::{ArgVal, ContextProperties, DeviceInfo, Event, PlatformInfo, Status};
 use self::core::{
     ArgVal, ContextProperties, DeviceInfo, Event, KernelWorkGroupInfo, PlatformInfo, Status,
@@ -12,7 +12,6 @@ use self::core::{
 use config::Cfg;
 use std::ffi::CString;
 use std::mem;
-use std::sync::Arc;
 use std::u64;
 
 static SRC: &'static str = include_str!("ocl/kernel.cl");
@@ -60,8 +59,8 @@ pub fn init_gpu(cfg: &Cfg) {
 
 pub fn find_best_deadline_gpu(
     scoops: *const c_void,
-    nonce_count: uint64_t,
-    gensig: Arc<[u8; 32]>,
+    nonce_count: usize,
+    gensig: [u8; 32],
 ) -> (u64, u64) {
     //WORK IN PROGRESS!!!
 
@@ -93,9 +92,8 @@ pub fn find_best_deadline_gpu(
 
     //End init for now... TODO amend to fixed cache via cfg
 
-    let nc = nonce_count as usize;
-    let mut workgroup_count = nc / kernel1_workgroup_size;
-    if nc % kernel1_workgroup_size != 0 {
+    let mut workgroup_count = nonce_count / kernel1_workgroup_size;
+    if nonce_count % kernel1_workgroup_size != 0 {
         workgroup_count = workgroup_count + 1;
     }
 
@@ -106,12 +104,11 @@ pub fn find_best_deadline_gpu(
     let ldim2 = [kernel2_workgroup_size, 1, 1];
 
     // Prepare kernel 1
-    let gensig_gpu = unsafe {
-        core::create_buffer::<_, u8>(&context, core::MEM_READ_ONLY, 32, None).unwrap()
-    };
+    let gensig_gpu =
+        unsafe { core::create_buffer::<_, u8>(&context, core::MEM_READ_ONLY, 32, None).unwrap() };
 
     //scoops
-	let data_gpu = unsafe {
+    let data_gpu = unsafe {
         core::create_buffer::<_, u8>(&context, core::MEM_READ_ONLY, gdim1[0] * 64, None).unwrap()
     };
 
@@ -128,7 +125,7 @@ pub fn find_best_deadline_gpu(
     //cast nonce data
     let data: Vec<u8>;
     unsafe {
-        data = Vec::from_raw_parts(scoops as *mut u8, nc * 64, nc * 64);
+        data = Vec::from_raw_parts(scoops as *mut u8, nonce_count * 64, nonce_count * 64);
     }
 
     unsafe {
@@ -137,7 +134,7 @@ pub fn find_best_deadline_gpu(
             &gensig_gpu,
             false,
             0,
-            &*Arc::into_raw(gensig),
+            &gensig,
             None::<Event>,
             Some(&mut event1),
         ).unwrap();
@@ -186,7 +183,7 @@ pub fn find_best_deadline_gpu(
     };
 
     core::set_kernel_arg(&kernel2, 0, ArgVal::mem(&deadlines_gpu)).unwrap();
-    core::set_kernel_arg(&kernel2, 1, ArgVal::primitive(&nc)).unwrap();
+    core::set_kernel_arg(&kernel2, 1, ArgVal::primitive(&nonce_count)).unwrap();
     core::set_kernel_arg(&kernel2, 2, ArgVal::local::<u32>(&ldim2[0])).unwrap();
     core::set_kernel_arg(&kernel2, 3, ArgVal::mem(&best_offset_gpu)).unwrap();
     core::set_kernel_arg(&kernel2, 4, ArgVal::mem(&best_deadline_gpu)).unwrap();
