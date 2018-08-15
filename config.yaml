@@ -1,7 +1,7 @@
 secret_phrase: 'glad suffer red during single glow shut slam hill death lust although'
 account_id: 10282355196851764065
 plot_dirs:
-#  - 'test_data'
+  - 'test_data'
   - 'D:\plot'
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
@@ -11,16 +11,16 @@ url: 'http://pool.dev.burst-test.net:8124'
 cpu_worker_thread_count: 1
 reader_thread_count: 1
 nonces_per_cache: 6553600             # default 65536
-target_deadline: 10885484741537822773 # default u64::MAX
+target_deadline: 4294967295           # default u32::MAX
 use_direct_io: true                   # default true
-get_mining_info_interval: 3000        # default 3000ms
+get_mining_info_interval: 950         # default 3000ms
 timeout: 5000                         # default 5000ms
 wakeup_after: 240                     # default 240s
 console_log_level: 'Info'             # default Info, Options (Off, Error, Warn, Info, Debug, Trace)
 logfile_log_level: 'Warn'             # default Warn, Options (Off, Error, Warn, Info, Debug, Trace)
 logfile_max_count: 10                 # maximum number of log files to keep
 logfile_max_size : 20                 # maximum size per logfile in MiB
-gpu_worker_thread_count: 1            # number of GPU workers (0 = CPU only)
+gpu_worker_thread_count: 6            # number of GPU workers (0 = CPU only)
 gpu_platform: 0                       # select GPU platform
 gpu_device: 0                         # select GPU device
 
@@ -28,7 +28,7 @@ gpu_device: 0                         # select GPU device
 console_log_pattern: '{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}'
 logfile_log_pattern: '{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}'
 
-cpu_thread_pinning: false # default false
+cpu_thread_pinning: true              # default false
 
 # More detailed log patterns
 #console_log_pattern: '{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}'

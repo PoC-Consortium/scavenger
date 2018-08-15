@@ -5,6 +5,7 @@ use chan;
 use config::Cfg;
 use core_affinity;
 use futures::sync::mpsc;
+use ocl::GpuContext;
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
 use requests::RequestHandler;
@@ -115,8 +116,8 @@ impl Miner {
             cfg.reader_thread_count
         };
 
-        let cpu_worker_thread_count =  cfg.cpu_worker_thread_count;
-        let gpu_worker_thread_count =  cfg.gpu_worker_thread_count;
+        let cpu_worker_thread_count = cfg.cpu_worker_thread_count;
+        let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
         let buffer_count = (cpu_worker_thread_count + gpu_worker_thread_count) * 2;
         let buffer_size = cfg.nonces_per_cache * SCOOP_SIZE as usize;
@@ -129,19 +130,30 @@ impl Miner {
         }
 
         let core_ids = core_affinity::get_core_ids().unwrap();
-        let (tx_nonce_data, rx_nonce_data) = mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
-        
+        let (tx_nonce_data, rx_nonce_data) =
+            mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
+
         for _id in 0..gpu_worker_thread_count {
+            let gpu_option;
+            if gpu_worker_thread_count > 0 {
+                gpu_option = Some(GpuContext::new(
+                    cfg.gpu_platform,
+                    cfg.gpu_device,
+                    cfg.nonces_per_cache,
+                ));
+            } else {
+                gpu_option = None;
+            }
             thread::spawn({
                 create_worker_task(
                     rx_read_replies.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
-                    true
+                    gpu_option,
                 )
             });
         }
-        
+
         for id in 0..cpu_worker_thread_count {
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
@@ -153,7 +165,7 @@ impl Miner {
                     rx_read_replies.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
-                    false
+                    None,
                 )
             });
         }

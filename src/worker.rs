@@ -44,7 +44,7 @@ pub fn create_worker_task(
     rx_read_replies: chan::Receiver<ReadReply>,
     tx_empty_buffers: chan::Sender<Arc<Mutex<Vec<u8>>>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
-    gpu: bool,
+    gpu: Option<ocl::GpuContext>,
 ) -> impl FnOnce() {
     move || {
         for read_reply in rx_read_replies {
@@ -57,43 +57,47 @@ pub fn create_worker_task(
             let mut bs = buffer.lock().unwrap();
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
-            if !gpu {
-                let padded = pad(&mut bs, read_reply.len, 8 * 64);
-                unsafe {
-                    if is_x86_feature_detected!("avx2") {
-                        find_best_deadline_avx2(
-                            bs.as_ptr() as *mut c_void,
-                            (read_reply.len as u64 + padded as u64) / 64,
-                            read_reply.gensig.as_ptr() as *const c_void,
-                            &mut deadline,
-                            &mut offset,
-                        );
-                    } else if is_x86_feature_detected!("avx") {
-                        find_best_deadline_avx(
-                            bs.as_ptr() as *mut c_void,
-                            (read_reply.len as u64 + padded as u64) / 64,
-                            read_reply.gensig.as_ptr() as *const c_void,
-                            &mut deadline,
-                            &mut offset,
-                        );
-                    } else {
-                        find_best_deadline_sse2(
-                            bs.as_ptr() as *mut c_void,
-                            (read_reply.len as u64 + padded as u64) / 64,
-                            read_reply.gensig.as_ptr() as *const c_void,
-                            &mut deadline,
-                            &mut offset,
-                        );
+            match &gpu {
+                None => {
+                    let padded = pad(&mut bs, read_reply.len, 8 * 64);
+                    unsafe {
+                        if is_x86_feature_detected!("avx2") {
+                            find_best_deadline_avx2(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        } else if is_x86_feature_detected!("avx") {
+                            find_best_deadline_avx(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        } else {
+                            find_best_deadline_sse2(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        }
                     }
                 }
-            } else {
-                let tuple = ocl::find_best_deadline_gpu(
-                    bs.as_ptr() as *const c_void,
-                    read_reply.len / 64,
-                    *read_reply.gensig,
-                );
-                deadline = tuple.0;
-                offset = tuple.1;
+                Some(context) => {
+                    let tuple = ocl::find_best_deadline_gpu(
+                        context,
+                        bs.as_ptr() as *const c_void,
+                        read_reply.len / 64,
+                        *read_reply.gensig,
+                    );
+                    deadline = tuple.0;
+                    offset = tuple.1;
+                }
             }
 
             tx_nonce_data
