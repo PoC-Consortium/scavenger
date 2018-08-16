@@ -1,4 +1,7 @@
+extern crate aligned_alloc;
 extern crate num_cpus;
+extern crate ocl_core as core;
+extern crate page_size;
 
 use burstmath;
 use chan;
@@ -126,7 +129,12 @@ impl Miner {
         let (tx_read_replies, rx_read_replies) = chan::sync(buffer_count as usize);
 
         for _ in 0..buffer_count {
-            tx_empty_buffers.send(Arc::new(Mutex::new(vec![0; buffer_size])));
+            let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
+            let data: Vec<u8>;
+            unsafe {
+                data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
+            }
+            tx_empty_buffers.send(Arc::new(Mutex::new(data)));
         }
 
         let core_ids = core_affinity::get_core_ids().unwrap();

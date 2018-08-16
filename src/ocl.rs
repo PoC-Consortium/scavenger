@@ -12,6 +12,7 @@ use self::core::{
 use config::Cfg;
 use std::ffi::CString;
 use std::mem;
+use std::process;
 use std::u64;
 
 static SRC: &'static str = include_str!("ocl/kernel.cl");
@@ -29,31 +30,80 @@ macro_rules! to_string {
     };
 }
 
-pub fn init_gpu(cfg: &Cfg) {
-    // display info
+pub fn platform_info() {
     let platform_ids = core::get_platform_ids().unwrap();
-    let platform = platform_ids[cfg.gpu_platform];
-    let device_ids = core::get_device_ids(&platform, None, None).unwrap();
-    let device = device_ids[cfg.gpu_device];
-    info!(
-        "OCL: {} - {}",
-        to_string!(core::get_platform_info(platform, PlatformInfo::Name)),
-        to_string!(core::get_platform_info(platform, PlatformInfo::Version))
-    );
-    info!(
-        "GPU: {} - {}",
-        to_string!(core::get_device_info(&device, DeviceInfo::Vendor)),
-        to_string!(core::get_device_info(&device, DeviceInfo::Name))
-    );
-    match core::get_device_info(&device, DeviceInfo::GlobalMemSize).unwrap() {
-        core::DeviceInfoResult::GlobalMemSize(mem) => {
+    for i in 0..platform_ids.len() {
+        info!(
+            "OCL: platform {}, {} - {}",
+            i,
+            to_string!(core::get_platform_info(
+                &platform_ids[i],
+                PlatformInfo::Name
+            )),
+            to_string!(core::get_platform_info(
+                &platform_ids[i],
+                PlatformInfo::Version
+            ))
+        );
+        let device_ids = core::get_device_ids(&platform_ids[i], None, None).unwrap();
+        for j in 0..platform_ids.len() {
             info!(
-                "GPU: RAM={}MB, Cores={}",
-                mem / 1024 / 1024,
-                to_string!(core::get_device_info(&device, DeviceInfo::MaxComputeUnits))
+                "OCL: device {}, {} - {}",
+                j,
+                to_string!(core::get_device_info(&device_ids[j], DeviceInfo::Vendor)),
+                to_string!(core::get_device_info(&device_ids[j], DeviceInfo::Name))
             );
         }
-        _ => panic!("Unexpected error"),
+    }
+}
+
+pub fn gpu_info(cfg: &Cfg) {
+    if cfg.gpu_worker_thread_count > 0 {
+        let platform_ids = core::get_platform_ids().unwrap();
+        if cfg.gpu_platform >= platform_ids.len() {
+            error!("OCL: Selected OpenCL platform doesn't exist. Shutting down...");
+            process::exit(0);
+        }
+        let platform = platform_ids[cfg.gpu_platform];
+        let device_ids = core::get_device_ids(&platform, None, None).unwrap();
+        if cfg.gpu_device >= device_ids.len() {
+            error!("OCL: Selected OpenCL device doesn't exist. Shutting down...");
+            process::exit(0);
+        }
+        let device = device_ids[cfg.gpu_device];
+        info!(
+            "OCL: {} - {}",
+            to_string!(core::get_platform_info(platform, PlatformInfo::Name)),
+            to_string!(core::get_platform_info(platform, PlatformInfo::Version))
+        );
+        info!(
+            "GPU: {} - {}",
+            to_string!(core::get_device_info(&device, DeviceInfo::Vendor)),
+            to_string!(core::get_device_info(&device, DeviceInfo::Name))
+        );
+        match core::get_device_info(&device, DeviceInfo::GlobalMemSize).unwrap() {
+            core::DeviceInfoResult::GlobalMemSize(mem) => {
+                info!(
+                    "GPU: RAM={}MiB, Cores={}",
+                    mem / 1024 / 1024,
+                    to_string!(core::get_device_info(&device, DeviceInfo::MaxComputeUnits))
+                );
+                info!(
+                    "GPU: RAM usage (estimated)={}MiB",
+                    cfg.nonces_per_cache * 75 * cfg.gpu_worker_thread_count / 1024 / 1024
+                );
+                if cfg.nonces_per_cache * 75 * cfg.gpu_worker_thread_count > mem as usize {
+                    error!("GPU: Insufficient GPU memory. Please reduce GPU_worker_threads and/or nonces_per_cache. Shutting down...");
+                    process::exit(0);
+                }
+            }
+            _ => panic!("Unexpected error. Can't obtain GPU memory size."),
+        }
+    } else {
+        if cfg.cpu_worker_thread_count == 0 {
+            error!("CPU, GPU: no workers configured. Shutting down...");
+            process::exit(0);
+        }
     }
 }
 
@@ -74,10 +124,11 @@ pub struct GpuContext {
 }
 
 impl GpuContext {
-    pub fn new(_gpu_platform: usize, _gpu_id: usize, nonces_per_cache: usize) -> GpuContext {
-        let platform_id = core::default_platform().unwrap();
+    pub fn new(gpu_platform: usize, gpu_id: usize, nonces_per_cache: usize) -> GpuContext {
+        let platform_ids = core::get_platform_ids().unwrap();
+        let platform_id = platform_ids[gpu_platform];
         let device_ids = core::get_device_ids(&platform_id, None, None).unwrap();
-        let device_id = device_ids[0];
+        let device_id = device_ids[gpu_id];
         let context_properties = ContextProperties::new().platform(platform_id);
         let context =
             core::create_context(Some(&context_properties), &[device_id], None, None).unwrap();
@@ -102,13 +153,11 @@ impl GpuContext {
             workgroup_count = workgroup_count + 1;
         }
 
-        //Define Dimensions
         let gdim1 = [kernel1_workgroup_size * workgroup_count, 1, 1];
         let ldim1 = [kernel1_workgroup_size, 1, 1];
         let gdim2 = [kernel2_workgroup_size, 1, 1];
         let ldim2 = [kernel2_workgroup_size, 1, 1];
 
-        // prepare buffers
         let gensig_gpu = unsafe {
             core::create_buffer::<_, u8>(&context, core::MEM_READ_ONLY, 32, None).unwrap()
         };
@@ -155,7 +204,6 @@ pub fn find_best_deadline_gpu(
     nonce_count: usize,
     gensig: [u8; 32],
 ) -> (u64, u64) {
-    //cast and upload data
     let data: Vec<u8>;
     unsafe {
         data = Vec::from_raw_parts(scoops as *mut u8, nonce_count * 64, nonce_count * 64);
@@ -197,9 +245,7 @@ pub fn find_best_deadline_gpu(
         ArgVal::mem(&gpu_context.deadlines_gpu),
     ).unwrap();
 
-    // run kernel1: calculate deadlines
     unsafe {
-        // (4) Run the kernel:
         core::enqueue_kernel(
             &gpu_context.queue,
             &gpu_context.kernel1,
@@ -212,7 +258,6 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    // prepare Kernel 2
     core::set_kernel_arg(
         &gpu_context.kernel2,
         0,
@@ -235,7 +280,6 @@ pub fn find_best_deadline_gpu(
         ArgVal::mem(&gpu_context.best_deadline_gpu),
     ).unwrap();
 
-    // run Kernel 2: calculate minimum
     unsafe {
         core::enqueue_kernel(
             &gpu_context.queue,
@@ -249,9 +293,8 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    // get and return results
-     let mut best_offset = vec![0u64; 1];
-        let mut best_deadline = vec![0u64; 1];
+    let mut best_offset = vec![0u64; 1];
+    let mut best_deadline = vec![0u64; 1];
 
     unsafe {
         core::enqueue_read_buffer(
@@ -276,7 +319,7 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    //Die Zeit heilt Wunden doch vergessen kann ich nicht...
+    // Die Zeit heilt Wunden doch vergessen kann ich nicht...
     mem::forget(data);
     (best_deadline[0], best_offset[0])
 }
