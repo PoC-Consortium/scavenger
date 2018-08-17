@@ -10,10 +10,12 @@ use self::core::{
 };
 
 use config::Cfg;
+use miner::Buffer;
 use std::ffi::CString;
 use std::mem;
 use std::process;
 use std::u64;
+use std::sync::{Mutex, Arc};
 
 static SRC: &'static str = include_str!("ocl/kernel.cl");
 
@@ -107,8 +109,8 @@ pub fn gpu_info(cfg: &Cfg) {
     }
 }
 
-//create only once
 pub struct GpuContext {
+    context: core::Context,
     queue: core::CommandQueue,
     kernel1: core::Kernel,
     kernel2: core::Kernel,
@@ -122,6 +124,81 @@ pub struct GpuContext {
     best_deadline_gpu: core::Mem,
     best_offset_gpu: core::Mem,
 }
+
+pub struct GpuBuffer {
+    best_offset: Vec<u64>,
+    best_deadline: Vec<u64>,
+    gensig_gpu: core::Mem,
+    data_gpu: core::Mem,
+    deadlines_gpu: core::Mem,
+    best_deadline_gpu: core::Mem,
+    best_offset_gpu: core::Mem,
+}
+
+impl Buffer for GpuBuffer {
+    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self where Self: Sized{
+        let context = context.unwrap();
+        let gensig_gpu = unsafe {
+            core::create_buffer::<_, u8>(&context.context, core::MEM_READ_ONLY, 32, None).unwrap()
+        };
+
+        let deadlines_gpu = unsafe {
+            core::create_buffer::<_, u64>(
+                &context.context,
+                core::MEM_READ_WRITE,
+                context.gdim1[0],
+                None,
+            ).unwrap()
+        };
+
+        let best_offset = vec![0u64; 1];
+        let best_offset_gpu = unsafe {
+            core::create_buffer(
+                &context.context,
+                core::MEM_READ_WRITE,
+                1,
+                Some(&best_offset),
+            ).unwrap()
+        };
+
+        let best_deadline = vec![0u64; 1];
+        let best_deadline_gpu = unsafe {
+            core::create_buffer(
+                &context.context,
+                core::MEM_READ_WRITE,
+                1,
+                Some(&best_deadline),
+            ).unwrap()
+        };
+
+        let data_gpu = unsafe {
+            core::create_buffer::<_, u8>(
+                &context.context,
+                core::MEM_READ_ONLY | core::MEM_ALLOC_HOST_PTR,
+                &context.gdim1[0] * 64,
+                None,
+            ).unwrap()
+        };
+
+        GpuBuffer {
+            best_offset: best_offset,
+            best_deadline: best_deadline,
+            gensig_gpu: gensig_gpu,
+            data_gpu: data_gpu,
+            deadlines_gpu: deadlines_gpu,
+            best_deadline_gpu: best_deadline_gpu,
+            best_offset_gpu: best_offset_gpu,
+        }
+    }
+    fn get_buffer(&self) ->Arc<Mutex<Vec<u8>>>{
+        let test = Arc::new(Mutex::new(vec!(0u8;1)));
+        test
+
+    }
+}
+
+// Ohne Gummi im Bahnhofsviertel... das wird noch Konsequenzen haben
+unsafe impl Sync for GpuContext {}
 
 impl GpuContext {
     pub fn new(gpu_platform: usize, gpu_id: usize, nonces_per_cache: usize) -> GpuContext {
@@ -182,6 +259,7 @@ impl GpuContext {
         };
 
         GpuContext {
+            context: context,
             queue: queue,
             kernel1: kernel1,
             kernel2: kernel2,

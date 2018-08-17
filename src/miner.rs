@@ -52,6 +52,33 @@ pub struct State {
     processed_reader_tasks: usize,
 }
 
+pub trait Buffer {
+    // Static method signature; `Self` refers to the implementor type.
+    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self where Self: Sized;
+    // Instance method signatures; these will return a string.
+    fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
+}
+
+pub struct CpuBuffer {
+    data: Arc<Mutex<Vec<u8>>>
+}
+
+impl Buffer for CpuBuffer {
+    fn new(buffer_size: usize, _context: Option<GpuContext>) -> Self where Self: Sized {
+        let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
+        let data: Vec<u8>;
+        unsafe {
+            data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
+        }
+        CpuBuffer {
+            data: Arc::new(Mutex::new(data)),
+        }
+    }
+    fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
+        self.data.clone()
+    }
+}
+
 fn scan_plots(
     plot_dirs: &[String],
     use_direct_io: bool,
@@ -127,28 +154,35 @@ impl Miner {
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::sync(buffer_count as usize);
         let (tx_read_replies, rx_read_replies) = chan::sync(buffer_count as usize);
+        
+        let gpu_context = Arc::new(GpuContext::new(
+            cfg.gpu_platform,
+            cfg.gpu_device,
+            cfg.nonces_per_cache,
+        ));
 
+        //First approach Vec<u8> to Buffer
         for _ in 0..buffer_count {
-            let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
-            let data: Vec<u8>;
-            unsafe {
-                data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
-            }
-            tx_empty_buffers.send(Arc::new(Mutex::new(data)));
+            let cpu_buffer = CpuBuffer::new(buffer_size, None);
+            //let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
+           // let data: Vec<u8>;
+            //unsafe {
+                //data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
+            //}
+            tx_empty_buffers.send(cpu_buffer);
         }
+
+
 
         let core_ids = core_affinity::get_core_ids().unwrap();
         let (tx_nonce_data, rx_nonce_data) =
             mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
 
         for _id in 0..gpu_worker_thread_count {
+            let test = gpu_context.clone();
             let gpu_option;
             if gpu_worker_thread_count > 0 {
-                gpu_option = Some(GpuContext::new(
-                    cfg.gpu_platform,
-                    cfg.gpu_device,
-                    cfg.nonces_per_cache,
-                ));
+                gpu_option = Some(test);
             } else {
                 gpu_option = None;
             }

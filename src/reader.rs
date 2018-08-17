@@ -7,9 +7,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
+use miner::CpuBuffer;
+use miner::Buffer;
 
 pub struct ReadReply {
-    pub buffer: Arc<Mutex<Vec<u8>>>,
+    pub buffer: CpuBuffer,
     pub len: usize,
     pub height: u64,
     pub gensig: Arc<[u8; 32]>,
@@ -20,7 +22,7 @@ pub struct ReadReply {
 pub struct Reader {
     drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
     pool: rayon::ThreadPool,
-    rx_empty_buffers: chan::Receiver<Arc<Mutex<Vec<u8>>>>,
+    rx_empty_buffers: chan::Receiver<CpuBuffer>,
     tx_read_replies: chan::Sender<ReadReply>,
     interupts: Vec<Sender<()>>,
 }
@@ -29,7 +31,7 @@ impl Reader {
     pub fn new(
         drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
         num_threads: usize,
-        rx_empty_buffers: chan::Receiver<Arc<Mutex<Vec<u8>>>>,
+        rx_empty_buffers: chan::Receiver<CpuBuffer>,
         tx_read_replies: chan::Sender<ReadReply>,
     ) -> Reader {
         for plots in drive_id_to_plots.values() {
@@ -109,8 +111,8 @@ impl Reader {
                 }
 
                 'inner: for buffer in rx_empty_buffers.clone() {
-                    let mut bs = buffer.lock().unwrap();
-
+                    let mut_bs = &*buffer.get_buffer();
+                    let mut bs = mut_bs.lock().unwrap();
                     let (bytes_read, start_nonce, next_plot) = match p.read(&mut *bs, scoop) {
                         Ok(x) => x,
                         Err(e) => {
@@ -125,7 +127,7 @@ impl Reader {
                     let finished = i_p == (plot_count - 1) && next_plot;
 
                     tx_read_replies.send(ReadReply {
-                        buffer: buffer.clone(),
+                        buffer: buffer,
                         len: bytes_read,
                         height,
                         gensig: gensig.clone(),
