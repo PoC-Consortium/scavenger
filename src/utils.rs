@@ -22,7 +22,8 @@ cfg_if! {
              source.split('\n').collect::<Vec<&str>>()[1].to_string()
          }
 
-        // On macos, use df and 'diskutil info <device>' to get the Device Block Size line and extract the size
+        // On macos, use df and 'diskutil info <device>' to get the Device Block Size line
+        // and extract the size
         fn get_sector_size_macos(path: &str) -> u64 {
             let source = get_device_id_unix(path);
             let output = Command::new("diskutil")
@@ -34,7 +35,9 @@ cfg_if! {
             let mut sector_size: u64 = 0;
             for line in source.split('\n').collect::<Vec<&str>>() {
                 if line.trim().starts_with("Device Block Size") {
-                    let source = line.rsplit(' ').collect::<Vec<&str>>()[1];  // e.g. in reverse: "Bytes 512 Size Block Device"
+                    // e.g. in reverse: "Bytes 512 Size Block Device"
+                    let source = line.rsplit(' ').collect::<Vec<&str>>()[1];
+
                     sector_size = source.parse::<u64>().unwrap();
                 }
             }
@@ -78,7 +81,11 @@ cfg_if! {
 
         pub fn get_device_id(path: &String) -> String {
             let path_encoded: Vec<u16> = OsStr::new(path).encode_wide().chain(once(0)).collect();
-            let mut volume_encoded: Vec<u16> = OsStr::new(path).encode_wide().chain(once(0)).collect();
+            let mut volume_encoded: Vec<u16> = OsStr::new(path)
+                .encode_wide()
+                .chain(once(0))
+                .collect();
+
             if unsafe {
                 winapi::um::fileapi::GetVolumePathNameW(
                     path_encoded.as_ptr(),

@@ -111,7 +111,10 @@ mod tests {
     fn test_init_logger() {
         use config::load_cfg;
         let mut cfg = load_cfg("config.yaml");
-        cfg.console_log_level = log::LevelFilter::Error.to_string(); // we dont want to see this during tests
+
+        // we dont want to see this during tests
+        cfg.console_log_level = log::LevelFilter::Error.to_string();
+
         let _ = init_logger(&cfg);
         trace!("TRACE");
         debug!("DEBUG");
