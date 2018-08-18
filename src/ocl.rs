@@ -14,8 +14,8 @@ use miner::Buffer;
 use std::ffi::CString;
 use std::mem;
 use std::process;
+use std::sync::{Arc, Mutex};
 use std::u64;
-use std::sync::{Mutex, Arc};
 
 static SRC: &'static str = include_str!("ocl/kernel.cl");
 
@@ -136,7 +136,10 @@ pub struct GpuBuffer {
 }
 
 impl Buffer for GpuBuffer {
-    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self where Self: Sized{
+    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self
+    where
+        Self: Sized,
+    {
         let context = context.unwrap();
         let gensig_gpu = unsafe {
             core::create_buffer::<_, u8>(&context.context, core::MEM_READ_ONLY, 32, None).unwrap()
@@ -190,10 +193,9 @@ impl Buffer for GpuBuffer {
             best_offset_gpu: best_offset_gpu,
         }
     }
-    fn get_buffer(&self) ->Arc<Mutex<Vec<u8>>>{
-        let test = Arc::new(Mutex::new(vec!(0u8;1)));
+    fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
+        let test = Arc::new(Mutex::new(vec![0u8; 1]));
         test
-
     }
 }
 

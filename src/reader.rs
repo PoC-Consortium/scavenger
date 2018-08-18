@@ -2,16 +2,16 @@ extern crate rayon;
 
 use chan;
 use filetime::FileTime;
+use miner::Buffer;
+use miner::CpuBuffer;
 use plot::Plot;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
-use miner::CpuBuffer;
-use miner::Buffer;
 
 pub struct ReadReply {
-    pub buffer: CpuBuffer,
+    pub buffer: Box<Buffer + Send>,
     pub len: usize,
     pub height: u64,
     pub gensig: Arc<[u8; 32]>,
@@ -22,7 +22,7 @@ pub struct ReadReply {
 pub struct Reader {
     drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
     pool: rayon::ThreadPool,
-    rx_empty_buffers: chan::Receiver<CpuBuffer>,
+    rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
     tx_read_replies: chan::Sender<ReadReply>,
     interupts: Vec<Sender<()>>,
 }
@@ -31,7 +31,7 @@ impl Reader {
     pub fn new(
         drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
         num_threads: usize,
-        rx_empty_buffers: chan::Receiver<CpuBuffer>,
+        rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
         tx_read_replies: chan::Sender<ReadReply>,
     ) -> Reader {
         for plots in drive_id_to_plots.values() {

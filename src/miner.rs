@@ -54,17 +54,22 @@ pub struct State {
 
 pub trait Buffer {
     // Static method signature; `Self` refers to the implementor type.
-    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self where Self: Sized;
+    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self
+    where
+        Self: Sized;
     // Instance method signatures; these will return a string.
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
 }
 
 pub struct CpuBuffer {
-    data: Arc<Mutex<Vec<u8>>>
+    data: Arc<Mutex<Vec<u8>>>,
 }
 
 impl Buffer for CpuBuffer {
-    fn new(buffer_size: usize, _context: Option<GpuContext>) -> Self where Self: Sized {
+    fn new(buffer_size: usize, _context: Option<GpuContext>) -> Self
+    where
+        Self: Sized,
+    {
         let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
         let data: Vec<u8>;
         unsafe {
@@ -152,27 +157,20 @@ impl Miner {
         let buffer_count = (cpu_worker_thread_count + gpu_worker_thread_count) * 2;
         let buffer_size = cfg.nonces_per_cache * SCOOP_SIZE as usize;
 
-        let (tx_empty_buffers, rx_empty_buffers) = chan::sync(buffer_count as usize);
-        let (tx_read_replies, rx_read_replies) = chan::sync(buffer_count as usize);
-        
+        let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
+        let (tx_read_replies, rx_read_replies) = chan::bounded(buffer_count as usize);
+
         let gpu_context = Arc::new(GpuContext::new(
             cfg.gpu_platform,
             cfg.gpu_device,
             cfg.nonces_per_cache,
         ));
 
-        //First approach Vec<u8> to Buffer
+        //WORK IN PROGRESS
         for _ in 0..buffer_count {
             let cpu_buffer = CpuBuffer::new(buffer_size, None);
-            //let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
-           // let data: Vec<u8>;
-            //unsafe {
-                //data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
-            //}
-            tx_empty_buffers.send(cpu_buffer);
+            tx_empty_buffers.send(Box::new(cpu_buffer) as Box<Buffer + Send>);
         }
-
-
 
         let core_ids = core_affinity::get_core_ids().unwrap();
         let (tx_nonce_data, rx_nonce_data) =

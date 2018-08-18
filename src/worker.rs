@@ -2,12 +2,12 @@ use chan;
 use futures::sync::mpsc;
 use futures::{Future, Sink};
 use libc::{c_void, uint64_t};
-use ocl;
-use reader::ReadReply;
-use std::sync::{Arc};
-use std::u64;
 use miner::Buffer;
 use miner::CpuBuffer;
+use ocl;
+use reader::ReadReply;
+use std::sync::Arc;
+use std::u64;
 extern "C" {
     pub fn find_best_deadline_avx2(
         scoops: *mut c_void,
@@ -43,7 +43,7 @@ pub struct NonceData {
 
 pub fn create_worker_task(
     rx_read_replies: chan::Receiver<ReadReply>,
-    tx_empty_buffers: chan::Sender<CpuBuffer>,
+    tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
     gpu: Option<Arc<ocl::GpuContext>>,
 ) -> impl FnOnce() {

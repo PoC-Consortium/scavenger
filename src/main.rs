@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
-extern crate chan;
+extern crate crossbeam_channel as chan;
 extern crate futures;
 extern crate hex;
 extern crate hyper;
