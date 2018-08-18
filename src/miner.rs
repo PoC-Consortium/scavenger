@@ -8,6 +8,7 @@ use chan;
 use config::Cfg;
 use core_affinity;
 use futures::sync::mpsc;
+use ocl::GpuBuffer;
 use ocl::GpuContext;
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
@@ -54,7 +55,7 @@ pub struct State {
 
 pub trait Buffer {
     // Static method signature; `Self` refers to the implementor type.
-    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self
+    fn new(buffer_size: usize, context: Option<Arc<GpuContext>>) -> Self
     where
         Self: Sized;
     // Instance method signatures; these will return a string.
@@ -66,7 +67,7 @@ pub struct CpuBuffer {
 }
 
 impl Buffer for CpuBuffer {
-    fn new(buffer_size: usize, _context: Option<GpuContext>) -> Self
+    fn new(buffer_size: usize, _context: Option<Arc<GpuContext>>) -> Self
     where
         Self: Sized,
     {
@@ -167,7 +168,14 @@ impl Miner {
         ));
 
         //WORK IN PROGRESS
-        for _ in 0..buffer_count {
+
+        for _ in 0..gpu_worker_thread_count * 2 {
+            let context = gpu_context.clone();
+            let gpu_buffer = GpuBuffer::new(buffer_size, Some(context));
+            tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
+        }
+
+        for _ in 0..cpu_worker_thread_count * 2 {
             let cpu_buffer = CpuBuffer::new(buffer_size, None);
             tx_empty_buffers.send(Box::new(cpu_buffer) as Box<Buffer + Send>);
         }

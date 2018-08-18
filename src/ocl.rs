@@ -2,7 +2,10 @@
 //!
 //! Set `INFO_FORMAT_MULTILINE` to `false` for compact printing.
 
+extern crate aligned_alloc;
 extern crate ocl_core as core;
+extern crate page_size;
+
 use libc::c_void;
 //use self::core::{ArgVal, ContextProperties, DeviceInfo, Event, PlatformInfo, Status};
 use self::core::{
@@ -126,6 +129,9 @@ pub struct GpuContext {
 }
 
 pub struct GpuBuffer {
+    data: Arc<Mutex<Vec<u8>>>,
+    context: Arc<GpuContext>,
+    size: usize,
     best_offset: Vec<u64>,
     best_deadline: Vec<u64>,
     gensig_gpu: core::Mem,
@@ -136,7 +142,7 @@ pub struct GpuBuffer {
 }
 
 impl Buffer for GpuBuffer {
-    fn new(buffer_size: usize, context: Option<GpuContext>) -> Self
+    fn new(buffer_size: usize, context: Option<Arc<GpuContext>>) -> Self
     where
         Self: Sized,
     {
@@ -174,16 +180,29 @@ impl Buffer for GpuBuffer {
             ).unwrap()
         };
 
+        let pointer = aligned_alloc::aligned_alloc(&context.gdim1[0] * 64, page_size::get());
+        let data: Vec<u8>;
+        unsafe {
+            data = Vec::from_raw_parts(
+                pointer as *mut u8,
+                &context.gdim1[0] * 64,
+                &context.gdim1[0] * 64,
+            );
+        }
+
         let data_gpu = unsafe {
-            core::create_buffer::<_, u8>(
+            core::create_buffer(
                 &context.context,
                 core::MEM_READ_ONLY | core::MEM_ALLOC_HOST_PTR,
-                &context.gdim1[0] * 64,
-                None,
+                context.gdim1[0] * 64,
+                Some(&data),
             ).unwrap()
         };
 
         GpuBuffer {
+            data: Arc::new(Mutex::new(data)),
+            context: context,
+            size: buffer_size,
             best_offset: best_offset,
             best_deadline: best_deadline,
             gensig_gpu: gensig_gpu,
@@ -194,8 +213,27 @@ impl Buffer for GpuBuffer {
         }
     }
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
-        let test = Arc::new(Mutex::new(vec![0u8; 1]));
-        test
+        //Todo get the pointer via MAP!
+        //pub unsafe fn enqueue_map_buffer<T: OclPrm>(command_queue: &CommandQueue, buffer: &Mem, block: bool, map_flags: MapFlags, offset: usize, size: usize, wait_list: Option<&ClWaitList>, new_event: Option<&mut ClEventPtrNew>) -> OclResult<*mut c_void>
+        //  let test = *mut c_void;
+        /*
+        let data: Vec<u8>;
+        unsafe {
+            let test = core::enqueue_map_buffer::<u8, _, _, _>(
+                &(*self.context).queue,
+                &self.data_gpu,
+                true,
+                core::MAP_WRITE,
+                0,
+                &(*self.context).gdim1[0] * 64,
+                None::<Event>,
+                None::<&mut Event>,
+            ).unwrap();
+            data = test.as_vec();
+           // data = Vec::from_raw_parts(test.as_ptr() as *mut u8, self.size * 64, self.size * 64);
+        }
+        */
+        self.data.clone()
     }
 }
 

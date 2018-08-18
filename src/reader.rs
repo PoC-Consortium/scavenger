@@ -3,7 +3,6 @@ extern crate rayon;
 use chan;
 use filetime::FileTime;
 use miner::Buffer;
-use miner::CpuBuffer;
 use plot::Plot;
 use std::cell::RefCell;
 use std::collections::HashMap;

@@ -3,7 +3,6 @@ use futures::sync::mpsc;
 use futures::{Future, Sink};
 use libc::{c_void, uint64_t};
 use miner::Buffer;
-use miner::CpuBuffer;
 use ocl;
 use reader::ReadReply;
 use std::sync::Arc;
