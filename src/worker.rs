@@ -4,6 +4,7 @@ use futures::{Future, Sink};
 use libc::{c_void, uint64_t};
 use miner::Buffer;
 use ocl;
+use ocl::GpuBuffer;
 use reader::ReadReply;
 use std::u64;
 extern "C" {
@@ -53,12 +54,14 @@ pub fn create_worker_task(
             }
             let mut_bs = &*buffer.get_buffer();
             let mut bs = mut_bs.lock().unwrap();
-            let gpu_context = buffer.get_context();
+            let gpu_context = buffer.get_gpu_context();
 
 
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
             
+            //TODO: Split memobject
+
             match &gpu_context {
                 None => {
                     let padded = pad(&mut bs, read_reply.len, 8 * 64);
@@ -90,9 +93,9 @@ pub fn create_worker_task(
                         }
                     }
                 }
-                Some(context) => {
+                Some(_context) => {
                     let tuple = ocl::find_best_deadline_gpu(
-                        context,
+                        buffer.get_gpu_buffers().unwrap(),
                         bs.as_ptr() as *const c_void,
                         read_reply.len / 64,
                         *read_reply.gensig,

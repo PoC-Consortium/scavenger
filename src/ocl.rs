@@ -236,8 +236,11 @@ impl Buffer for GpuBuffer {
         self.data.clone()
     }
 
-    fn get_context(&self) -> Option<Arc<GpuContext>> {
+    fn get_gpu_context(&self) -> Option<Arc<GpuContext>> {
         Some(self.context.clone())
+    }
+    fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
+        Some(self)
     }
 }
 
@@ -321,7 +324,7 @@ impl GpuContext {
 }
 
 pub fn find_best_deadline_gpu(
-    gpu_context: &GpuContext,
+    buffer: &GpuBuffer,
     scoops: *const c_void,
     nonce_count: usize,
     gensig: [u8; 32],
@@ -330,6 +333,8 @@ pub fn find_best_deadline_gpu(
     unsafe {
         data = Vec::from_raw_parts(scoops as *mut u8, nonce_count * 64, nonce_count * 64);
     }
+
+    let gpu_context = (*buffer).get_gpu_context().unwrap(); 
 
     unsafe {
         core::enqueue_write_buffer(

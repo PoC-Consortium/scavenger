@@ -60,7 +60,8 @@ pub trait Buffer {
         Self: Sized;
     // Instance method signatures; these will return a string.
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
-    fn get_context(&self) -> Option<Arc<GpuContext>>;
+    fn get_gpu_context(&self) -> Option<Arc<GpuContext>>;
+    fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
 }
 
 pub struct CpuBuffer {
@@ -84,7 +85,11 @@ impl Buffer for CpuBuffer {
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
         self.data.clone()
     }
-    fn get_context(&self) -> Option<Arc<GpuContext>> {
+    fn get_gpu_context(&self) -> Option<Arc<GpuContext>> {
+    None
+    }
+
+    fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
     None
     }
 }
@@ -171,8 +176,6 @@ impl Miner {
             cfg.gpu_device,
             cfg.nonces_per_cache_gpu,
         ));
-
-        //WORK IN PROGRESS
 
         for _ in 0..gpu_worker_thread_count * 2 {
             let context = gpu_context.clone();
