@@ -164,20 +164,20 @@ impl Miner {
         let cpu_worker_thread_count = cfg.cpu_worker_thread_count;
         let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
-        let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count;
+        let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count * 2;
         let buffer_size_cpu = cfg.nonces_per_cache_cpu * SCOOP_SIZE as usize;
         let buffer_size_gpu = cfg.nonces_per_cache_gpu * SCOOP_SIZE as usize;
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
         let (tx_read_replies, rx_read_replies) = chan::bounded(buffer_count as usize);
-
+        /*
         let gpu_context = Arc::new(GpuContext::new(
             cfg.gpu_platform,
             cfg.gpu_device,
             cfg.nonces_per_cache_gpu,
         ));
-
-        for _ in 0..gpu_worker_thread_count {
+*/
+        for _ in 0..gpu_worker_thread_count * 2 {
             let context = Arc::new(GpuContext::new(
                 cfg.gpu_platform,
                 cfg.gpu_device,
@@ -196,12 +196,22 @@ impl Miner {
         let (tx_nonce_data, rx_nonce_data) =
             mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
 
-        for id in 0..cpu_worker_thread_count + gpu_worker_thread_count {
+        for id in 0..cpu_worker_thread_count {
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
                 if cfg.cpu_thread_pinning {
                     core_affinity::set_for_current(core_id);
                 }
+                create_worker_task(
+                    rx_read_replies.clone(),
+                    tx_empty_buffers.clone(),
+                    tx_nonce_data.clone(),
+                )
+            });
+        }
+
+        for _ in 0..gpu_worker_thread_count {
+            thread::spawn({
                 create_worker_task(
                     rx_read_replies.clone(),
                     tx_empty_buffers.clone(),
