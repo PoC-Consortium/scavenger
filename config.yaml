@@ -7,11 +7,12 @@ plot_dirs:
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
 # url: 'http://wallet.dev.burst-test.net:6876'
-#url: 'http://dummypool.megash.it'
-url: 'http://pool.dev.burst-test.net:8124'
-cpu_worker_thread_count: 0
+url: 'http://dummypool.megash.it'
+#url: 'http://pool.dev.burst-test.net:8124'
+cpu_worker_thread_count: 4
 reader_thread_count: 1
-nonces_per_cache: 20000000            # default 65536
+nonces_per_cache_cpu: 65536           # default 65536
+nonces_per_cache_gpu: 1048576         # default 65536
 target_deadline: 4294967295           # default u32::MAX
 use_direct_io: true                   # default true
 get_mining_info_interval: 950         # default 3000ms
@@ -21,7 +22,7 @@ console_log_level: 'Info'             # default Info, Options (Off, Error, Warn,
 logfile_log_level: 'Warn'             # default Warn, Options (Off, Error, Warn, Info, Debug, Trace)
 logfile_max_count: 10                 # maximum number of log files to keep
 logfile_max_size : 20                 # maximum size per logfile in MiB
-gpu_worker_thread_count: 1            # number of GPU workers (0 = CPU only)
+gpu_worker_thread_count: 4            # number of GPU workers (0 = CPU only)
 gpu_platform: 0                       # select GPU platform
 gpu_device: 0                         # select GPU device
 

@@ -60,6 +60,7 @@ pub trait Buffer {
         Self: Sized;
     // Instance method signatures; these will return a string.
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
+    fn get_context(&self) -> Option<Arc<GpuContext>>;
 }
 
 pub struct CpuBuffer {
@@ -82,6 +83,9 @@ impl Buffer for CpuBuffer {
     }
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
         self.data.clone()
+    }
+    fn get_context(&self) -> Option<Arc<GpuContext>> {
+    None
     }
 }
 
@@ -156,7 +160,8 @@ impl Miner {
         let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
         let buffer_count = (cpu_worker_thread_count + gpu_worker_thread_count) * 2;
-        let buffer_size = cfg.nonces_per_cache * SCOOP_SIZE as usize;
+        let buffer_size_cpu = cfg.nonces_per_cache_cpu * SCOOP_SIZE as usize;
+        let buffer_size_gpu = cfg.nonces_per_cache_gpu * SCOOP_SIZE as usize;
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
         let (tx_read_replies, rx_read_replies) = chan::bounded(buffer_count as usize);
@@ -164,19 +169,19 @@ impl Miner {
         let gpu_context = Arc::new(GpuContext::new(
             cfg.gpu_platform,
             cfg.gpu_device,
-            cfg.nonces_per_cache,
+            cfg.nonces_per_cache_gpu,
         ));
 
         //WORK IN PROGRESS
 
         for _ in 0..gpu_worker_thread_count * 2 {
             let context = gpu_context.clone();
-            let gpu_buffer = GpuBuffer::new(buffer_size, Some(context));
+            let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(context));
             tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
         }
 
         for _ in 0..cpu_worker_thread_count * 2 {
-            let cpu_buffer = CpuBuffer::new(buffer_size, None);
+            let cpu_buffer = CpuBuffer::new(buffer_size_cpu, None);
             tx_empty_buffers.send(Box::new(cpu_buffer) as Box<Buffer + Send>);
         }
 
@@ -184,36 +189,16 @@ impl Miner {
         let (tx_nonce_data, rx_nonce_data) =
             mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
 
-        for _id in 0..gpu_worker_thread_count {
-            let test = gpu_context.clone();
-            let gpu_option;
-            if gpu_worker_thread_count > 0 {
-                gpu_option = Some(test);
-            } else {
-                gpu_option = None;
-            }
-            thread::spawn({
-                create_worker_task(
-                    rx_read_replies.clone(),
-                    tx_empty_buffers.clone(),
-                    tx_nonce_data.clone(),
-                    gpu_option,
-                )
-            });
-        }
-
-        for id in 0..cpu_worker_thread_count {
+        for id in 0..cpu_worker_thread_count+gpu_worker_thread_count {
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
                 if cfg.cpu_thread_pinning {
                     core_affinity::set_for_current(core_id);
                 }
-
                 create_worker_task(
                     rx_read_replies.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
-                    None,
                 )
             });
         }

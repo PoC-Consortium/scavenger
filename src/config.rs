@@ -2,7 +2,7 @@ extern crate serde_yaml;
 extern crate sys_info;
 
 use std::fs;
-use std::u64;
+use std::u32;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cfg {
@@ -28,8 +28,11 @@ pub struct Cfg {
     #[serde(default = "default_gpu_device")]
     pub gpu_device: usize,
 
-    #[serde(default = "default_nonces_per_cache")]
-    pub nonces_per_cache: usize,
+    #[serde(default = "default_nonces_per_cache_cpu")]
+    pub nonces_per_cache_cpu: usize,
+
+    #[serde(default = "default_nonces_per_cache_gpu")]
+    pub nonces_per_cache_gpu: usize,
 
     #[serde(default = "default_target_deadline")]
     pub target_deadline: u64,
@@ -118,12 +121,16 @@ fn default_gpu_device() -> usize {
     0
 }
 
-fn default_nonces_per_cache() -> usize {
+fn default_nonces_per_cache_cpu() -> usize {
     65536
 }
 
+fn default_nonces_per_cache_gpu() -> usize {
+    1048576
+}
+
 fn default_target_deadline() -> u64 {
-    u64::MAX
+    u32::MAX as u64
 }
 
 fn default_use_direct_io() -> bool {
@@ -151,7 +158,7 @@ pub fn load_cfg(config: &str) -> Cfg {
     let cfg: Cfg = serde_yaml::from_str(&cfg_str).expect("failed to parse config");
     if cfg.use_direct_io {
         assert!(
-            cfg.nonces_per_cache % 8 == 0,
+            cfg.nonces_per_cache_cpu % 8 == 0 && cfg.nonces_per_cache_gpu % 8 == 0,
             "nonces_per_cache must be devisable by 8 when using direct io"
         );
     }

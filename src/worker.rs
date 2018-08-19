@@ -5,7 +5,6 @@ use libc::{c_void, uint64_t};
 use miner::Buffer;
 use ocl;
 use reader::ReadReply;
-use std::sync::Arc;
 use std::u64;
 extern "C" {
     pub fn find_best_deadline_avx2(
@@ -44,7 +43,6 @@ pub fn create_worker_task(
     rx_read_replies: chan::Receiver<ReadReply>,
     tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
-    gpu: Option<Arc<ocl::GpuContext>>,
 ) -> impl FnOnce() {
     move || {
         for read_reply in rx_read_replies {
@@ -55,11 +53,13 @@ pub fn create_worker_task(
             }
             let mut_bs = &*buffer.get_buffer();
             let mut bs = mut_bs.lock().unwrap();
+            let gpu_context = buffer.get_context();
 
-            //let mut bs = buffer.get_buffer().lock().unwrap();
+
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
-            match &gpu {
+            
+            match &gpu_context {
                 None => {
                     let padded = pad(&mut bs, read_reply.len, 8 * 64);
                     unsafe {

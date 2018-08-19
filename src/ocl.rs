@@ -95,9 +95,9 @@ pub fn gpu_info(cfg: &Cfg) {
                 );
                 info!(
                     "GPU: RAM usage (estimated)={}MiB",
-                    cfg.nonces_per_cache * 75 * cfg.gpu_worker_thread_count / 1024 / 1024
+                    cfg.nonces_per_cache_gpu * 75 * cfg.gpu_worker_thread_count / 1024 / 1024
                 );
-                if cfg.nonces_per_cache * 75 * cfg.gpu_worker_thread_count > mem as usize {
+                if cfg.nonces_per_cache_gpu * 75 * cfg.gpu_worker_thread_count > mem as usize {
                     error!("GPU: Insufficient GPU memory. Please reduce GPU_worker_threads and/or nonces_per_cache. Shutting down...");
                     process::exit(0);
                 }
@@ -193,7 +193,7 @@ impl Buffer for GpuBuffer {
         let data_gpu = unsafe {
             core::create_buffer(
                 &context.context,
-                core::MEM_READ_ONLY | core::MEM_ALLOC_HOST_PTR,
+                core::MEM_READ_ONLY | core::MEM_USE_HOST_PTR,
                 context.gdim1[0] * 64,
                 Some(&data),
             ).unwrap()
@@ -234,6 +234,10 @@ impl Buffer for GpuBuffer {
         }
         */
         self.data.clone()
+    }
+
+    fn get_context(&self) -> Option<Arc<GpuContext>> {
+        Some(self.context.clone())
     }
 }
 
