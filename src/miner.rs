@@ -86,11 +86,11 @@ impl Buffer for CpuBuffer {
         self.data.clone()
     }
     fn get_gpu_context(&self) -> Option<Arc<GpuContext>> {
-    None
+        None
     }
 
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
-    None
+        None
     }
 }
 
@@ -192,7 +192,7 @@ impl Miner {
         let (tx_nonce_data, rx_nonce_data) =
             mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
 
-        for id in 0..cpu_worker_thread_count+gpu_worker_thread_count {
+        for id in 0..cpu_worker_thread_count + gpu_worker_thread_count {
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
                 if cfg.cpu_thread_pinning {

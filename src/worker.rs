@@ -56,10 +56,9 @@ pub fn create_worker_task(
             let mut bs = mut_bs.lock().unwrap();
             let gpu_context = buffer.get_gpu_context();
 
-
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
-            
+
             //TODO: Split memobject
 
             match &gpu_context {

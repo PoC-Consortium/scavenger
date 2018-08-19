@@ -121,19 +121,11 @@ pub struct GpuContext {
     gdim1: [usize; 3],
     ldim2: [usize; 3],
     gdim2: [usize; 3],
-    //below to be removed
-    gensig_gpu: core::Mem,
-    deadlines_gpu: core::Mem,
-    best_deadline_gpu: core::Mem,
-    best_offset_gpu: core::Mem,
 }
 
 pub struct GpuBuffer {
     data: Arc<Mutex<Vec<u8>>>,
     context: Arc<GpuContext>,
-    size: usize,
-    best_offset: Vec<u64>,
-    best_deadline: Vec<u64>,
     gensig_gpu: core::Mem,
     data_gpu: core::Mem,
     deadlines_gpu: core::Mem,
@@ -142,7 +134,7 @@ pub struct GpuBuffer {
 }
 
 impl Buffer for GpuBuffer {
-    fn new(buffer_size: usize, context: Option<Arc<GpuContext>>) -> Self
+    fn new(_buffer_size: usize, context: Option<Arc<GpuContext>>) -> Self
     where
         Self: Sized,
     {
@@ -202,9 +194,6 @@ impl Buffer for GpuBuffer {
         GpuBuffer {
             data: Arc::new(Mutex::new(data)),
             context: context,
-            size: buffer_size,
-            best_offset: best_offset,
-            best_deadline: best_deadline,
             gensig_gpu: gensig_gpu,
             data_gpu: data_gpu,
             deadlines_gpu: deadlines_gpu,
@@ -282,24 +271,6 @@ impl GpuContext {
         let gdim2 = [kernel2_workgroup_size, 1, 1];
         let ldim2 = [kernel2_workgroup_size, 1, 1];
 
-        let gensig_gpu = unsafe {
-            core::create_buffer::<_, u8>(&context, core::MEM_READ_ONLY, 32, None).unwrap()
-        };
-
-        let deadlines_gpu = unsafe {
-            core::create_buffer::<_, u64>(&context, core::MEM_READ_WRITE, gdim1[0], None).unwrap()
-        };
-
-        let best_offset = vec![0u64; 1];
-        let best_offset_gpu = unsafe {
-            core::create_buffer(&context, core::MEM_READ_WRITE, 1, Some(&best_offset)).unwrap()
-        };
-
-        let best_deadline = vec![0u64; 1];
-        let best_deadline_gpu = unsafe {
-            core::create_buffer(&context, core::MEM_READ_WRITE, 1, Some(&best_deadline)).unwrap()
-        };
-
         GpuContext {
             context: context,
             queue: queue,
@@ -309,10 +280,6 @@ impl GpuContext {
             gdim1: gdim1,
             ldim2: ldim2,
             gdim2: gdim2,
-            gensig_gpu: gensig_gpu,
-            deadlines_gpu: deadlines_gpu,
-            best_offset_gpu: best_offset_gpu,
-            best_deadline_gpu: best_deadline_gpu,
         }
     }
 }
@@ -328,12 +295,12 @@ pub fn find_best_deadline_gpu(
         data = Vec::from_raw_parts(scoops as *mut u8, nonce_count * 64, nonce_count * 64);
     }
 
-    let gpu_context = (*buffer).get_gpu_context().unwrap(); 
+    let gpu_context = (*buffer).get_gpu_context().unwrap();
 
     unsafe {
         core::enqueue_write_buffer(
             &gpu_context.queue,
-            &gpu_context.gensig_gpu,
+            &buffer.gensig_gpu,
             false,
             0,
             &gensig,
@@ -354,17 +321,9 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    core::set_kernel_arg(
-        &gpu_context.kernel1,
-        0,
-        ArgVal::mem(&gpu_context.gensig_gpu),
-    ).unwrap();
+    core::set_kernel_arg(&gpu_context.kernel1, 0, ArgVal::mem(&buffer.gensig_gpu)).unwrap();
     core::set_kernel_arg(&gpu_context.kernel1, 1, ArgVal::mem(&buffer.data_gpu)).unwrap();
-    core::set_kernel_arg(
-        &gpu_context.kernel1,
-        2,
-        ArgVal::mem(&gpu_context.deadlines_gpu),
-    ).unwrap();
+    core::set_kernel_arg(&gpu_context.kernel1, 2, ArgVal::mem(&buffer.deadlines_gpu)).unwrap();
 
     unsafe {
         core::enqueue_kernel(
@@ -379,11 +338,7 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    core::set_kernel_arg(
-        &gpu_context.kernel2,
-        0,
-        ArgVal::mem(&gpu_context.deadlines_gpu),
-    ).unwrap();
+    core::set_kernel_arg(&gpu_context.kernel2, 0, ArgVal::mem(&buffer.deadlines_gpu)).unwrap();
     core::set_kernel_arg(&gpu_context.kernel2, 1, ArgVal::primitive(&nonce_count)).unwrap();
     core::set_kernel_arg(
         &gpu_context.kernel2,
@@ -393,12 +348,12 @@ pub fn find_best_deadline_gpu(
     core::set_kernel_arg(
         &gpu_context.kernel2,
         3,
-        ArgVal::mem(&gpu_context.best_offset_gpu),
+        ArgVal::mem(&buffer.best_offset_gpu),
     ).unwrap();
     core::set_kernel_arg(
         &gpu_context.kernel2,
         4,
-        ArgVal::mem(&gpu_context.best_deadline_gpu),
+        ArgVal::mem(&buffer.best_deadline_gpu),
     ).unwrap();
 
     unsafe {
@@ -420,7 +375,7 @@ pub fn find_best_deadline_gpu(
     unsafe {
         core::enqueue_read_buffer(
             &gpu_context.queue,
-            &gpu_context.best_offset_gpu,
+            &buffer.best_offset_gpu,
             true,
             0,
             &mut best_offset,
@@ -431,7 +386,7 @@ pub fn find_best_deadline_gpu(
     unsafe {
         core::enqueue_read_buffer(
             &gpu_context.queue,
-            &gpu_context.best_deadline_gpu,
+            &buffer.best_deadline_gpu,
             true,
             0,
             &mut best_deadline,
