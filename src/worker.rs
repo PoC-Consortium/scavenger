@@ -4,7 +4,7 @@ use futures::{Future, Sink};
 use libc::{c_void, uint64_t};
 use miner::Buffer;
 use ocl;
-use ocl::GpuBuffer;
+
 use reader::ReadReply;
 use std::u64;
 extern "C" {
