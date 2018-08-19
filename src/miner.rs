@@ -164,7 +164,7 @@ impl Miner {
         let cpu_worker_thread_count = cfg.cpu_worker_thread_count;
         let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
-        let buffer_count = cpu_worker_thread_count *2 + gpu_worker_thread_count;
+        let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count;
         let buffer_size_cpu = cfg.nonces_per_cache_cpu * SCOOP_SIZE as usize;
         let buffer_size_gpu = cfg.nonces_per_cache_gpu * SCOOP_SIZE as usize;
 
@@ -178,7 +178,11 @@ impl Miner {
         ));
 
         for _ in 0..gpu_worker_thread_count {
-            let context = gpu_context.clone();
+            let context = Arc::new(GpuContext::new(
+                cfg.gpu_platform,
+                cfg.gpu_device,
+                cfg.nonces_per_cache_gpu,
+            ));
             let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(context));
             tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
         }
