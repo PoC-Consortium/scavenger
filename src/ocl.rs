@@ -95,11 +95,11 @@ pub fn gpu_info(cfg: &Cfg) {
                 );
                 info!(
                     "GPU: RAM usage (estimated)={}MiB",
-                    cfg.nonces_per_cache_gpu * 75 * cfg.gpu_worker_thread_count / 1024 / 1024
+                    cfg.nonces_per_cache_gpu * 75 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
                 );
-                if cfg.nonces_per_cache_gpu * 75 * cfg.gpu_worker_thread_count > mem as usize {
-                    error!("GPU: Insufficient GPU memory. Please reduce GPU_worker_threads and/or nonces_per_cache. Shutting down...");
-                    process::exit(0);
+                if cfg.nonces_per_cache_gpu * 75 * 2 * cfg.gpu_worker_thread_count > mem as usize {
+                    warn!("GPU: required RAM exceeds available RAM. Consider reducing  GPU_worker_threads and/or nonces_per_cache.");
+                    //process::exit(0);
                 }
             }
             _ => panic!("Unexpected error. Can't obtain GPU memory size."),
@@ -202,13 +202,9 @@ impl Buffer for GpuBuffer {
         }
     }
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
-        //Todo get the pointer via MAP!
-        //pub unsafe fn enqueue_map_buffer<T: OclPrm>(command_queue: &CommandQueue, buffer: &Mem, block: bool, map_flags: MapFlags, offset: usize, size: usize, wait_list: Option<&ClWaitList>, new_event: Option<&mut ClEventPtrNew>) -> OclResult<*mut c_void>
-        //  let test = *mut c_void;
-        /*
-        let data: Vec<u8>;
+        // pointer is cached, however, calling enqueue map to make DMA work. Returns same pointer as cached.
         unsafe {
-            let test = core::enqueue_map_buffer::<u8, _, _, _>(
+            let _pointer = core::enqueue_map_buffer::<u8, _, _, _>(
                 &(*self.context).queue,
                 &self.data_gpu,
                 true,
@@ -218,10 +214,7 @@ impl Buffer for GpuBuffer {
                 None::<Event>,
                 None::<&mut Event>,
             ).unwrap();
-            data = test.as_vec();
-           // data = Vec::from_raw_parts(test.as_ptr() as *mut u8, self.size * 64, self.size * 64);
         }
-        */
         self.data.clone()
     }
 
@@ -230,6 +223,19 @@ impl Buffer for GpuBuffer {
     }
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
         Some(self)
+    }
+    fn flush(&self) {
+        unsafe {
+            core::enqueue_write_buffer(
+                &self.context.queue,
+                &self.data_gpu,
+                false,
+                0,
+                &*(*self.data).lock().unwrap(),
+                None::<Event>,
+                None::<&mut Event>,
+            ).unwrap();
+        }
     }
 }
 
@@ -308,7 +314,7 @@ pub fn find_best_deadline_gpu(
             None::<&mut Event>,
         ).unwrap();
     }
-
+    /*
     unsafe {
         core::enqueue_write_buffer(
             &gpu_context.queue,
@@ -320,6 +326,7 @@ pub fn find_best_deadline_gpu(
             None::<&mut Event>,
         ).unwrap();
     }
+    */
 
     core::set_kernel_arg(&gpu_context.kernel1, 0, ArgVal::mem(&buffer.gensig_gpu)).unwrap();
     core::set_kernel_arg(&gpu_context.kernel1, 1, ArgVal::mem(&buffer.data_gpu)).unwrap();

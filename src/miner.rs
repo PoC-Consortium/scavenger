@@ -62,6 +62,7 @@ pub trait Buffer {
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
     fn get_gpu_context(&self) -> Option<Arc<GpuContext>>;
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
+    fn flush(&self);
 }
 
 pub struct CpuBuffer {
@@ -92,6 +93,7 @@ impl Buffer for CpuBuffer {
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
         None
     }
+    fn flush(&self) {}
 }
 
 fn scan_plots(

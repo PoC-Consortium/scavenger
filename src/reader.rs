@@ -113,7 +113,11 @@ impl Reader {
                     let mut_bs = &*buffer.get_buffer();
                     let mut bs = mut_bs.lock().unwrap();
                     let (bytes_read, start_nonce, next_plot) = match p.read(&mut *bs, scoop) {
-                        Ok(x) => x,
+                        Ok(x) => {
+                            drop(bs);
+                            buffer.flush();
+                            x
+                        }
                         Err(e) => {
                             error!(
                                 "reader: error reading chunk from {}: {} -> skip one round",
