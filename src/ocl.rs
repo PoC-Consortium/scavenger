@@ -202,13 +202,9 @@ impl Buffer for GpuBuffer {
         }
     }
     fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
-        //Todo get the pointer via MAP!
-        //pub unsafe fn enqueue_map_buffer<T: OclPrm>(command_queue: &CommandQueue, buffer: &Mem, block: bool, map_flags: MapFlags, offset: usize, size: usize, wait_list: Option<&ClWaitList>, new_event: Option<&mut ClEventPtrNew>) -> OclResult<*mut c_void>
-        //  let test = *mut c_void;
-        /*
-        let data: Vec<u8>;
+        // pointer is cached, however, calling enqueue map to make DMA work. Returns same pointer as cached.
         unsafe {
-            let test = core::enqueue_map_buffer::<u8, _, _, _>(
+            let _pointer = core::enqueue_map_buffer::<u8, _, _, _>(
                 &(*self.context).queue,
                 &self.data_gpu,
                 true,
@@ -218,10 +214,7 @@ impl Buffer for GpuBuffer {
                 None::<Event>,
                 None::<&mut Event>,
             ).unwrap();
-            data = test.as_vec();
-           // data = Vec::from_raw_parts(test.as_ptr() as *mut u8, self.size * 64, self.size * 64);
         }
-        */
         self.data.clone()
     }
 
