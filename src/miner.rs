@@ -173,7 +173,8 @@ impl Miner {
         let buffer_size_gpu = cfg.gpu_nonces_per_cache * SCOOP_SIZE as usize;
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
-        let (tx_read_replies, rx_read_replies) = chan::bounded(buffer_count as usize);
+        let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
+        let (tx_read_replies_gpu, rx_read_replies_gpu) = chan::bounded(gpu_worker_thread_count * 2);
 
         for _ in 0..gpu_worker_thread_count * 2 {
             let context = Arc::new(GpuContext::new(
@@ -202,7 +203,7 @@ impl Miner {
                     core_affinity::set_for_current(core_id);
                 }
                 create_worker_task(
-                    rx_read_replies.clone(),
+                    rx_read_replies_cpu.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
                 )
@@ -212,7 +213,7 @@ impl Miner {
         for _ in 0..gpu_worker_thread_count {
             thread::spawn({
                 create_worker_task(
-                    rx_read_replies.clone(),
+                    rx_read_replies_gpu.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
                 )
@@ -226,7 +227,8 @@ impl Miner {
                 drive_id_to_plots,
                 reader_thread_count,
                 rx_empty_buffers,
-                tx_read_replies,
+                tx_read_replies_cpu,
+                tx_read_replies_gpu,
             ),
             rx_nonce_data,
             account_id: cfg.account_id,

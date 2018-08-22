@@ -22,7 +22,8 @@ pub struct Reader {
     drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
     pool: rayon::ThreadPool,
     rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
-    tx_read_replies: chan::Sender<ReadReply>,
+    tx_read_replies_cpu: chan::Sender<ReadReply>,
+    tx_read_replies_gpu: chan::Sender<ReadReply>,
     interupts: Vec<Sender<()>>,
 }
 
@@ -31,7 +32,8 @@ impl Reader {
         drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
         num_threads: usize,
         rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
-        tx_read_replies: chan::Sender<ReadReply>,
+        tx_read_replies_cpu: chan::Sender<ReadReply>,
+        tx_read_replies_gpu: chan::Sender<ReadReply>,
     ) -> Reader {
         for plots in drive_id_to_plots.values() {
             let mut plots = plots.lock().unwrap();
@@ -48,7 +50,8 @@ impl Reader {
                 .build()
                 .unwrap(),
             rx_empty_buffers,
-            tx_read_replies,
+            tx_read_replies_cpu,
+            tx_read_replies_gpu,
             interupts: Vec::new(),
         }
     }
@@ -94,7 +97,8 @@ impl Reader {
     ) -> (Sender<()>, impl FnOnce()) {
         let (tx_interupt, rx_interupt) = channel();
         let rx_empty_buffers = self.rx_empty_buffers.clone();
-        let tx_read_replies = self.tx_read_replies.clone();
+        let tx_read_replies_cpu = self.tx_read_replies_cpu.clone();
+        let tx_read_replies_gpu = self.tx_read_replies_gpu.clone();
 
         (tx_interupt, move || {
             let plots = plots.lock().unwrap();
@@ -124,15 +128,31 @@ impl Reader {
                     };
 
                     let finished = i_p == (plot_count - 1) && next_plot;
+                    //fork
+                    let gpu_context = buffer.get_gpu_context();
 
-                    tx_read_replies.send(ReadReply {
-                        buffer: buffer,
-                        len: bytes_read,
-                        height,
-                        gensig: gensig.clone(),
-                        start_nonce,
-                        finished,
-                    });
+                    match &gpu_context {
+                        None => {
+                            tx_read_replies_cpu.send(ReadReply {
+                                buffer: buffer,
+                                len: bytes_read,
+                                height,
+                                gensig: gensig.clone(),
+                                start_nonce,
+                                finished,
+                            });
+                        }
+                        Some(_context) => {
+                            tx_read_replies_gpu.send(ReadReply {
+                                buffer: buffer,
+                                len: bytes_read,
+                                height,
+                                gensig: gensig.clone(),
+                                start_nonce,
+                                finished,
+                            });
+                        }
+                    }
 
                     if next_plot {
                         break 'inner;
