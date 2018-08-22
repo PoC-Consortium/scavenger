@@ -59,7 +59,8 @@ pub trait Buffer {
     where
         Self: Sized;
     // Instance method signatures; these will return a string.
-    fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>>;
+    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>>;
+    fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>>;
     fn get_gpu_context(&self) -> Option<Arc<GpuContext>>;
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
 }
@@ -82,7 +83,10 @@ impl Buffer for CpuBuffer {
             data: Arc::new(Mutex::new(data)),
         }
     }
-    fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
+    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+        self.data.clone()
+    }
+    fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>> {
         self.data.clone()
     }
     fn get_gpu_context(&self) -> Option<Arc<GpuContext>> {
@@ -153,35 +157,30 @@ fn scan_plots(
 
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
-        let drive_id_to_plots = scan_plots(&cfg.plot_dirs, cfg.use_direct_io);
+        let drive_id_to_plots = scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io);
 
-        let reader_thread_count = if cfg.reader_thread_count == 0 {
+        let reader_thread_count = if cfg.hdd_reader_thread_count == 0 {
             drive_id_to_plots.len()
         } else {
-            cfg.reader_thread_count
+            cfg.hdd_reader_thread_count
         };
 
         let cpu_worker_thread_count = cfg.cpu_worker_thread_count;
         let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
         let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count * 2;
-        let buffer_size_cpu = cfg.nonces_per_cache_cpu * SCOOP_SIZE as usize;
-        let buffer_size_gpu = cfg.nonces_per_cache_gpu * SCOOP_SIZE as usize;
+        let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
+        let buffer_size_gpu = cfg.gpu_nonces_per_cache * SCOOP_SIZE as usize;
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
         let (tx_read_replies, rx_read_replies) = chan::bounded(buffer_count as usize);
-        /*
-        let gpu_context = Arc::new(GpuContext::new(
-            cfg.gpu_platform,
-            cfg.gpu_device,
-            cfg.nonces_per_cache_gpu,
-        ));
-*/
+
         for _ in 0..gpu_worker_thread_count * 2 {
             let context = Arc::new(GpuContext::new(
                 cfg.gpu_platform,
                 cfg.gpu_device,
-                cfg.nonces_per_cache_gpu,
+                cfg.gpu_nonces_per_cache,
+                cfg.gpu_mem_mapping,
             ));
             let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(context));
             tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
@@ -248,7 +247,7 @@ impl Miner {
             })),
             get_mining_info_interval: cfg.get_mining_info_interval,
             core,
-            wakeup_after: cfg.wakeup_after * 1000, // ms -> s
+            wakeup_after: cfg.hdd_wakeup_after * 1000, // ms -> s
         }
     }
 

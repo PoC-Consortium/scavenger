@@ -1,13 +1,7 @@
-//! Get information about all the things using `core` function calls.
-//!
-//! Set `INFO_FORMAT_MULTILINE` to `false` for compact printing.
-
 extern crate aligned_alloc;
 extern crate ocl_core as core;
 extern crate page_size;
 
-use libc::c_void;
-//use self::core::{ArgVal, ContextProperties, DeviceInfo, Event, PlatformInfo, Status};
 use self::core::{
     ArgVal, ContextProperties, DeviceInfo, Event, KernelWorkGroupInfo, PlatformInfo, Status,
 };
@@ -15,14 +9,14 @@ use self::core::{
 use config::Cfg;
 use miner::Buffer;
 use std::ffi::CString;
-use std::mem;
+
 use std::process;
 use std::sync::{Arc, Mutex};
 use std::u64;
 
 static SRC: &'static str = include_str!("ocl/kernel.cl");
 
-/// Convert the info or error to a string for printing:
+// convert the info or error to a string for printing:
 macro_rules! to_string {
     ($expr:expr) => {
         match $expr {
@@ -95,9 +89,13 @@ pub fn gpu_info(cfg: &Cfg) {
                 );
                 info!(
                     "GPU: RAM usage (estimated)={}MiB",
-                    cfg.nonces_per_cache_gpu * 75 * cfg.gpu_worker_thread_count / 1024 / 1024
+                    cfg.gpu_nonces_per_cache * 75 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
+                        + cfg.gpu_worker_thread_count * 90
                 );
-                if cfg.nonces_per_cache_gpu * 75 * cfg.gpu_worker_thread_count > mem as usize {
+                if cfg.gpu_nonces_per_cache * 75 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
+                    + cfg.gpu_worker_thread_count * 90
+                    > mem as usize / 1024 / 1024
+                {
                     error!("GPU: Insufficient GPU memory. Please reduce GPU_worker_threads and/or nonces_per_cache. Shutting down...");
                     process::exit(0);
                 }
@@ -121,6 +119,7 @@ pub struct GpuContext {
     gdim1: [usize; 3],
     ldim2: [usize; 3],
     gdim2: [usize; 3],
+    mapping: bool,
 }
 
 pub struct GpuBuffer {
@@ -131,6 +130,7 @@ pub struct GpuBuffer {
     deadlines_gpu: core::Mem,
     best_deadline_gpu: core::Mem,
     best_offset_gpu: core::Mem,
+    memmap: Option<Arc<core::MemMap<u8>>>,
 }
 
 impl Buffer for GpuBuffer {
@@ -156,7 +156,7 @@ impl Buffer for GpuBuffer {
         let best_offset_gpu = unsafe {
             core::create_buffer(
                 &context.context,
-                core::MEM_READ_WRITE,
+                core::MEM_READ_WRITE | core::MEM_USE_HOST_PTR,
                 1,
                 Some(&best_offset),
             ).unwrap()
@@ -166,7 +166,7 @@ impl Buffer for GpuBuffer {
         let best_deadline_gpu = unsafe {
             core::create_buffer(
                 &context.context,
-                core::MEM_READ_WRITE,
+                core::MEM_READ_WRITE | core::MEM_USE_HOST_PTR,
                 1,
                 Some(&best_deadline),
             ).unwrap()
@@ -199,22 +199,34 @@ impl Buffer for GpuBuffer {
             deadlines_gpu: deadlines_gpu,
             best_deadline_gpu: best_deadline_gpu,
             best_offset_gpu: best_offset_gpu,
+            memmap: None,
         }
     }
-    fn get_buffer(&self) -> Arc<Mutex<Vec<u8>>> {
-        // pointer is cached, however, calling enqueue map to make DMA work. Returns same pointer as cached.
-        unsafe {
-            let _pointer = core::enqueue_map_buffer::<u8, _, _, _>(
-                &(*self.context).queue,
-                &self.data_gpu,
-                true,
-                core::MAP_WRITE,
-                0,
-                &(*self.context).gdim1[0] * 64,
-                None::<Event>,
-                None::<&mut Event>,
-            ).unwrap();
+
+    fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>> {
+        // pointer is cached, however, calling enqueue map to make DMA work.
+
+        if self.context.mapping {
+            unsafe {
+                self.memmap = Some(Arc::new(
+                    core::enqueue_map_buffer::<u8, _, _, _>(
+                        &(*self.context).queue,
+                        &self.data_gpu,
+                        true,
+                        core::MAP_WRITE,
+                        0,
+                        &(*self.context).gdim1[0] * 64,
+                        None::<Event>,
+                        None::<&mut Event>,
+                    ).unwrap(),
+                ));
+            }
         }
+        self.data.clone()
+    }
+
+    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+        // pointer is cached, however, calling enqueue map to make DMA work.
         self.data.clone()
     }
 
@@ -228,9 +240,15 @@ impl Buffer for GpuBuffer {
 
 // Ohne Gummi im Bahnhofsviertel... das wird noch Konsequenzen haben
 unsafe impl Sync for GpuContext {}
+unsafe impl Send for GpuBuffer {}
 
 impl GpuContext {
-    pub fn new(gpu_platform: usize, gpu_id: usize, nonces_per_cache: usize) -> GpuContext {
+    pub fn new(
+        gpu_platform: usize,
+        gpu_id: usize,
+        nonces_per_cache: usize,
+        mapping: bool,
+    ) -> GpuContext {
         let platform_ids = core::get_platform_ids().unwrap();
         let platform_id = platform_ids[gpu_platform];
         let device_ids = core::get_device_ids(&platform_id, None, None).unwrap();
@@ -273,21 +291,18 @@ impl GpuContext {
             gdim1: gdim1,
             ldim2: ldim2,
             gdim2: gdim2,
+            mapping,
         }
     }
 }
 
 pub fn find_best_deadline_gpu(
     buffer: &GpuBuffer,
-    scoops: *const c_void,
     nonce_count: usize,
     gensig: [u8; 32],
 ) -> (u64, u64) {
-    let data: Vec<u8>;
-    unsafe {
-        data = Vec::from_raw_parts(scoops as *mut u8, nonce_count * 64, nonce_count * 64);
-    }
-
+    let data = buffer.data.clone();
+    let data2 = (*data).lock().unwrap();
     let gpu_context = (*buffer).get_gpu_context().unwrap();
 
     unsafe {
@@ -302,16 +317,28 @@ pub fn find_best_deadline_gpu(
         ).unwrap();
     }
 
-    unsafe {
-        core::enqueue_write_buffer(
+    if gpu_context.mapping {
+        let temp = buffer.memmap.clone();
+        let temp2 = temp.unwrap();
+        let _result = core::enqueue_unmap_mem_object(
             &gpu_context.queue,
             &buffer.data_gpu,
-            false,
-            0,
-            &data,
+            &*temp2,
             None::<Event>,
             None::<&mut Event>,
         ).unwrap();
+    } else {
+        unsafe {
+            core::enqueue_write_buffer(
+                &gpu_context.queue,
+                &buffer.data_gpu,
+                false,
+                0,
+                &data2,
+                None::<Event>,
+                None::<&mut Event>,
+            ).unwrap();
+        }
     }
 
     core::set_kernel_arg(&gpu_context.kernel1, 0, ArgVal::mem(&buffer.gensig_gpu)).unwrap();
@@ -389,7 +416,7 @@ pub fn find_best_deadline_gpu(
     }
 
     // Die Zeit heilt Wunden doch vergessen kann ich nicht...
-    mem::forget(data);
+
     (best_deadline[0], best_offset[0])
 }
 
