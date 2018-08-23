@@ -1,7 +1,7 @@
 [package]
 name = "scavenger"
 version = "1.0.0"
-license = "GPL3"
+license = "GPL-3.0"
 authors = ["PoC Consortium <bots@cryptoguru.org>"]
 description = """
 Scavenger - a Burst miner written in Rust
