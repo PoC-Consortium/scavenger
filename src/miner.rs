@@ -55,13 +55,13 @@ pub struct State {
 
 pub trait Buffer {
     // Static method signature; `Self` refers to the implementor type.
-    fn new(buffer_size: usize, context: Option<Arc<GpuContext>>) -> Self
+    fn new(buffer_size: usize, context: Option<Arc<Mutex<GpuContext>>>) -> Self
     where
         Self: Sized;
     // Instance method signatures; these will return a string.
     fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>>;
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>>;
-    fn get_gpu_context(&self) -> Option<Arc<GpuContext>>;
+    fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>>;
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
 }
 
@@ -70,7 +70,7 @@ pub struct CpuBuffer {
 }
 
 impl Buffer for CpuBuffer {
-    fn new(buffer_size: usize, _context: Option<Arc<GpuContext>>) -> Self
+    fn new(buffer_size: usize, _context: Option<Arc<Mutex<GpuContext>>>) -> Self
     where
         Self: Sized,
     {
@@ -89,7 +89,7 @@ impl Buffer for CpuBuffer {
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>> {
         self.data.clone()
     }
-    fn get_gpu_context(&self) -> Option<Arc<GpuContext>> {
+    fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>> {
         None
     }
 
@@ -176,15 +176,22 @@ impl Miner {
         let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
         let (tx_read_replies_gpu, rx_read_replies_gpu) = chan::bounded(gpu_worker_thread_count * 2);
 
-        for _ in 0..gpu_worker_thread_count * 2 {
-            let context = Arc::new(GpuContext::new(
+        let mut vec = Vec::new();
+
+        for _ in 0..gpu_worker_thread_count {
+            vec.push(Arc::new(Mutex::new(GpuContext::new(
                 cfg.gpu_platform,
                 cfg.gpu_device,
                 cfg.gpu_nonces_per_cache,
                 cfg.gpu_mem_mapping,
-            ));
-            let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(context));
-            tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
+            ))));
+        }
+
+        for _ in 0..1 {
+            for i in 0..gpu_worker_thread_count {
+                let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(vec[i].clone()));
+                tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
+            }
         }
 
         for _ in 0..cpu_worker_thread_count * 2 {
