@@ -77,10 +77,11 @@ fn main() {
                 .long("config")
                 .value_name("FILE")
                 .help("Location of the config file")
-                .takes_value(true),
+                .takes_value(true)
+                .default_value("config.yaml"),
         ).get_matches();
 
-    let config = matches.value_of("config").unwrap_or("config.yaml");
+    let config = matches.value_of("config").unwrap();
 
     info!("Scavenger v.{}", "1.0");
 
