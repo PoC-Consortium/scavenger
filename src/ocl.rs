@@ -139,61 +139,59 @@ pub struct GpuBuffer {
     memmap: Option<Arc<core::MemMap<u8>>>,
 }
 
-impl Buffer for GpuBuffer {
-    fn new(_buffer_size: usize, context: Option<Arc<Mutex<GpuContext>>>) -> Self
+impl GpuBuffer {
+    pub fn new(context_mu: &Arc<Mutex<GpuContext>>) -> Self
     where
         Self: Sized,
     {
-        let context = context.unwrap();
-        let context_clone = context.clone();
-        let locked_context = context.lock().unwrap();
+        let context = context_mu.lock().unwrap();
 
         let gensig_gpu = unsafe {
-            core::create_buffer::<_, u8>(&locked_context.context, core::MEM_READ_ONLY, 32, None)
+            core::create_buffer::<_, u8>(&context.context, core::MEM_READ_ONLY, 32, None)
                 .unwrap()
         };
 
         let deadlines_gpu = unsafe {
             core::create_buffer::<_, u64>(
-                &locked_context.context,
+                &context.context,
                 core::MEM_READ_WRITE,
-                locked_context.gdim1[0],
+                context.gdim1[0],
                 None,
             ).unwrap()
         };
 
         let best_offset_gpu = unsafe {
-            core::create_buffer::<_, u64>(&locked_context.context, core::MEM_READ_WRITE, 1, None)
+            core::create_buffer::<_, u64>(&context.context, core::MEM_READ_WRITE, 1, None)
                 .unwrap()
         };
 
         let best_deadline_gpu = unsafe {
-            core::create_buffer::<_, u64>(&locked_context.context, core::MEM_READ_WRITE, 1, None)
+            core::create_buffer::<_, u64>(&context.context, core::MEM_READ_WRITE, 1, None)
                 .unwrap()
         };
 
-        let pointer = aligned_alloc::aligned_alloc(&locked_context.gdim1[0] * 64, page_size::get());
+        let pointer = aligned_alloc::aligned_alloc(&context.gdim1[0] * 64, page_size::get());
         let data: Vec<u8>;
         unsafe {
             data = Vec::from_raw_parts(
                 pointer as *mut u8,
-                &locked_context.gdim1[0] * 64,
-                &locked_context.gdim1[0] * 64,
+                &context.gdim1[0] * 64,
+                &context.gdim1[0] * 64,
             );
         }
 
         let data_gpu = unsafe {
             core::create_buffer(
-                &locked_context.context,
+                &context.context,
                 core::MEM_READ_ONLY | core::MEM_USE_HOST_PTR,
-                locked_context.gdim1[0] * 64,
+                context.gdim1[0] * 64,
                 Some(&data),
             ).unwrap()
         };
 
         GpuBuffer {
             data: Arc::new(Mutex::new(data)),
-            context: context_clone,
+            context: context_mu.clone(),
             gensig_gpu,
             data_gpu,
             deadlines_gpu,
@@ -202,7 +200,9 @@ impl Buffer for GpuBuffer {
             memmap: None,
         }
     }
+}
 
+impl Buffer for GpuBuffer {
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>> {
         // pointer is cached, however, calling enqueue map to make DMA work.
         let locked_context = self.context.lock().unwrap();

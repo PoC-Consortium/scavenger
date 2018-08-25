@@ -54,14 +54,12 @@ pub struct State {
 }
 
 pub trait Buffer {
-    // Static method signature; `Self` refers to the implementor type.
-    fn new(buffer_size: usize, context: Option<Arc<Mutex<GpuContext>>>) -> Self
-    where
-        Self: Sized;
-    // Instance method signatures; these will return a string.
     fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>>;
+
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>>;
+
     fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>>;
+
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
 }
 
@@ -69,8 +67,8 @@ pub struct CpuBuffer {
     data: Arc<Mutex<Vec<u8>>>,
 }
 
-impl Buffer for CpuBuffer {
-    fn new(buffer_size: usize, _context: Option<Arc<Mutex<GpuContext>>>) -> Self
+impl CpuBuffer {
+    fn new(buffer_size: usize) -> Self
     where
         Self: Sized,
     {
@@ -83,6 +81,9 @@ impl Buffer for CpuBuffer {
             data: Arc::new(Mutex::new(data)),
         }
     }
+}
+
+impl Buffer for CpuBuffer {
     fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
         self.data.clone()
     }
@@ -170,7 +171,6 @@ impl Miner {
 
         let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count * 2;
         let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
-        let buffer_size_gpu = cfg.gpu_nonces_per_cache * SCOOP_SIZE as usize;
 
         let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
         let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
@@ -185,13 +185,13 @@ impl Miner {
             )));
 
             for _ in 0..1 {
-                let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(context.clone()));
+                let gpu_buffer = GpuBuffer::new(&context);
                 tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
             }
         }
 
         for _ in 0..cpu_worker_thread_count * 2 {
-            let cpu_buffer = CpuBuffer::new(buffer_size_cpu, None);
+            let cpu_buffer = CpuBuffer::new(buffer_size_cpu);
             tx_empty_buffers.send(Box::new(cpu_buffer) as Box<Buffer + Send>);
         }
 
