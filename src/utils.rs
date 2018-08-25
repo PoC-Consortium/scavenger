@@ -127,7 +127,7 @@ cfg_if! {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::env;
+    //use std::env;
 
     #[test]
     fn test_get_device_id() {

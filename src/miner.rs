@@ -1,10 +1,15 @@
+extern crate aligned_alloc;
 extern crate num_cpus;
+extern crate ocl_core as core;
+extern crate page_size;
 
 use burstmath;
 use chan;
 use config::Cfg;
 use core_affinity;
 use futures::sync::mpsc;
+use ocl::GpuBuffer;
+use ocl::GpuContext;
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
 use requests::RequestHandler;
@@ -46,6 +51,51 @@ pub struct State {
 
     // count how many reader's scoops have been processed
     processed_reader_tasks: usize,
+}
+
+pub trait Buffer {
+    // Static method signature; `Self` refers to the implementor type.
+    fn new(buffer_size: usize, context: Option<Arc<Mutex<GpuContext>>>) -> Self
+    where
+        Self: Sized;
+    // Instance method signatures; these will return a string.
+    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>>;
+    fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>>;
+    fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>>;
+    fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
+}
+
+pub struct CpuBuffer {
+    data: Arc<Mutex<Vec<u8>>>,
+}
+
+impl Buffer for CpuBuffer {
+    fn new(buffer_size: usize, _context: Option<Arc<Mutex<GpuContext>>>) -> Self
+    where
+        Self: Sized,
+    {
+        let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
+        let data: Vec<u8>;
+        unsafe {
+            data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
+        }
+        CpuBuffer {
+            data: Arc::new(Mutex::new(data)),
+        }
+    }
+    fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
+        self.data.clone()
+    }
+    fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>> {
+        self.data.clone()
+    }
+    fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>> {
+        None
+    }
+
+    fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
+        None
+    }
 }
 
 fn scan_plots(
@@ -107,42 +157,70 @@ fn scan_plots(
 
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
-        let drive_id_to_plots = scan_plots(&cfg.plot_dirs, cfg.use_direct_io);
+        let drive_id_to_plots = scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io);
 
-        let reader_thread_count = if cfg.reader_thread_count == 0 {
+        let reader_thread_count = if cfg.hdd_reader_thread_count == 0 {
             drive_id_to_plots.len()
         } else {
-            cfg.reader_thread_count
+            cfg.hdd_reader_thread_count
         };
 
-        let cpu_core_count = num_cpus::get();
-        let worker_thread_count = if cfg.worker_thread_count == 0 {
-            cpu_core_count + 1
-        } else {
-            cfg.worker_thread_count
-        };
+        let cpu_worker_thread_count = cfg.cpu_worker_thread_count;
+        let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
-        let buffer_count = worker_thread_count * 2;
-        let buffer_size = cfg.nonces_per_cache * SCOOP_SIZE as usize;
+        let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count * 2;
+        let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
+        let buffer_size_gpu = cfg.gpu_nonces_per_cache * SCOOP_SIZE as usize;
 
-        let (tx_empty_buffers, rx_empty_buffers) = chan::sync(buffer_count as usize);
-        let (tx_read_replies, rx_read_replies) = chan::sync(buffer_count as usize);
+        let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
+        let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
+        let (tx_read_replies_gpu, rx_read_replies_gpu) = chan::bounded(gpu_worker_thread_count * 2);
 
-        for _ in 0..buffer_count {
-            tx_empty_buffers.send(Arc::new(Mutex::new(vec![0; buffer_size])));
+        let mut vec = Vec::new();
+
+        for _ in 0..gpu_worker_thread_count {
+            vec.push(Arc::new(Mutex::new(GpuContext::new(
+                cfg.gpu_platform,
+                cfg.gpu_device,
+                cfg.gpu_nonces_per_cache,
+                cfg.gpu_mem_mapping,
+            ))));
+        }
+
+        for _ in 0..1 {
+            for i in 0..gpu_worker_thread_count {
+                let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(vec[i].clone()));
+                tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
+            }
+        }
+
+        for _ in 0..cpu_worker_thread_count * 2 {
+            let cpu_buffer = CpuBuffer::new(buffer_size_cpu, None);
+            tx_empty_buffers.send(Box::new(cpu_buffer) as Box<Buffer + Send>);
         }
 
         let core_ids = core_affinity::get_core_ids().unwrap();
-        let (tx_nonce_data, rx_nonce_data) = mpsc::channel(worker_thread_count);
-        for id in 0..worker_thread_count {
+        let (tx_nonce_data, rx_nonce_data) =
+            mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
+
+        for id in 0..cpu_worker_thread_count {
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
                 if cfg.cpu_thread_pinning {
                     core_affinity::set_for_current(core_id);
                 }
-
                 create_worker_task(
-                    rx_read_replies.clone(),
+                    rx_read_replies_cpu.clone(),
+                    tx_empty_buffers.clone(),
+                    tx_nonce_data.clone(),
+                )
+            });
+        }
+
+        for _ in 0..gpu_worker_thread_count {
+            thread::spawn({
+                create_worker_task(
+                    rx_read_replies_gpu.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
                 )
@@ -156,7 +234,8 @@ impl Miner {
                 drive_id_to_plots,
                 reader_thread_count,
                 rx_empty_buffers,
-                tx_read_replies,
+                tx_read_replies_cpu,
+                tx_read_replies_gpu,
             ),
             rx_nonce_data,
             account_id: cfg.account_id,
@@ -177,7 +256,7 @@ impl Miner {
             })),
             get_mining_info_interval: cfg.get_mining_info_interval,
             core,
-            wakeup_after: cfg.wakeup_after * 1000, // ms -> s
+            wakeup_after: cfg.hdd_wakeup_after * 1000, // ms -> s
         }
     }
 

@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
-extern crate chan;
+extern crate crossbeam_channel as chan;
 extern crate futures;
 extern crate hex;
 extern crate hyper;
@@ -28,6 +28,7 @@ mod burstmath;
 mod config;
 mod logger;
 mod miner;
+mod ocl;
 mod plot;
 mod reader;
 mod requests;
@@ -38,6 +39,7 @@ mod worker;
 use clap::{App, Arg};
 use config::load_cfg;
 use miner::Miner;
+use std::process;
 
 extern "C" {
     pub fn init_shabal_avx2() -> ();
@@ -79,16 +81,27 @@ fn main() {
                 .help("Location of the config file")
                 .takes_value(true)
                 .default_value("config.yaml"),
+        ).arg(
+            Arg::with_name("opencl")
+                .short("ocl")
+                .long("opencl")
+                .help("Display OpenCL platforms and devices")
+                .takes_value(false),
         ).get_matches();
 
     let config = matches.value_of("config").unwrap();
 
-    info!("Scavenger v.{}", "1.0");
-
     let cfg_loaded = load_cfg(config);
     logger::init_logger(&cfg_loaded);
 
+    info!("Scavenger v.{}", crate_version!());
+    if matches.is_present("opencl") {
+        ocl::platform_info();
+        process::exit(0);
+    }
     init_simd_extensions();
+
+    ocl::gpu_info(&cfg_loaded);
 
     let m = Miner::new(cfg_loaded);
     m.run();

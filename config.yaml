@@ -2,20 +2,33 @@ secret_phrase: 'glad suffer red during single glow shut slam hill death lust alt
 account_id: 10282355196851764065
 plot_dirs:
   - 'test_data'
-#  - 'C:\first\windows\plot\dir'
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
-# url: 'http://wallet.dev.burst-test.net:6876'
-url: 'http://pool.dev.burst-test.net:8124'
-worker_thread_count: 1
-reader_thread_count: 1
-nonces_per_cache: 65536               # default 65536
-target_deadline: 10885484741537822773 # default u64::MAX
-use_direct_io: true                   # default true
+
+url: 'http://pool.dev.burst-test.net:8124'     # testnet pool
+# url: 'http://wallet.dev.burst-test.net:6876' # testnet wallet
+# url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
+
+hdd_reader_thread_count: 4            # default 0 (=number of disks)
+hdd_use_direct_io: true               # default true
+hdd_wakeup_after: 240                 # default 240s
+
+cpu_worker_thread_count: 0            # default 4 (0=GPU only)
+cpu_nonces_per_cache: 65536           # default 65536
+cpu_thread_pinning: false             # default false
+
+gpu_platform: 0                       # default 0
+gpu_device: 0                         # default 0
+gpu_worker_thread_count: 0            # default 0 (=CPU only)
+gpu_nonces_per_cache: 524288          # default 524288
+gpu_mem_mapping: false                # default false
+
+target_deadline: 4294967295           # default u32::MAX
+
 get_mining_info_interval: 3000        # default 3000ms
 timeout: 5000                         # default 5000ms
-wakeup_after: 240                     # default 240s
+
 console_log_level: 'Info'             # default Info, Options (Off, Error, Warn, Info, Debug, Trace)
 logfile_log_level: 'Warn'             # default Warn, Options (Off, Error, Warn, Info, Debug, Trace)
 logfile_max_count: 10                 # maximum number of log files to keep
@@ -24,8 +37,6 @@ logfile_max_size : 20                 # maximum size per logfile in MiB
 # Low noise log patterns
 console_log_pattern: '{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}'
 logfile_log_pattern: '{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}'
-
-cpu_thread_pinning: false # default false
 
 # More detailed log patterns
 #console_log_pattern: '{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}'
