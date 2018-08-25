@@ -169,6 +169,11 @@ impl Miner {
         let cpu_worker_thread_count = cfg.cpu_worker_thread_count;
         let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
+        info!(
+            "CPU-Worker: {}, GPU-Worker: {}",
+            cpu_worker_thread_count, gpu_worker_thread_count
+        );
+
         let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count * 2;
         let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
 
@@ -176,16 +181,19 @@ impl Miner {
         let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
         let (tx_read_replies_gpu, rx_read_replies_gpu) = chan::bounded(gpu_worker_thread_count * 2);
 
+        let mut vec = Vec::new();
         for _ in 0..gpu_worker_thread_count {
-            let context = Arc::new(Mutex::new(GpuContext::new(
+            vec.push(Arc::new(Mutex::new(GpuContext::new(
                 cfg.gpu_platform,
                 cfg.gpu_device,
                 cfg.gpu_nonces_per_cache,
                 cfg.gpu_mem_mapping,
-            )));
+            ))));
+        }
 
-            for _ in 0..1 {
-                let gpu_buffer = GpuBuffer::new(&context);
+        for _ in 0..1 {
+            for i in 0..gpu_worker_thread_count {
+                let gpu_buffer = GpuBuffer::new(&vec[i]);
                 tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
             }
         }
