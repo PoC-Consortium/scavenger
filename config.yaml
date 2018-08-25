@@ -2,22 +2,19 @@ secret_phrase: 'glad suffer red during single glow shut slam hill death lust alt
 account_id: 10282355196851764065
 plot_dirs:
   - 'test_data'
-  - 'C:\plot'
-  - 'D:\plot'
-  - 'G:\plot'
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
 
-# url: 'http://pool.dev.burst-test.net:8124'   # testnet pool
+url: 'http://pool.dev.burst-test.net:8124'     # testnet pool
 # url: 'http://wallet.dev.burst-test.net:6876' # testnet wallet
-url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
+# url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
 
-hdd_reader_thread_count: 0            # default 0 (=number of disks)
+hdd_reader_thread_count: 4            # default 0 (=number of disks)
 hdd_use_direct_io: true               # default true
 hdd_wakeup_after: 240                 # default 240s
 
-cpu_worker_thread_count: 4            # default 4 (0=GPU onlz)
+cpu_worker_thread_count: 0            # default 4 (0=GPU only)
 cpu_nonces_per_cache: 65536           # default 65536
 cpu_thread_pinning: false             # default false
 

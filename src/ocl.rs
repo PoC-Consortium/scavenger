@@ -90,13 +90,21 @@ pub fn gpu_info(cfg: &Cfg) {
                 info!(
                     "GPU: RAM usage (estimated)={}MiB",
                     cfg.gpu_nonces_per_cache * 75 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
-                        + cfg.gpu_worker_thread_count * 90
+                        + cfg.gpu_worker_thread_count * 45
                 );
-                if cfg.gpu_nonces_per_cache * 75 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
-                    + cfg.gpu_worker_thread_count * 90
+
+                // yellow card
+                if cfg.gpu_nonces_per_cache * 80 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
                     > mem as usize / 1024 / 1024
                 {
-                    error!("GPU: Insufficient GPU memory. Please reduce GPU_worker_threads and/or nonces_per_cache. Shutting down...");
+                    warn!("GPU: Low on GPU memory. If your settings don't work, please reduce gpu_worker_threads and/or gpu_nonces_per_cache.");
+                }
+
+                //red card
+                if cfg.gpu_nonces_per_cache * 72 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
+                    > mem as usize / 1024 / 1024
+                {
+                    error!("GPU: Insufficient GPU memory. Please reduce gpu_worker_threads and/or gpu_nonces_per_cache. Shutting down...");
                     process::exit(0);
                 }
             }
@@ -143,7 +151,8 @@ impl Buffer for GpuBuffer {
         let locked_context = context.lock().unwrap();
 
         let gensig_gpu = unsafe {
-            core::create_buffer::<_, u8>(&locked_context.context, core::MEM_READ_ONLY, 32, None).unwrap()
+            core::create_buffer::<_, u8>(&locked_context.context, core::MEM_READ_ONLY, 32, None)
+                .unwrap()
         };
 
         let deadlines_gpu = unsafe {
@@ -155,24 +164,14 @@ impl Buffer for GpuBuffer {
             ).unwrap()
         };
 
-        let best_offset = vec![0u64; 1];
         let best_offset_gpu = unsafe {
-            core::create_buffer(
-                &locked_context.context,
-                core::MEM_READ_WRITE | core::MEM_USE_HOST_PTR,
-                1,
-                Some(&best_offset),
-            ).unwrap()
+            core::create_buffer::<_, u64>(&locked_context.context, core::MEM_READ_WRITE, 1, None)
+                .unwrap()
         };
 
-        let best_deadline = vec![0u64; 1];
         let best_deadline_gpu = unsafe {
-            core::create_buffer(
-                &locked_context.context,
-                core::MEM_READ_WRITE | core::MEM_USE_HOST_PTR,
-                1,
-                Some(&best_deadline),
-            ).unwrap()
+            core::create_buffer::<_, u64>(&locked_context.context, core::MEM_READ_WRITE, 1, None)
+                .unwrap()
         };
 
         let pointer = aligned_alloc::aligned_alloc(&locked_context.gdim1[0] * 64, page_size::get());
@@ -209,7 +208,6 @@ impl Buffer for GpuBuffer {
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>> {
         // pointer is cached, however, calling enqueue map to make DMA work.
         let locked_context = self.context.lock().unwrap();
-
         if locked_context.mapping {
             unsafe {
                 self.memmap = Some(Arc::new(
@@ -230,7 +228,6 @@ impl Buffer for GpuBuffer {
     }
 
     fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>> {
-        // pointer is cached, however, calling enqueue map to make DMA work.
         self.data.clone()
     }
 
@@ -308,7 +305,7 @@ pub fn find_best_deadline_gpu(
     let data = buffer.data.clone();
     let data2 = (*data).lock().unwrap();
     let gpu_context_mtx = (*buffer).get_gpu_context().unwrap();
-    let gpu_context =  gpu_context_mtx.lock().unwrap();
+    let gpu_context = gpu_context_mtx.lock().unwrap();
 
     unsafe {
         core::enqueue_write_buffer(
@@ -419,8 +416,6 @@ pub fn find_best_deadline_gpu(
             None::<&mut Event>,
         ).unwrap();
     }
-
-    // Die Zeit heilt Wunden doch vergessen kann ich nicht...
 
     (best_deadline[0], best_offset[0])
 }
