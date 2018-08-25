@@ -134,7 +134,7 @@ impl Reader {
                     match &gpu_context {
                         None => {
                             tx_read_replies_cpu.send(ReadReply {
-                                buffer: buffer,
+                                buffer,
                                 len: bytes_read,
                                 height,
                                 gensig: gensig.clone(),
@@ -144,7 +144,7 @@ impl Reader {
                         }
                         Some(_context) => {
                             tx_read_replies_gpu.send(ReadReply {
-                                buffer: buffer,
+                                buffer,
                                 len: bytes_read,
                                 height,
                                 gensig: gensig.clone(),

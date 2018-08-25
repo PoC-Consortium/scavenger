@@ -31,26 +31,26 @@ macro_rules! to_string {
 
 pub fn platform_info() {
     let platform_ids = core::get_platform_ids().unwrap();
-    for i in 0..platform_ids.len() {
+    for (i, platform_id) in platform_ids.iter().enumerate() {
         info!(
             "OCL: platform {}, {} - {}",
             i,
             to_string!(core::get_platform_info(
-                &platform_ids[i],
+                &platform_id,
                 PlatformInfo::Name
             )),
             to_string!(core::get_platform_info(
-                &platform_ids[i],
+                &platform_id,
                 PlatformInfo::Version
             ))
         );
-        let device_ids = core::get_device_ids(&platform_ids[i], None, None).unwrap();
-        for j in 0..platform_ids.len() {
+        let device_ids = core::get_device_ids(&platform_id, None, None).unwrap();
+        for (j, device_id) in device_ids.iter().enumerate() {
             info!(
                 "OCL: device {}, {} - {}",
                 j,
-                to_string!(core::get_device_info(&device_ids[j], DeviceInfo::Vendor)),
-                to_string!(core::get_device_info(&device_ids[j], DeviceInfo::Name))
+                to_string!(core::get_device_info(device_id, DeviceInfo::Vendor)),
+                to_string!(core::get_device_info(device_id, DeviceInfo::Name))
             );
         }
     }
@@ -110,11 +110,9 @@ pub fn gpu_info(cfg: &Cfg) {
             }
             _ => panic!("Unexpected error. Can't obtain GPU memory size."),
         }
-    } else {
-        if cfg.cpu_worker_thread_count == 0 {
-            error!("CPU, GPU: no workers configured. Shutting down...");
-            process::exit(0);
-        }
+    } else if cfg.cpu_worker_thread_count == 0 {
+        error!("CPU, GPU: no workers configured. Shutting down...");
+        process::exit(0);
     }
 }
 
@@ -196,11 +194,11 @@ impl Buffer for GpuBuffer {
         GpuBuffer {
             data: Arc::new(Mutex::new(data)),
             context: context_clone,
-            gensig_gpu: gensig_gpu,
-            data_gpu: data_gpu,
-            deadlines_gpu: deadlines_gpu,
-            best_deadline_gpu: best_deadline_gpu,
-            best_offset_gpu: best_offset_gpu,
+            gensig_gpu,
+            data_gpu,
+            deadlines_gpu,
+            best_deadline_gpu,
+            best_offset_gpu,
             memmap: None,
         }
     }
@@ -270,12 +268,12 @@ impl GpuContext {
         let kernel1 = core::create_kernel(&program, "calculate_deadlines").unwrap();
         let kernel2 = core::create_kernel(&program, "find_min").unwrap();
 
-        let kernel1_workgroup_size = get_kernel_work_group_size(&kernel1, &device_id);
-        let kernel2_workgroup_size = get_kernel_work_group_size(&kernel2, &device_id);
+        let kernel1_workgroup_size = get_kernel_work_group_size(&kernel1, device_id);
+        let kernel2_workgroup_size = get_kernel_work_group_size(&kernel2, device_id);
 
         let mut workgroup_count = nonces_per_cache / kernel1_workgroup_size;
         if nonces_per_cache % kernel1_workgroup_size != 0 {
-            workgroup_count = workgroup_count + 1;
+            workgroup_count += 1;
         }
 
         let gdim1 = [kernel1_workgroup_size * workgroup_count, 1, 1];
@@ -284,14 +282,14 @@ impl GpuContext {
         let ldim2 = [kernel2_workgroup_size, 1, 1];
 
         GpuContext {
-            context: context,
-            queue: queue,
-            kernel1: kernel1,
-            kernel2: kernel2,
-            ldim1: ldim1,
-            gdim1: gdim1,
-            ldim2: ldim2,
-            gdim2: gdim2,
+            context,
+            queue,
+            kernel1,
+            kernel2,
+            ldim1,
+            gdim1,
+            ldim2,
+            gdim2,
             mapping,
         }
     }
@@ -322,7 +320,7 @@ pub fn find_best_deadline_gpu(
     if gpu_context.mapping {
         let temp = buffer.memmap.clone();
         let temp2 = temp.unwrap();
-        let _result = core::enqueue_unmap_mem_object(
+        core::enqueue_unmap_mem_object(
             &gpu_context.queue,
             &buffer.data_gpu,
             &*temp2,
@@ -420,7 +418,7 @@ pub fn find_best_deadline_gpu(
     (best_deadline[0], best_offset[0])
 }
 
-fn get_kernel_work_group_size(x: &core::Kernel, y: &core::DeviceId) -> usize {
+fn get_kernel_work_group_size(x: &core::Kernel, y: core::DeviceId) -> usize {
     match core::get_kernel_work_group_info(x, y, KernelWorkGroupInfo::WorkGroupSize).unwrap() {
         core::KernelWorkGroupInfoResult::WorkGroupSize(kws) => kws,
         _ => panic!("Unexpected error"),

@@ -176,20 +176,16 @@ impl Miner {
         let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
         let (tx_read_replies_gpu, rx_read_replies_gpu) = chan::bounded(gpu_worker_thread_count * 2);
 
-        let mut vec = Vec::new();
-
         for _ in 0..gpu_worker_thread_count {
-            vec.push(Arc::new(Mutex::new(GpuContext::new(
+            let context = Arc::new(Mutex::new(GpuContext::new(
                 cfg.gpu_platform,
                 cfg.gpu_device,
                 cfg.gpu_nonces_per_cache,
                 cfg.gpu_mem_mapping,
-            ))));
-        }
+            )));
 
-        for _ in 0..1 {
-            for i in 0..gpu_worker_thread_count {
-                let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(vec[i].clone()));
+            for _ in 0..1 {
+                let gpu_buffer = GpuBuffer::new(buffer_size_gpu, Some(context.clone()));
                 tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
             }
         }

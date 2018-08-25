@@ -115,7 +115,7 @@ fn default_gpu_worker_thread_count() -> usize {
 }
 
 fn default_gpu_nonces_per_cache() -> usize {
-    1048576
+    1_048_576
 }
 
 fn default_gpu_mem_mapping() -> bool {
@@ -123,7 +123,7 @@ fn default_gpu_mem_mapping() -> bool {
 }
 
 fn default_target_deadline() -> u64 {
-    u32::MAX as u64
+    u64::from(u32::MAX)
 }
 
 fn default_get_mining_info_interval() -> u64 {
