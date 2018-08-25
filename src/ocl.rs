@@ -35,14 +35,8 @@ pub fn platform_info() {
         info!(
             "OCL: platform {}, {} - {}",
             i,
-            to_string!(core::get_platform_info(
-                &platform_id,
-                PlatformInfo::Name
-            )),
-            to_string!(core::get_platform_info(
-                &platform_id,
-                PlatformInfo::Version
-            ))
+            to_string!(core::get_platform_info(&platform_id, PlatformInfo::Name)),
+            to_string!(core::get_platform_info(&platform_id, PlatformInfo::Version))
         );
         let device_ids = core::get_device_ids(&platform_id, None, None).unwrap();
         for (j, device_id) in device_ids.iter().enumerate() {
@@ -97,14 +91,20 @@ pub fn gpu_info(cfg: &Cfg) {
                 if cfg.gpu_nonces_per_cache * 80 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
                     > mem as usize / 1024 / 1024
                 {
-                    warn!("GPU: Low on GPU memory. If your settings don't work, please reduce gpu_worker_threads and/or gpu_nonces_per_cache.");
+                    warn!(
+                        "GPU: Low on GPU memory. If your settings don't work, \
+                         please reduce gpu_worker_threads and/or gpu_nonces_per_cache."
+                    );
                 }
 
                 //red card
                 if cfg.gpu_nonces_per_cache * 72 * 2 * cfg.gpu_worker_thread_count / 1024 / 1024
                     > mem as usize / 1024 / 1024
                 {
-                    error!("GPU: Insufficient GPU memory. Please reduce gpu_worker_threads and/or gpu_nonces_per_cache. Shutting down...");
+                    error!(
+                        "GPU: Insufficient GPU memory. Please reduce gpu_worker_threads \
+                         and/or gpu_nonces_per_cache. Shutting down..."
+                    );
                     process::exit(0);
                 }
             }
@@ -147,8 +147,7 @@ impl GpuBuffer {
         let context = context_mu.lock().unwrap();
 
         let gensig_gpu = unsafe {
-            core::create_buffer::<_, u8>(&context.context, core::MEM_READ_ONLY, 32, None)
-                .unwrap()
+            core::create_buffer::<_, u8>(&context.context, core::MEM_READ_ONLY, 32, None).unwrap()
         };
 
         let deadlines_gpu = unsafe {
@@ -161,13 +160,11 @@ impl GpuBuffer {
         };
 
         let best_offset_gpu = unsafe {
-            core::create_buffer::<_, u64>(&context.context, core::MEM_READ_WRITE, 1, None)
-                .unwrap()
+            core::create_buffer::<_, u64>(&context.context, core::MEM_READ_WRITE, 1, None).unwrap()
         };
 
         let best_deadline_gpu = unsafe {
-            core::create_buffer::<_, u64>(&context.context, core::MEM_READ_WRITE, 1, None)
-                .unwrap()
+            core::create_buffer::<_, u64>(&context.context, core::MEM_READ_WRITE, 1, None).unwrap()
         };
 
         let pointer = aligned_alloc::aligned_alloc(&context.gdim1[0] * 64, page_size::get());
