@@ -16,6 +16,7 @@ pub struct ReadReply {
     pub gensig: Arc<[u8; 32]>,
     pub start_nonce: u64,
     pub finished: bool,
+    pub account_id: u64,
 }
 
 pub struct Reader {
@@ -142,6 +143,7 @@ impl Reader {
                                 gensig: gensig.clone(),
                                 start_nonce,
                                 finished,
+                                account_id: p.account_id,
                             });
                         }
                         Some(_context) => {
@@ -152,6 +154,7 @@ impl Reader {
                                 gensig: gensig.clone(),
                                 start_nonce,
                                 finished,
+                                account_id: p.account_id,
                             });
                         }
                     }

@@ -9,7 +9,6 @@ pub struct Cfg {
     #[serde(default = "default_secret_phrase")]
     pub secret_phrase: String,
 
-    pub account_id: u64,
     pub plot_dirs: Vec<String>,
     pub url: String,
 

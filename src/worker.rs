@@ -38,6 +38,7 @@ pub struct NonceData {
     pub deadline: u64,
     pub nonce: u64,
     pub reader_task_processed: bool,
+    pub account_id: u64,
 }
 
 pub fn create_worker_task(
@@ -109,6 +110,7 @@ pub fn create_worker_task(
                     deadline,
                     nonce: offset + read_reply.start_nonce,
                     reader_task_processed: read_reply.finished,
+                    account_id: read_reply.account_id,
                 }).wait()
                 .expect("failed to send nonce data");
             tx_empty_buffers.send(buffer);

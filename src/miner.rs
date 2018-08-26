@@ -33,7 +33,6 @@ pub struct Miner {
     reader: Reader,
     request_handler: RequestHandler,
     rx_nonce_data: mpsc::Receiver<NonceData>,
-    account_id: u64,
     target_deadline: u64,
     state: Arc<Mutex<State>>,
     reader_task_count: usize,
@@ -44,7 +43,7 @@ pub struct Miner {
 
 pub struct State {
     height: u64,
-    best_deadline: u64,
+    account_id_to_best_deadline: HashMap<u64, u64>,
     base_target: u64,
     sw: Stopwatch,
     scanning: bool,
@@ -242,7 +241,6 @@ impl Miner {
                 tx_read_replies_gpu,
             ),
             rx_nonce_data,
-            account_id: cfg.account_id,
             target_deadline: cfg.target_deadline,
             request_handler: RequestHandler::new(
                 cfg.url,
@@ -252,7 +250,7 @@ impl Miner {
             ),
             state: Arc::new(Mutex::new(State {
                 height: 0,
-                best_deadline: u64::MAX,
+                account_id_to_best_deadline: HashMap::new(),
                 base_target: 1,
                 processed_reader_tasks: 0,
                 sw: Stopwatch::new(),
@@ -287,7 +285,9 @@ impl Miner {
                         Ok(mining_info) => {
                             let mut state = state.lock().unwrap();
                             if mining_info.height > state.height {
-                                state.best_deadline = u64::MAX;
+                                for best_deadlines in state.account_id_to_best_deadline.values_mut() {
+                                    *best_deadlines = u64::MAX;
+                                }
                                 state.height = mining_info.height;
                                 state.base_target = mining_info.base_target;
 
@@ -321,7 +321,6 @@ impl Miner {
             }).map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
-        let account_id = self.account_id;
         let target_deadline = self.target_deadline;
         let request_handler = self.request_handler.clone();
         let inner_handle = handle.clone();
@@ -332,11 +331,12 @@ impl Miner {
                 .for_each(move |nonce_data| {
                     let mut state = state.lock().unwrap();
                     let deadline = nonce_data.deadline / state.base_target;
-                    if state.best_deadline > deadline && deadline < target_deadline {
-                        state.best_deadline = deadline;
+                    let best_deadline = *state.account_id_to_best_deadline.get(&nonce_data.account_id).unwrap_or(&u64::MAX);
+                    if best_deadline > deadline && deadline < target_deadline {
+                        state.account_id_to_best_deadline.insert(nonce_data.account_id,deadline) ;
                         request_handler.submit_nonce(
                             &inner_handle,
-                            account_id,
+                            nonce_data.account_id,
                             nonce_data.nonce,
                             nonce_data.height,
                             deadline,

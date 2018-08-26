@@ -15,7 +15,7 @@ const NONCE_SIZE: u64 = SCOOP_SIZE * SCOOPS_IN_NONCE;
 
 // TODO: mining for multiple accounts
 pub struct Plot {
-    _account_id: u64,
+    pub account_id: u64,
     start_nonce: u64,
     pub nonces: u64,
     pub fh: File,
@@ -96,7 +96,7 @@ impl Plot {
         }
 
         Ok(Plot {
-            _account_id: account_id,
+            account_id: account_id,
             start_nonce,
             nonces,
             fh,
