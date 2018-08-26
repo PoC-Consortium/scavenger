@@ -1,13 +1,14 @@
 extern crate serde_yaml;
 extern crate sys_info;
 
+use std::collections::HashMap;
 use std::fs;
 use std::u32;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cfg {
     #[serde(default = "default_secret_phrase")]
-    pub secret_phrase: String,
+    pub account_id_to_secret_phrase: HashMap<u64, String>,
 
     pub plot_dirs: Vec<String>,
     pub url: String,
@@ -73,8 +74,8 @@ pub struct Cfg {
     pub logfile_log_pattern: String,
 }
 
-fn default_secret_phrase() -> String {
-    "".to_owned()
+fn default_secret_phrase() -> HashMap<u64, String> {
+    HashMap::new()
 }
 
 fn default_hdd_reader_thread_count() -> usize {

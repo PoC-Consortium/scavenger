@@ -8,6 +8,7 @@ use hyper::client::HttpConnector;
 use hyper::rt::{Future, Stream};
 use hyper::{Client, Request};
 use serde::de::{self, DeserializeOwned};
+use std::collections::HashMap;
 use std::fmt;
 use std::io;
 use std::time::Duration;
@@ -17,7 +18,7 @@ use url::form_urlencoded::byte_serialize;
 
 #[derive(Clone)]
 pub struct RequestHandler {
-    secret_phrase_encoded: String,
+    account_id_to_secret_phrase: HashMap<u64, String>,
     base_uri: String,
     client: Client<hyper_rustls::HttpsConnector<HttpConnector>>,
     timeout: Duration,
@@ -115,16 +116,18 @@ where
 impl RequestHandler {
     pub fn new(
         base_uri: String,
-        secret_phrase: &str,
+        mut secret_phrases: HashMap<u64, String>,
         timeout: u64,
         handle: Handle,
     ) -> RequestHandler {
-        let secret_phrase_encoded = byte_serialize(secret_phrase.as_bytes()).collect();
+        for secret_phrase in secret_phrases.values_mut() {
+            *secret_phrase = byte_serialize(secret_phrase.as_bytes()).collect();
+        }
         let https = hyper_rustls::HttpsConnector::new(4);
         let client: Client<_, hyper::Body> = Client::builder().build(https);
 
         RequestHandler {
-            secret_phrase_encoded,
+            account_id_to_secret_phrase: secret_phrases,
             base_uri,
             client,
             timeout: Duration::from_millis(timeout),
@@ -145,12 +148,18 @@ impl RequestHandler {
         d: u64,
         retried: i32,
     ) {
+        let empty = "".to_owned();
+        let secret_phrase_encoded = self
+            .account_id_to_secret_phrase
+            .get(&account_id)
+            .unwrap_or(&empty);
+
         let mut path = format!(
             "/burst?requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
-            account_id, nonce, self.secret_phrase_encoded, height
+            account_id, nonce, secret_phrase_encoded, height
         );
         // if pool mining also send the deadline (usefull for proxies)
-        if self.secret_phrase_encoded == "" {
+        if secret_phrase_encoded == "" {
             path += &format!("&deadline={}", d);
         }
 

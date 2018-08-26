@@ -169,7 +169,7 @@ impl Miner {
         let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
 
         info!(
-            "CPU-Worker: {}, GPU-Worker: {}",
+            "CPU-worker: {}, GPU-worker: {}",
             cpu_worker_thread_count, gpu_worker_thread_count
         );
 
@@ -244,7 +244,7 @@ impl Miner {
             target_deadline: cfg.target_deadline,
             request_handler: RequestHandler::new(
                 cfg.url,
-                &cfg.secret_phrase,
+                cfg.account_id_to_secret_phrase,
                 cfg.timeout,
                 core.handle(),
             ),
@@ -285,7 +285,8 @@ impl Miner {
                         Ok(mining_info) => {
                             let mut state = state.lock().unwrap();
                             if mining_info.height > state.height {
-                                for best_deadlines in state.account_id_to_best_deadline.values_mut() {
+                                for best_deadlines in state.account_id_to_best_deadline.values_mut()
+                                {
                                     *best_deadlines = u64::MAX;
                                 }
                                 state.height = mining_info.height;
@@ -331,9 +332,14 @@ impl Miner {
                 .for_each(move |nonce_data| {
                     let mut state = state.lock().unwrap();
                     let deadline = nonce_data.deadline / state.base_target;
-                    let best_deadline = *state.account_id_to_best_deadline.get(&nonce_data.account_id).unwrap_or(&u64::MAX);
+                    let best_deadline = *state
+                        .account_id_to_best_deadline
+                        .get(&nonce_data.account_id)
+                        .unwrap_or(&u64::MAX);
                     if best_deadline > deadline && deadline < target_deadline {
-                        state.account_id_to_best_deadline.insert(nonce_data.account_id,deadline) ;
+                        state
+                            .account_id_to_best_deadline
+                            .insert(nonce_data.account_id, deadline);
                         request_handler.submit_nonce(
                             &inner_handle,
                             nonce_data.account_id,
@@ -343,8 +349,8 @@ impl Miner {
                             0,
                         );
                         info!(
-                            "deadline found: nonce={}, deadline={}",
-                            nonce_data.nonce, deadline
+                            "deadline found: account={}, nonce={}, deadline={}",
+                            nonce_data.account_id, nonce_data.nonce, deadline
                         );
                     }
                     if nonce_data.reader_task_processed {
