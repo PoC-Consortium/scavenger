@@ -43,6 +43,8 @@ impl Reader {
             });
         }
 
+        check_overlap(&drive_id_to_plots);
+
         Reader {
             drive_id_to_plots,
             pool: rayon::ThreadPoolBuilder::new()
@@ -164,4 +166,27 @@ impl Reader {
             }
         })
     }
+}
+
+pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>) -> bool {
+    let mut result = false;
+    for (i, drive_a) in drive_id_to_plots.values().enumerate() {
+        for (j, drive_b) in drive_id_to_plots.values().skip(i).enumerate() {
+            if i == j + i {
+                let drive = drive_a.lock().unwrap();
+                for (k, plot_a) in drive.iter().enumerate() {
+                    for plot_b in drive.iter().skip(k + 1) {
+                        result |= plot_a.borrow_mut().overlaps_with(&plot_b.borrow_mut());
+                    }
+                }
+            } else {
+                for plot_a in drive_a.lock().unwrap().iter() {
+                    for plot_b in drive_b.lock().unwrap().iter() {
+                        result |= plot_a.borrow_mut().overlaps_with(&plot_b.borrow_mut());
+                    }
+                }
+            }
+        }
+    }
+    result
 }

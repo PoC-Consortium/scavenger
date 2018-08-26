@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use std::cmp::{max, min};
 use std::error::Error;
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -172,6 +173,24 @@ impl Plot {
             offset
         } else {
             0
+        }
+    }
+
+    pub fn overlaps_with(&self, plot: &Plot) -> bool {
+        if self.start_nonce <= plot.start_nonce + plot.nonces - 1
+            && plot.start_nonce <= self.start_nonce + self.nonces - 1
+        {
+            let overlap = min(
+                plot.start_nonce + plot.nonces,
+                self.start_nonce + self.nonces,
+            ) - max(self.start_nonce, plot.start_nonce);
+            warn!(
+                "overlap: {} and {} share {} nonces!",
+                self.name, plot.name, overlap
+            );
+            true
+        } else {
+            false
         }
     }
 }
