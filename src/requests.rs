@@ -23,6 +23,7 @@ pub struct RequestHandler {
     client: Client<hyper_rustls::HttpsConnector<HttpConnector>>,
     timeout: Duration,
     handle: Handle,
+    ua: String,
 }
 
 pub enum FetchError {
@@ -132,6 +133,7 @@ impl RequestHandler {
             client,
             timeout: Duration::from_millis(timeout),
             handle,
+            ua: "scavenger/".to_owned() + crate_version!(),
         }
     }
 
@@ -213,12 +215,14 @@ impl RequestHandler {
 
     fn post_req(&self, path: &str) -> Request<hyper::Body> {
         Request::post(self.uri_for(path))
+            .header("User-Agent", self.ua.to_owned())
             .body(hyper::Body::empty())
             .unwrap()
     }
 
     fn get_req(&self, path: &str) -> Request<hyper::Body> {
         Request::get(self.uri_for(path))
+            .header("User-Agent", self.ua.to_owned())
             .body(hyper::Body::empty())
             .unwrap()
     }
