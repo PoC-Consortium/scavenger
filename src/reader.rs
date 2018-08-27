@@ -4,9 +4,10 @@ use chan;
 use filetime::FileTime;
 use miner::Buffer;
 use plot::Plot;
-use std::cell::RefCell;
+use reader::rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender, TryRecvError};
+use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 
 pub struct ReadReply {
@@ -20,7 +21,7 @@ pub struct ReadReply {
 }
 
 pub struct Reader {
-    drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
+    drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
     pool: rayon::ThreadPool,
     rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
     tx_read_replies_cpu: chan::Sender<ReadReply>,
@@ -30,7 +31,7 @@ pub struct Reader {
 
 impl Reader {
     pub fn new(
-        drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>,
+        drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
         num_threads: usize,
         rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
         tx_read_replies_cpu: chan::Sender<ReadReply>,
@@ -39,7 +40,7 @@ impl Reader {
         for plots in drive_id_to_plots.values() {
             let mut plots = plots.lock().unwrap();
             plots.sort_by_key(|p| {
-                let m = p.borrow().fh.metadata().unwrap();
+                let m = p.read().unwrap().fh.metadata().unwrap();
                 -FileTime::from_last_modification_time(&m).unix_seconds()
             });
         }
@@ -79,7 +80,7 @@ impl Reader {
             let plots = plots.clone();
             self.pool.spawn(move || {
                 let plots = plots.lock().unwrap();
-                let mut p = plots[0].borrow_mut();
+                let mut p = plots[0].write().unwrap();
 
                 if let Err(e) = p.seek_random() {
                     error!(
@@ -93,7 +94,7 @@ impl Reader {
 
     fn create_read_task(
         &self,
-        plots: Arc<Mutex<Vec<RefCell<Plot>>>>,
+        plots: Arc<Mutex<Vec<RwLock<Plot>>>>,
         height: u64,
         scoop: u32,
         gensig: Arc<[u8; 32]>,
@@ -107,7 +108,7 @@ impl Reader {
             let plots = plots.lock().unwrap();
             let plot_count = plots.len();
             'outer: for (i_p, p) in plots.iter().enumerate() {
-                let mut p = p.borrow_mut();
+                let mut p = p.write().unwrap();
                 if let Err(e) = p.prepare(scoop) {
                     error!(
                         "reader: error preparing {} for reading: {} -> skip one round",
@@ -171,7 +172,7 @@ impl Reader {
     }
 }
 
-pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>>) -> bool {
+pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>) -> bool {
     let mut result = false;
     for (i, drive_a) in drive_id_to_plots.values().enumerate() {
         for (j, drive_b) in drive_id_to_plots.values().skip(i).enumerate() {
@@ -179,15 +180,26 @@ pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RefCell<P
                 let drive = drive_a.lock().unwrap();
                 for (k, plot_a) in drive.iter().enumerate() {
                     for plot_b in drive.iter().skip(k + 1) {
-                        result |= plot_a.borrow_mut().overlaps_with(&plot_b.borrow_mut());
+                        let plot_a = plot_a.write().unwrap();
+                        let plot_b = plot_b.write().unwrap();
+                        result |=
+                            plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b);
                     }
                 }
             } else {
-                for plot_a in drive_a.lock().unwrap().iter() {
-                    for plot_b in drive_b.lock().unwrap().iter() {
-                        result |= plot_a.borrow_mut().overlaps_with(&plot_b.borrow_mut());
-                    }
-                }
+                let drive_a = drive_a.lock().unwrap();
+                let drive_b = drive_b.lock().unwrap();
+                let dupes = drive_a.par_iter().filter(|j| {
+                    drive_b
+                        .par_iter()
+                        .filter(|l| {
+                            let plot_a = l.write().unwrap();
+                            let plot_b = j.write().unwrap();
+                            plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b)
+                        }).count()
+                        > 0
+                });
+                result |= dupes.count() > 0;
             }
         }
     }

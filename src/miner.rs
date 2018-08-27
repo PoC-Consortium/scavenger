@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -101,8 +102,8 @@ impl Buffer for CpuBuffer {
 fn scan_plots(
     plot_dirs: &[String],
     use_direct_io: bool,
-) -> HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> {
-    let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RefCell<Plot>>>>> = HashMap::new();
+) -> HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>> {
+    let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>> = HashMap::new();
     let mut global_capacity: f64 = 0.0;
 
     for plot_dir_str in plot_dirs {
@@ -129,7 +130,7 @@ fn scan_plots(
                     .or_insert_with(|| Arc::new(Mutex::new(Vec::new())));
 
                 local_capacity += p.nonces as f64;
-                plots.lock().unwrap().push(RefCell::new(p));
+                plots.lock().unwrap().push(RwLock::new(p));
                 num_plots += 1;
             }
         }
