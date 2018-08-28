@@ -175,17 +175,17 @@ impl RequestHandler {
                     Ok(result) => {
                         if d != result.deadline {
                             error!(
-                                "submit: deadlines mismatch, height={}, \
+                                "submit: deadlines mismatch, height={}, account={}, nonce={}, \
                                  deadline_miner={}, deadline_pool={}",
-                                height, d, result.deadline
+                                height, account_id, nonce, d, result.deadline
                             );
                         }
                     }
                     Err(FetchError::Pool(e)) => {
                         error!(
-                            "submit: error submitting nonce, height={}, nonce={}, \
+                            "submit: error submitting nonce, height={}, account={}, nonce={}, \
                              deadline={}\n\tcode: {}\n\tmessage: {}",
-                            height, nonce, d, e.code, e.message,
+                            height, account_id, nonce, d, e.code, e.message,
                         );
                     }
                     Err(_) => {

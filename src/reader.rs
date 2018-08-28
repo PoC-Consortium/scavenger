@@ -172,20 +172,26 @@ impl Reader {
     }
 }
 
+// Don't waste your time striving for perfection; instead, strive for excellence - doing your best.
+// let my_best = perfection;
 pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>) -> bool {
     let mut result = false;
     for (i, drive_a) in drive_id_to_plots.values().enumerate() {
         for (j, drive_b) in drive_id_to_plots.values().skip(i).enumerate() {
             if i == j + i {
                 let drive = drive_a.lock().unwrap();
-                for (k, plot_a) in drive.iter().enumerate() {
-                    for plot_b in drive.iter().skip(k + 1) {
-                        let plot_a = plot_a.write().unwrap();
-                        let plot_b = plot_b.write().unwrap();
-                        result |=
-                            plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b);
-                    }
-                }
+                let dupes = drive.par_iter().enumerate().filter(|(x, j)| {
+                    drive
+                        .par_iter()
+                        .skip(x + 1)
+                        .filter(|l| {
+                            let plot_a = l.write().unwrap();
+                            let plot_b = j.write().unwrap();
+                            plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b)
+                        }).count()
+                        > 0
+                });
+                result |= dupes.count() > 0;
             } else {
                 let drive_a = drive_a.lock().unwrap();
                 let drive_b = drive_b.lock().unwrap();
