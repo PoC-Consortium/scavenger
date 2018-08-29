@@ -76,6 +76,9 @@ pub struct Cfg {
     #[serde(default = "default_show_progress")]
     pub show_progress: bool,
 
+    #[serde(default = "default_show_drive_stats")]
+    pub show_drive_stats: bool,
+
     #[serde(default = "default_benchmark_only")]
     pub benchmark_only: String,
 }
@@ -166,6 +169,10 @@ fn default_logfile_log_pattern() -> String {
 
 fn default_show_progress() -> bool {
     true
+}
+
+fn default_show_drive_stats() -> bool {
+    false
 }
 
 fn default_benchmark_only() -> String {

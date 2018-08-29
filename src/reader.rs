@@ -31,6 +31,8 @@ pub struct Reader {
     tx_read_replies_cpu: chan::Sender<ReadReply>,
     tx_read_replies_gpu: chan::Sender<ReadReply>,
     interupts: Vec<Sender<()>>,
+    show_progress: bool,
+    show_drive_stats: bool,
 }
 
 impl Reader {
@@ -41,6 +43,8 @@ impl Reader {
         rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
         tx_read_replies_cpu: chan::Sender<ReadReply>,
         tx_read_replies_gpu: chan::Sender<ReadReply>,
+        show_progress: bool,
+        show_drive_stats: bool,
     ) -> Reader {
         for plots in drive_id_to_plots.values() {
             let mut plots = plots.lock().unwrap();
@@ -63,6 +67,8 @@ impl Reader {
             tx_read_replies_cpu,
             tx_read_replies_gpu,
             interupts: Vec::new(),
+            show_progress,
+            show_drive_stats,
         }
     }
 
@@ -82,8 +88,18 @@ impl Reader {
             .drive_id_to_plots
             .iter()
             .map(|(_, plots)| {
-                let (interupt, task) =
-                    self.create_read_task(pb.clone(), plots.clone(), height, scoop, gensig.clone());
+                let (interupt, task) = if self.show_progress {
+                    self.create_read_task(
+                        Some(pb.clone()),
+                        plots.clone(),
+                        height,
+                        scoop,
+                        gensig.clone(),
+                    )
+                } else {
+                    self.create_read_task(None, plots.clone(), height, scoop, gensig.clone())
+                };
+
                 self.pool.spawn(task);
                 interupt
             }).collect();
@@ -108,7 +124,7 @@ impl Reader {
 
     fn create_read_task(
         &self,
-        pb: Arc<Mutex<pbr::ProgressBar<Stdout>>>,
+        pb: Option<Arc<Mutex<pbr::ProgressBar<Stdout>>>>,
         plots: Arc<Mutex<Vec<RwLock<Plot>>>>,
         height: u64,
         scoop: u32,
@@ -174,8 +190,13 @@ impl Reader {
                         }
                     }
 
-                    let mut pb = pb.lock().unwrap();
-                    pb.add(bytes_read as u64);
+                    match &pb {
+                        Some(pb) => {
+                            let mut pb = pb.lock().unwrap();
+                            pb.add(bytes_read as u64);
+                        }
+                        None => (),
+                    }
 
                     if next_plot {
                         break 'inner;

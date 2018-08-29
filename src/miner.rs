@@ -124,11 +124,7 @@ fn scan_plots(
         for file in read_dir(dir).unwrap() {
             let file = &file.unwrap().path();
 
-            if let Ok(p) = Plot::new(
-                file,
-                use_direct_io,
-                dummy,
-            ) {
+            if let Ok(p) = Plot::new(file, use_direct_io, dummy) {
                 let drive_id = get_device_id(&file.to_str().unwrap().to_string());
                 let plots = drive_id_to_plots
                     .entry(drive_id)
@@ -163,7 +159,11 @@ fn scan_plots(
 
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
-        let (drive_id_to_plots, total_size) = scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io, cfg.benchmark_only.to_uppercase() == "XPU");
+        let (drive_id_to_plots, total_size) = scan_plots(
+            &cfg.plot_dirs,
+            cfg.hdd_use_direct_io,
+            cfg.benchmark_only.to_uppercase() == "XPU",
+        );
 
         let reader_thread_count = if cfg.hdd_reader_thread_count == 0 {
             drive_id_to_plots.len()
@@ -248,6 +248,8 @@ impl Miner {
                 rx_empty_buffers,
                 tx_read_replies_cpu,
                 tx_read_replies_gpu,
+                cfg.show_progress,
+                cfg.show_drive_stats,
             ),
             rx_nonce_data,
             target_deadline: cfg.target_deadline,
