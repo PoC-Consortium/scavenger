@@ -12,6 +12,7 @@ use std::io::Stdout;
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
+use stopwatch::Stopwatch;
 
 pub struct ReadReply {
     pub buffer: Box<Buffer + Send>,
@@ -87,17 +88,27 @@ impl Reader {
         self.interupts = self
             .drive_id_to_plots
             .iter()
-            .map(|(_, plots)| {
+            .map(|(drive, plots)| {
                 let (interupt, task) = if self.show_progress {
                     self.create_read_task(
                         Some(pb.clone()),
+                        drive.clone(),
                         plots.clone(),
                         height,
                         scoop,
                         gensig.clone(),
+                        self.show_drive_stats,
                     )
                 } else {
-                    self.create_read_task(None, plots.clone(), height, scoop, gensig.clone())
+                    self.create_read_task(
+                        None,
+                        drive.clone(),
+                        plots.clone(),
+                        height,
+                        scoop,
+                        gensig.clone(),
+                        self.show_drive_stats,
+                    )
                 };
 
                 self.pool.spawn(task);
@@ -125,16 +136,21 @@ impl Reader {
     fn create_read_task(
         &self,
         pb: Option<Arc<Mutex<pbr::ProgressBar<Stdout>>>>,
+        drive: String,
         plots: Arc<Mutex<Vec<RwLock<Plot>>>>,
         height: u64,
         scoop: u32,
         gensig: Arc<[u8; 32]>,
+        show_drive_stats: bool,
     ) -> (Sender<()>, impl FnOnce()) {
         let (tx_interupt, rx_interupt) = channel();
         let rx_empty_buffers = self.rx_empty_buffers.clone();
         let tx_read_replies_cpu = self.tx_read_replies_cpu.clone();
         let tx_read_replies_gpu = self.tx_read_replies_gpu.clone();
         (tx_interupt, move || {
+            let mut sw = Stopwatch::new();
+            let mut elapsed = 0i64;
+            let mut nonces_processed = 0u64;
             let plots = plots.lock().unwrap();
             let plot_count = plots.len();
             'outer: for (i_p, p) in plots.iter().enumerate() {
@@ -148,6 +164,9 @@ impl Reader {
                 }
 
                 'inner: for mut buffer in rx_empty_buffers.clone() {
+                    if show_drive_stats {
+                        sw.restart();
+                    }
                     let mut_bs = &*buffer.get_buffer_for_writing();
                     let mut bs = mut_bs.lock().unwrap();
                     let (bytes_read, start_nonce, next_plot) = match p.read(&mut *bs, scoop) {
@@ -190,12 +209,29 @@ impl Reader {
                         }
                     }
 
+                    nonces_processed += bytes_read as u64 / 64;
+
                     match &pb {
                         Some(pb) => {
                             let mut pb = pb.lock().unwrap();
                             pb.add(bytes_read as u64);
                         }
                         None => (),
+                    }
+
+                    if show_drive_stats {
+                        elapsed += sw.elapsed_ms();
+                    }
+
+                    if finished && show_drive_stats {
+                        info!(
+                            "{: <80}",
+                            format!(
+                                "drive {} finished, speed={} MiB/s",
+                                drive,
+                                nonces_processed * 1000 / (elapsed + 1) as u64 * 64 / 1024 / 1024,
+                            )
+                        );
                     }
 
                     if next_plot {
