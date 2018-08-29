@@ -41,6 +41,8 @@ page_size = "0.4.1"
 aligned_alloc = "0.1"
 hyper-rustls = "0.14.0"
 core_affinity = "0.5.9"
+pbr = "1.0.1"
+
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi"] }

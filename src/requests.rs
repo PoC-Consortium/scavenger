@@ -174,6 +174,7 @@ impl RequestHandler {
                 match result {
                     Ok(result) => {
                         if d != result.deadline {
+                            print!("\r");
                             error!(
                                 "submit: deadlines mismatch, height={}, account={}, nonce={}, \
                                  deadline_miner={}, deadline_pool={}",
@@ -182,6 +183,7 @@ impl RequestHandler {
                         }
                     }
                     Err(FetchError::Pool(e)) => {
+                        print!("\r");
                         error!(
                             "submit: error submitting nonce, height={}, account={}, nonce={}, \
                              deadline={}\n\tcode: {}\n\tmessage: {}",
@@ -189,6 +191,7 @@ impl RequestHandler {
                         );
                     }
                     Err(_) => {
+                        print!("\r");
                         warn!("submit: error submitting nonce, retry={}", retried,);
                         if retried < 3 {
                             rh.submit_nonce(
@@ -200,6 +203,7 @@ impl RequestHandler {
                                 retried + 1,
                             );
                         } else {
+                            print!("\r");
                             error!("submit: error submitting nonce, exhausted retries");
                         }
                     }

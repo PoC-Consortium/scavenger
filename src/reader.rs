@@ -1,11 +1,14 @@
+extern crate pbr;
 extern crate rayon;
 
+use self::pbr::{ProgressBar,Units};
 use chan;
 use filetime::FileTime;
 use miner::Buffer;
 use plot::Plot;
 use reader::rayon::prelude::*;
 use std::collections::HashMap;
+use std::io::Stdout;
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
@@ -22,6 +25,7 @@ pub struct ReadReply {
 
 pub struct Reader {
     drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
+    total_size: u64,
     pool: rayon::ThreadPool,
     rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
     tx_read_replies_cpu: chan::Sender<ReadReply>,
@@ -32,6 +36,7 @@ pub struct Reader {
 impl Reader {
     pub fn new(
         drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
+        total_size: u64,
         num_threads: usize,
         rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
         tx_read_replies_cpu: chan::Sender<ReadReply>,
@@ -49,6 +54,7 @@ impl Reader {
 
         Reader {
             drive_id_to_plots,
+            total_size,
             pool: rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
@@ -64,15 +70,23 @@ impl Reader {
         for interupt in &self.interupts {
             interupt.send(()).ok();
         }
+
+        let mut pb = ProgressBar::new(self.total_size);
+        pb.format("╢▌▌░╟");
+        pb.set_width(Some(60));
+        pb.set_units(Units::Bytes);
+        let pb = Arc::new(Mutex::new(pb));
+
         self.interupts = self
             .drive_id_to_plots
             .iter()
             .map(|(_, plots)| {
                 let (interupt, task) =
-                    self.create_read_task(plots.clone(), height, scoop, gensig.clone());
+                    self.create_read_task(pb.clone(), plots.clone(), height, scoop, gensig.clone());
                 self.pool.spawn(task);
                 interupt
             }).collect();
+        //pb.finish_print("done");
     }
 
     pub fn wakeup(&mut self) {
@@ -94,6 +108,7 @@ impl Reader {
 
     fn create_read_task(
         &self,
+        pb: Arc<Mutex<pbr::ProgressBar<Stdout>>>,
         plots: Arc<Mutex<Vec<RwLock<Plot>>>>,
         height: u64,
         scoop: u32,
@@ -103,7 +118,6 @@ impl Reader {
         let rx_empty_buffers = self.rx_empty_buffers.clone();
         let tx_read_replies_cpu = self.tx_read_replies_cpu.clone();
         let tx_read_replies_gpu = self.tx_read_replies_gpu.clone();
-
         (tx_interupt, move || {
             let plots = plots.lock().unwrap();
             let plot_count = plots.len();
@@ -160,6 +174,9 @@ impl Reader {
                         }
                     }
 
+                    let mut pb = pb.lock().unwrap();
+                    pb.add(bytes_read as u64);
+                    
                     if next_plot {
                         break 'inner;
                     }

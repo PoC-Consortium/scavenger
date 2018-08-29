@@ -3,6 +3,7 @@ account_id_to_secret_phrase:                   # define accounts and passphrases
   1796535821016683299: 'stand rude those door invite reflection anywhere lace safe hidden fur horrible'  
 plot_dirs:
   - 'test_data'
+  - 'd:\plot' 
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
@@ -36,9 +37,9 @@ logfile_max_count: 10                 # maximum number of log files to keep
 logfile_max_size : 20                 # maximum size per logfile in MiB
 
 # Low noise log patterns
-console_log_pattern: '{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}'
-logfile_log_pattern: '{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}'
+console_log_pattern: "\r{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}"
+logfile_log_pattern: "\r{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}"
 
 # More detailed log patterns
-#console_log_pattern: '{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}'
-#logfile_log_pattern: '{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}]-[{t}] [{f}:{L}] - {M}:{m}{n}'
+#console_log_pattern: "\r{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}"
+#logfile_log_pattern: "\r{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}]-[{t}] [{f}:{L}] - {M}:{m}{n}"

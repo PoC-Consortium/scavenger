@@ -102,9 +102,9 @@ impl Buffer for CpuBuffer {
 fn scan_plots(
     plot_dirs: &[String],
     use_direct_io: bool,
-) -> HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>> {
+) -> (HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>, u64) {
     let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>> = HashMap::new();
-    let mut global_capacity: f64 = 0.0;
+    let mut global_capacity: u64 = 0;
 
     for plot_dir_str in plot_dirs {
         let dir = Path::new(plot_dir_str);
@@ -119,7 +119,7 @@ fn scan_plots(
         }
 
         let mut num_plots = 0;
-        let mut local_capacity: f64 = 0.0;
+        let mut local_capacity: u64 = 0;
         for file in read_dir(dir).unwrap() {
             let file = &file.unwrap().path();
 
@@ -129,7 +129,7 @@ fn scan_plots(
                     .entry(drive_id)
                     .or_insert_with(|| Arc::new(Mutex::new(Vec::new())));
 
-                local_capacity += p.nonces as f64;
+                local_capacity += p.nonces as u64;
                 plots.lock().unwrap().push(RwLock::new(p));
                 num_plots += 1;
             }
@@ -139,7 +139,7 @@ fn scan_plots(
             "path={}, files={}, size={:.4} TiB",
             plot_dir_str,
             num_plots,
-            local_capacity / 4.0 / 1024.0 / 1024.0
+            local_capacity as f64 / 4.0 / 1024.0 / 1024.0
         );
 
         global_capacity += local_capacity;
@@ -150,15 +150,15 @@ fn scan_plots(
 
     info!(
         "plot files loaded: total capacity={:.4} TiB",
-        global_capacity / 4.0 / 1024.0 / 1024.0
+        global_capacity as f64 / 4.0 / 1024.0 / 1024.0
     );
 
-    drive_id_to_plots
+    (drive_id_to_plots, global_capacity*64)
 }
 
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
-        let drive_id_to_plots = scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io);
+        let (drive_id_to_plots, total_size) = scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io);
 
         let reader_thread_count = if cfg.hdd_reader_thread_count == 0 {
             drive_id_to_plots.len()
@@ -236,6 +236,7 @@ impl Miner {
             reader_task_count: drive_id_to_plots.len(),
             reader: Reader::new(
                 drive_id_to_plots,
+                total_size,
                 reader_thread_count,
                 rx_empty_buffers,
                 tx_read_replies_cpu,
@@ -296,7 +297,7 @@ impl Miner {
                                 let gensig =
                                     burstmath::decode_gensig(&mining_info.generation_signature);
                                 let scoop = burstmath::calculate_scoop(mining_info.height, &gensig);
-
+                                print!("\r");
                                 info!("new block: height={}, scoop={}", mining_info.height, scoop);
 
                                 reader.borrow_mut().start_reading(
@@ -349,6 +350,7 @@ impl Miner {
                             deadline,
                             0,
                         );
+                        //print!("\r");
                         info!(
                             "deadline found: account={}, nonce={}, deadline={}",
                             nonce_data.account_id, nonce_data.nonce, deadline
@@ -357,6 +359,7 @@ impl Miner {
                     if nonce_data.reader_task_processed {
                         state.processed_reader_tasks += 1;
                         if state.processed_reader_tasks == reader_task_count {
+                            print!("\r");
                             info!("round finished: roundtime={}ms", state.sw.elapsed_ms());
                             state.sw.restart();
                             state.scanning = false;
