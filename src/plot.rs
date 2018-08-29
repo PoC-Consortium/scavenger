@@ -23,6 +23,7 @@ pub struct Plot {
     use_direct_io: bool,
     pub name: String,
     sector_size: u64,
+    dummy: bool,
 }
 
 cfg_if! {
@@ -52,7 +53,7 @@ cfg_if! {
 }
 
 impl Plot {
-    pub fn new(path: &PathBuf, mut use_direct_io: bool) -> Result<Plot, Box<Error>> {
+    pub fn new(path: &PathBuf, mut use_direct_io: bool, dummy: bool) -> Result<Plot, Box<Error>> {
         if !path.is_file() {
             return Err(From::from(format!(
                 "{} is not a file",
@@ -104,6 +105,7 @@ impl Plot {
             use_direct_io,
             sector_size,
             name: plot_file_name,
+            dummy,
         })
     }
 
@@ -144,10 +146,10 @@ impl Plot {
         let nonces = self.nonces;
         let seek_addr =
             SeekFrom::Start(offset as u64 + u64::from(scoop) * nonces as u64 * SCOOP_SIZE);
-        self.fh.seek(seek_addr)?;
-
-        self.fh.read_exact(&mut bs[0..bytes_to_read])?;
-
+        if !self.dummy {
+            self.fh.seek(seek_addr)?;
+            self.fh.read_exact(&mut bs[0..bytes_to_read])?;
+        }
         self.read_offset += bytes_to_read as u64;
 
         Ok((bytes_to_read, start_nonce, finished))

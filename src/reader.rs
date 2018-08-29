@@ -75,6 +75,7 @@ impl Reader {
         pb.format("│██░│");
         pb.set_width(Some(80));
         pb.set_units(Units::Bytes);
+        pb.message("Scavenging: ");
         let pb = Arc::new(Mutex::new(pb));
 
         self.interupts = self

@@ -189,7 +189,10 @@ impl RequestHandler {
                         );
                     }
                     Err(_) => {
-                        warn!("{: <80}",format!("submit: error submitting nonce, retry={}", retried));
+                        warn!(
+                            "{: <80}",
+                            format!("submit: error submitting nonce, retry={}", retried)
+                        );
                         if retried < 3 {
                             rh.submit_nonce(
                                 &inner_handle,
@@ -200,7 +203,10 @@ impl RequestHandler {
                                 retried + 1,
                             );
                         } else {
-                            error!("{: <80}","submit: error submitting nonce, exhausted retries");
+                            error!(
+                                "{: <80}",
+                                "submit: error submitting nonce, exhausted retries"
+                            );
                         }
                     }
                 };

@@ -102,6 +102,7 @@ impl Buffer for CpuBuffer {
 fn scan_plots(
     plot_dirs: &[String],
     use_direct_io: bool,
+    dummy: bool,
 ) -> (HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>, u64) {
     let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>> = HashMap::new();
     let mut global_capacity: u64 = 0;
@@ -123,7 +124,11 @@ fn scan_plots(
         for file in read_dir(dir).unwrap() {
             let file = &file.unwrap().path();
 
-            if let Ok(p) = Plot::new(file, use_direct_io) {
+            if let Ok(p) = Plot::new(
+                file,
+                use_direct_io,
+                dummy,
+            ) {
                 let drive_id = get_device_id(&file.to_str().unwrap().to_string());
                 let plots = drive_id_to_plots
                     .entry(drive_id)
@@ -158,7 +163,7 @@ fn scan_plots(
 
 impl Miner {
     pub fn new(cfg: Cfg) -> Miner {
-        let (drive_id_to_plots, total_size) = scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io);
+        let (drive_id_to_plots, total_size) = scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io, cfg.benchmark_only.to_uppercase() == "XPU");
 
         let reader_thread_count = if cfg.hdd_reader_thread_count == 0 {
             drive_id_to_plots.len()
@@ -214,6 +219,7 @@ impl Miner {
                     core_affinity::set_for_current(core_id);
                 }
                 create_worker_task(
+                    cfg.benchmark_only.to_uppercase() == "I/O",
                     rx_read_replies_cpu.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
@@ -224,6 +230,7 @@ impl Miner {
         for _ in 0..gpu_worker_thread_count {
             thread::spawn({
                 create_worker_task(
+                    cfg.benchmark_only.to_uppercase() == "I/O",
                     rx_read_replies_gpu.clone(),
                     tx_empty_buffers.clone(),
                     tx_nonce_data.clone(),
@@ -297,7 +304,13 @@ impl Miner {
                                 let gensig =
                                     burstmath::decode_gensig(&mining_info.generation_signature);
                                 let scoop = burstmath::calculate_scoop(mining_info.height, &gensig);
-                                info!("{: <80}",format!("new block: height={}, scoop={}", mining_info.height, scoop));
+                                info!(
+                                    "{: <80}",
+                                    format!(
+                                        "new block: height={}, scoop={}",
+                                        mining_info.height, scoop
+                                    )
+                                );
 
                                 reader.borrow_mut().start_reading(
                                     mining_info.height,
@@ -316,7 +329,7 @@ impl Miner {
                                 state.sw.restart();
                             }
                         }
-                        _ => warn!("{: <80}","error getting mining info"),
+                        _ => warn!("{: <80}", "error getting mining info"),
                     }
                     future::ok(())
                 })
@@ -352,13 +365,16 @@ impl Miner {
 
                         info!(
                             "deadline found: account={}, nonce={}, deadline={}",
-                            nonce_data.account_id, nonce_data.nonce, deadline 
+                            nonce_data.account_id, nonce_data.nonce, deadline
                         );
                     }
                     if nonce_data.reader_task_processed {
                         state.processed_reader_tasks += 1;
                         if state.processed_reader_tasks == reader_task_count {
-                            info!("{: <80}",format!("round finished: roundtime={}ms", state.sw.elapsed_ms()));
+                            info!(
+                                "{: <80}",
+                                format!("round finished: roundtime={}ms", state.sw.elapsed_ms())
+                            );
                             state.sw.restart();
                             state.scanning = false;
                         }

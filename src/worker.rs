@@ -42,6 +42,7 @@ pub struct NonceData {
 }
 
 pub fn create_worker_task(
+    benchmark: bool,
     rx_read_replies: chan::Receiver<ReadReply>,
     tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
@@ -59,47 +60,49 @@ pub fn create_worker_task(
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
 
-            match &gpu_context {
-                None => {
-                    let mut_bs = buffer.get_buffer();
-                    let mut bs = mut_bs.lock().unwrap();
-                    let padded = pad(&mut bs, read_reply.len, 8 * 64);
-                    unsafe {
-                        if is_x86_feature_detected!("avx2") {
-                            find_best_deadline_avx2(
-                                bs.as_ptr() as *mut c_void,
-                                (read_reply.len as u64 + padded as u64) / 64,
-                                read_reply.gensig.as_ptr() as *const c_void,
-                                &mut deadline,
-                                &mut offset,
-                            );
-                        } else if is_x86_feature_detected!("avx") {
-                            find_best_deadline_avx(
-                                bs.as_ptr() as *mut c_void,
-                                (read_reply.len as u64 + padded as u64) / 64,
-                                read_reply.gensig.as_ptr() as *const c_void,
-                                &mut deadline,
-                                &mut offset,
-                            );
-                        } else {
-                            find_best_deadline_sse2(
-                                bs.as_ptr() as *mut c_void,
-                                (read_reply.len as u64 + padded as u64) / 64,
-                                read_reply.gensig.as_ptr() as *const c_void,
-                                &mut deadline,
-                                &mut offset,
-                            );
+            if !benchmark {
+                match &gpu_context {
+                    None => {
+                        let mut_bs = buffer.get_buffer();
+                        let mut bs = mut_bs.lock().unwrap();
+                        let padded = pad(&mut bs, read_reply.len, 8 * 64);
+                        unsafe {
+                            if is_x86_feature_detected!("avx2") {
+                                find_best_deadline_avx2(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            } else if is_x86_feature_detected!("avx") {
+                                find_best_deadline_avx(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            } else {
+                                find_best_deadline_sse2(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            }
                         }
                     }
-                }
-                Some(_context) => {
-                    let tuple = ocl::find_best_deadline_gpu(
-                        buffer.get_gpu_buffers().unwrap(),
-                        read_reply.len / 64,
-                        *read_reply.gensig,
-                    );
-                    deadline = tuple.0;
-                    offset = tuple.1;
+                    Some(_context) => {
+                        let tuple = ocl::find_best_deadline_gpu(
+                            buffer.get_gpu_buffers().unwrap(),
+                            read_reply.len / 64,
+                            *read_reply.gensig,
+                        );
+                        deadline = tuple.0;
+                        offset = tuple.1;
+                    }
                 }
             }
 

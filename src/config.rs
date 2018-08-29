@@ -72,6 +72,12 @@ pub struct Cfg {
 
     #[serde(default = "default_logfile_log_pattern")]
     pub logfile_log_pattern: String,
+
+    #[serde(default = "default_show_progress")]
+    pub show_progress: bool,
+
+    #[serde(default = "default_benchmark_only")]
+    pub benchmark_only: String,
 }
 
 fn default_secret_phrase() -> HashMap<u64, String> {
@@ -151,11 +157,19 @@ fn default_logfile_max_size() -> u64 {
 }
 
 fn default_console_log_pattern() -> String {
-    "{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}".to_owned()
+    "\r{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}".to_owned()
 }
 
 fn default_logfile_log_pattern() -> String {
-    "{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{f}:{L}] [{t}] - {M}:{m}{n}".to_owned()
+    "\r{d(%Y-%m-%dT%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{f}:{L}] [{t}] - {M}:{m}{n}".to_owned()
+}
+
+fn default_show_progress() -> bool {
+    true
+}
+
+fn default_benchmark_only() -> String {
+    "disabled".to_owned()
 }
 
 pub fn load_cfg(config: &str) -> Cfg {
