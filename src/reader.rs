@@ -1,7 +1,7 @@
 extern crate pbr;
 extern crate rayon;
 
-use self::pbr::{ProgressBar,Units};
+use self::pbr::{ProgressBar, Units};
 use chan;
 use filetime::FileTime;
 use miner::Buffer;
@@ -72,8 +72,8 @@ impl Reader {
         }
 
         let mut pb = ProgressBar::new(self.total_size);
-        pb.format("╢▌▌░╟");
-        pb.set_width(Some(60));
+        pb.format("│██░│");
+        pb.set_width(Some(80));
         pb.set_units(Units::Bytes);
         let pb = Arc::new(Mutex::new(pb));
 
@@ -86,7 +86,6 @@ impl Reader {
                 self.pool.spawn(task);
                 interupt
             }).collect();
-        //pb.finish_print("done");
     }
 
     pub fn wakeup(&mut self) {
@@ -176,7 +175,7 @@ impl Reader {
 
                     let mut pb = pb.lock().unwrap();
                     pb.add(bytes_read as u64);
-                    
+
                     if next_plot {
                         break 'inner;
                     }

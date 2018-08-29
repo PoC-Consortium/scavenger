@@ -153,7 +153,7 @@ fn scan_plots(
         global_capacity as f64 / 4.0 / 1024.0 / 1024.0
     );
 
-    (drive_id_to_plots, global_capacity*64)
+    (drive_id_to_plots, global_capacity * 64)
 }
 
 impl Miner {
@@ -297,8 +297,7 @@ impl Miner {
                                 let gensig =
                                     burstmath::decode_gensig(&mining_info.generation_signature);
                                 let scoop = burstmath::calculate_scoop(mining_info.height, &gensig);
-                                print!("\r");
-                                info!("new block: height={}, scoop={}", mining_info.height, scoop);
+                                info!("{: <80}",format!("new block: height={}, scoop={}", mining_info.height, scoop));
 
                                 reader.borrow_mut().start_reading(
                                     mining_info.height,
@@ -317,7 +316,7 @@ impl Miner {
                                 state.sw.restart();
                             }
                         }
-                        _ => warn!("error getting mining info"),
+                        _ => warn!("{: <80}","error getting mining info"),
                     }
                     future::ok(())
                 })
@@ -350,17 +349,16 @@ impl Miner {
                             deadline,
                             0,
                         );
-                        //print!("\r");
+
                         info!(
                             "deadline found: account={}, nonce={}, deadline={}",
-                            nonce_data.account_id, nonce_data.nonce, deadline
+                            nonce_data.account_id, nonce_data.nonce, deadline 
                         );
                     }
                     if nonce_data.reader_task_processed {
                         state.processed_reader_tasks += 1;
                         if state.processed_reader_tasks == reader_task_count {
-                            print!("\r");
-                            info!("round finished: roundtime={}ms", state.sw.elapsed_ms());
+                            info!("{: <80}",format!("round finished: roundtime={}ms", state.sw.elapsed_ms()));
                             state.sw.restart();
                             state.scanning = false;
                         }
