@@ -8,7 +8,7 @@ cfg_if! {
                 .arg("-c %D")
                 .output()
                 .expect("failed to execute 'stat -c %D'");
-            String::from_utf8(output.stdout).expect("not utf8")
+            String::from_utf8(output.stdout).expect("not utf8").trim_right().to_owned()
         }
 
         // On unix, get the device id from 'df' command
