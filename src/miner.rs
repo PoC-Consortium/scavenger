@@ -1,5 +1,6 @@
 extern crate aligned_alloc;
 extern crate num_cpus;
+#[cfg(feature = "opencl")]
 extern crate ocl_core as core;
 extern crate page_size;
 
@@ -8,8 +9,6 @@ use chan;
 use config::Cfg;
 use core_affinity;
 use futures::sync::mpsc;
-use ocl::GpuBuffer;
-use ocl::GpuContext;
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
 use requests::RequestHandler;
@@ -29,6 +28,11 @@ use tokio::timer::Interval;
 use tokio_core::reactor::Core;
 use utils::get_device_id;
 use worker::{create_worker_task, NonceData};
+
+#[cfg(feature = "opencl")]
+use ocl::GpuBuffer;
+#[cfg(feature = "opencl")]
+use ocl::GpuContext;
 
 pub struct Miner {
     reader: Reader,
@@ -57,9 +61,9 @@ pub trait Buffer {
     fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>>;
 
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>>;
-
+    #[cfg(feature = "opencl")]
     fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>>;
-
+    #[cfg(feature = "opencl")]
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
 }
 
@@ -90,10 +94,11 @@ impl Buffer for CpuBuffer {
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>> {
         self.data.clone()
     }
+    #[cfg(feature = "opencl")]
     fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>> {
         None
     }
-
+    #[cfg(feature = "opencl")]
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
         None
     }
@@ -186,7 +191,10 @@ impl Miner {
         let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
         let (tx_read_replies_gpu, rx_read_replies_gpu) = chan::bounded(gpu_worker_thread_count * 2);
 
+        #[cfg(feature = "opencl")]
         let mut vec = Vec::new();
+
+        #[cfg(feature = "opencl")]
         for _ in 0..gpu_worker_thread_count {
             vec.push(Arc::new(Mutex::new(GpuContext::new(
                 cfg.gpu_platform,
@@ -196,6 +204,7 @@ impl Miner {
             ))));
         }
 
+        #[cfg(feature = "opencl")]
         for _ in 0..1 {
             for i in 0..gpu_worker_thread_count {
                 let gpu_buffer = GpuBuffer::new(&vec[i]);

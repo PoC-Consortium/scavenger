@@ -12,6 +12,9 @@ documentation = "https://github.com/PoC-Consortium/scavenger"
 keywords = ["burstcoin", "miner", "rust","cryptocurrency"]
 readme = "README.md"
 
+[features]
+opencl = []
+
 [dependencies]
 hyper = "0.12"
 serde = "1.0"

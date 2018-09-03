@@ -146,7 +146,10 @@ impl Reader {
         let (tx_interupt, rx_interupt) = channel();
         let rx_empty_buffers = self.rx_empty_buffers.clone();
         let tx_read_replies_cpu = self.tx_read_replies_cpu.clone();
+        #[cfg(feature = "opencl")]
         let tx_read_replies_gpu = self.tx_read_replies_gpu.clone();
+        #[cfg(not(feature = "opencl"))]
+        let _tx_read_replies_gpu = self.tx_read_replies_gpu.clone();
         (tx_interupt, move || {
             let mut sw = Stopwatch::new();
             let mut elapsed = 0i64;
@@ -182,8 +185,10 @@ impl Reader {
 
                     let finished = i_p == (plot_count - 1) && next_plot;
                     //fork
-                    let gpu_context = buffer.get_gpu_context();
 
+                    #[cfg(feature = "opencl")]
+                    let gpu_context = buffer.get_gpu_context();
+                    #[cfg(feature = "opencl")]
                     match &gpu_context {
                         None => {
                             tx_read_replies_cpu.send(ReadReply {
@@ -208,6 +213,16 @@ impl Reader {
                             });
                         }
                     }
+                    #[cfg(not(feature = "opencl"))]
+                    tx_read_replies_cpu.send(ReadReply {
+                        buffer,
+                        len: bytes_read,
+                        height,
+                        gensig: gensig.clone(),
+                        start_nonce,
+                        finished,
+                        account_id: p.account_id,
+                    });
 
                     nonces_processed += bytes_read as u64 / 64;
 

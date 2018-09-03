@@ -28,13 +28,15 @@ mod burstmath;
 mod config;
 mod logger;
 mod miner;
-mod ocl;
 mod plot;
 mod reader;
 mod requests;
 mod shabals;
 mod utils;
 mod worker;
+
+#[cfg(feature = "opencl")]
+mod ocl;
 
 use clap::{App, Arg};
 use config::load_cfg;
@@ -95,12 +97,14 @@ fn main() {
     logger::init_logger(&cfg_loaded);
 
     info!("Scavenger v.{}", crate_version!());
+
     if matches.is_present("opencl") {
+        #[cfg(feature = "opencl")]
         ocl::platform_info();
         process::exit(0);
     }
     init_simd_extensions();
-
+    #[cfg(feature = "opencl")]
     ocl::gpu_info(&cfg_loaded);
 
     let m = Miner::new(cfg_loaded);

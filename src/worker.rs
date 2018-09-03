@@ -3,6 +3,7 @@ use futures::sync::mpsc;
 use futures::{Future, Sink};
 use libc::{c_void, uint64_t};
 use miner::Buffer;
+#[cfg(feature = "opencl")]
 use ocl;
 
 use reader::ReadReply;
@@ -55,12 +56,14 @@ pub fn create_worker_task(
                 continue;
             }
 
+            #[cfg(feature = "opencl")]
             let gpu_context = buffer.get_gpu_context();
 
             let mut deadline: u64 = u64::MAX;
             let mut offset: u64 = 0;
 
             if !benchmark {
+                #[cfg(feature = "opencl")]
                 match &gpu_context {
                     None => {
                         let mut_bs = buffer.get_buffer();
@@ -102,6 +105,39 @@ pub fn create_worker_task(
                         );
                         deadline = tuple.0;
                         offset = tuple.1;
+                    }
+                }
+                #[cfg(not(feature = "opencl"))]
+                {
+                    let mut_bs = buffer.get_buffer();
+                    let mut bs = mut_bs.lock().unwrap();
+                    let padded = pad(&mut bs, read_reply.len, 8 * 64);
+                    unsafe {
+                        if is_x86_feature_detected!("avx2") {
+                            find_best_deadline_avx2(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        } else if is_x86_feature_detected!("avx") {
+                            find_best_deadline_avx(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        } else {
+                            find_best_deadline_sse2(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        }
                     }
                 }
             }
