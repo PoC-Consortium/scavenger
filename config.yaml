@@ -41,8 +41,8 @@ show_drive_stats: false               # default false
 benchmark_only: 'disabled'            # default disabled, options (disabled, I/O, XPU)
 
 # Low noise log patterns
-console_log_pattern: "\r{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}"
-logfile_log_pattern: "\r{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}"
+console_log_pattern: "{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}"
+logfile_log_pattern: "{({d(%Y-%m-%d %H:%M:%S)} [{l}]):26.26} {m}{n}"
 
 # More detailed log patterns
 #console_log_pattern: "\r{d(%H:%M:%S.%3f%z)} [{h({l}):<5}] [{T}] [{t}] - {M}:{m}{n}"

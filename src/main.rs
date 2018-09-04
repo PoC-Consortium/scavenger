@@ -83,13 +83,15 @@ fn main() {
                 .help("Location of the config file")
                 .takes_value(true)
                 .default_value("config.yaml"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("opencl")
                 .short("ocl")
                 .long("opencl")
                 .help("Display OpenCL platforms and devices")
                 .takes_value(false),
-        ).get_matches();
+        )
+        .get_matches();
 
     let config = matches.value_of("config").unwrap();
 
@@ -97,6 +99,8 @@ fn main() {
     logger::init_logger(&cfg_loaded);
 
     info!("Scavenger v.{}", crate_version!());
+    #[cfg(feature = "opencl")]
+    info!("GPU extensions: OpenCL");
 
     if matches.is_present("opencl") {
         #[cfg(feature = "opencl")]

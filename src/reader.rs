@@ -113,7 +113,8 @@ impl Reader {
 
                 self.pool.spawn(task);
                 interupt
-            }).collect();
+            })
+            .collect();
     }
 
     pub fn wakeup(&mut self) {
@@ -277,8 +278,8 @@ pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RwLock<Pl
                             let plot_a = l.write().unwrap();
                             let plot_b = j.write().unwrap();
                             plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b)
-                        }).count()
-                        > 0
+                        })
+                        .count() > 0
                 });
                 result |= dupes.count() > 0;
             } else {
@@ -291,8 +292,8 @@ pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RwLock<Pl
                             let plot_a = l.write().unwrap();
                             let plot_b = j.write().unwrap();
                             plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b)
-                        }).count()
-                        > 0
+                        })
+                        .count() > 0
                 });
                 result |= dupes.count() > 0;
             }

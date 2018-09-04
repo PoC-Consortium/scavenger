@@ -27,9 +27,21 @@ fn to_log_level(s: &str, default: log::LevelFilter) -> log::LevelFilter {
 pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
     let level_console = to_log_level(&cfg.console_log_level, log::LevelFilter::Info);
     let level_logfile = to_log_level(&cfg.logfile_log_level, log::LevelFilter::Warn);
+    let mut console_log_pattern = if cfg.show_progress {
+        "\r".to_owned()
+    } else {
+        "".to_owned()
+    };
+    console_log_pattern.push_str(&cfg.console_log_pattern);
+    let mut logfile_log_pattern = if cfg.show_progress {
+        "\r".to_owned()
+    } else {
+        "".to_owned()
+    };
+    logfile_log_pattern.push_str(&cfg.logfile_log_pattern);
 
     let stdout = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new(&cfg.console_log_pattern)))
+        .encoder(Box::new(PatternEncoder::new(&console_log_pattern)))
         .build();
 
     let roller = FixedWindowRoller::builder()
@@ -45,11 +57,12 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
                     .build("stdout", Box::new(stdout)),
-            ).build(Root::builder().appender("stdout").build(LevelFilter::Info))
+            )
+            .build(Root::builder().appender("stdout").build(LevelFilter::Info))
             .unwrap()
     } else {
         let logfile = RollingFileAppender::builder()
-            .encoder(Box::new(PatternEncoder::new(&cfg.logfile_log_pattern)))
+            .encoder(Box::new(PatternEncoder::new(&logfile_log_pattern)))
             .build("log/scavenger.1.log", policy)
             .unwrap();
         Config::builder()
@@ -57,16 +70,19 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
                     .build("stdout", Box::new(stdout)),
-            ).appender(
+            )
+            .appender(
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_logfile)))
                     .build("logfile", Box::new(logfile)),
-            ).build(
+            )
+            .build(
                 Root::builder()
                     .appender("stdout")
                     .appender("logfile")
                     .build(LevelFilter::Trace),
-            ).unwrap()
+            )
+            .unwrap()
     };
     log4rs::init_config(config).unwrap()
 }
