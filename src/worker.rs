@@ -9,6 +9,14 @@ use ocl;
 use reader::ReadReply;
 use std::u64;
 extern "C" {
+    pub fn find_best_deadline_avx512f(
+        scoops: *mut c_void,
+        nonce_count: uint64_t,
+        gensig: *const c_void,
+        best_deadline: *mut uint64_t,
+        best_offset: *mut uint64_t,
+    ) -> ();
+
     pub fn find_best_deadline_avx2(
         scoops: *mut c_void,
         nonce_count: uint64_t,
@@ -70,7 +78,15 @@ pub fn create_worker_task(
                         let mut bs = mut_bs.lock().unwrap();
                         let padded = pad(&mut bs, read_reply.len, 8 * 64);
                         unsafe {
-                            if is_x86_feature_detected!("avx2") {
+                            if is_x86_feature_detected!("avx512f") {
+                                find_best_deadline_avx512f(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            } else if is_x86_feature_detected!("avx2") {
                                 find_best_deadline_avx2(
                                     bs.as_ptr() as *mut c_void,
                                     (read_reply.len as u64 + padded as u64) / 64,
@@ -113,7 +129,15 @@ pub fn create_worker_task(
                     let mut bs = mut_bs.lock().unwrap();
                     let padded = pad(&mut bs, read_reply.len, 8 * 64);
                     unsafe {
-                        if is_x86_feature_detected!("avx2") {
+                        if is_x86_feature_detected!("avx512f") {
+                            find_best_deadline_avx512f(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        } else if is_x86_feature_detected!("avx2") {
                             find_best_deadline_avx2(
                                 bs.as_ptr() as *mut c_void,
                                 (read_reply.len as u64 + padded as u64) / 64,
@@ -150,8 +174,7 @@ pub fn create_worker_task(
                     nonce: offset + read_reply.start_nonce,
                     reader_task_processed: read_reply.finished,
                     account_id: read_reply.account_id,
-                })
-                .wait()
+                }).wait()
                 .expect("failed to send nonce data");
             tx_empty_buffers.send(buffer);
         }

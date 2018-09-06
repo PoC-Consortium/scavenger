@@ -344,8 +344,7 @@ impl Miner {
                     }
                     future::ok(())
                 })
-            })
-                .map_err(|e| panic!("interval errored: err={:?}", e)),
+            }).map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         let target_deadline = self.target_deadline;
@@ -392,8 +391,7 @@ impl Miner {
                         }
                     }
                     Ok(())
-                })
-                .map_err(|e| panic!("interval errored: err={:?}", e)),
+                }).map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         self.core.run(future::empty::<(), ()>()).unwrap();

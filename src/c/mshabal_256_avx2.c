@@ -23,7 +23,11 @@
 #include <immintrin.h>
 #include <stddef.h>
 #include <string.h>
-#include "mshabal_256.h"
+#include "mshabal_256_avx2.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4146)

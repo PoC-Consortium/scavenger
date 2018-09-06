@@ -2,13 +2,13 @@
 #include <immintrin.h>
 #include <string.h>
 #include "common.h"
-#include "mshabal_128.h"
+#include "mshabal_128_sse2.h"
 
 mshabal_context global_128;
 mshabal_context_fast global_128_fast;
 
 void init_shabal_sse2() {
-    simd128_mshabal_init(&global_128, 256);
+    simd128_sse2_mshabal_init(&global_128, 256);
     global_128_fast.out_size = global_128.out_size;
     for (int i = 0; i < 176; i++) global_128_fast.state[i] = global_128.state[i];
     global_128_fast.Whigh = global_128.Whigh;
@@ -67,7 +67,7 @@ void find_best_deadline_sse2(char* scoops, uint64_t nonce_count, char* gensig,
             u2.words[j + 3] = *(mshabal_u32*)(&scoops[(i + 3) * 64 + 32] + o);
         }
 
-        simd128_mshabal_openclose_fast(&x1, &u1, &u2, &d0, &d1, &d2, &d3);
+        simd128_sse2_mshabal_openclose_fast(&x1, &u1, &u2, &d0, &d1, &d2, &d3);
 
         SET_BEST_DEADLINE(d0, i + 0);
         SET_BEST_DEADLINE(d1, i + 1);

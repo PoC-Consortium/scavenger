@@ -1,5 +1,5 @@
 /*
- * Parallel implementation of Shabal, using the SSE2+ or AVX1 unit. This code
+ * Parallel implementation of Shabal, using the SSE2 unit. This code
  * compiles and runs on x86 architectures, in 32-bit or 64-bit mode,
  * which possess a SSE2-compatible SIMD unit.
  *
@@ -23,8 +23,7 @@
 #include <emmintrin.h>
 #include <stddef.h>
 #include <string.h>
-
-#include "mshabal_128.h"
+#include "mshabal_128_sse2.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,7 +39,7 @@ typedef mshabal_u32 u32;
 #define T32(x) ((x)&C32(0xFFFFFFFF))
 #define ROTL32(x, n) T32(((x) << (n)) | ((x) >> (32 - (n))))
 
-static void simd128_mshabal_compress(mshabal_context* sc, const unsigned char* buf0,
+static void simd128_sse2_mshabal_compress(mshabal_context* sc, const unsigned char* buf0,
                                      const unsigned char* buf1, const unsigned char* buf2,
                                      const unsigned char* buf3, size_t num) {
 #ifdef __AVX__
@@ -226,7 +225,7 @@ static void simd128_mshabal_compress(mshabal_context* sc, const unsigned char* b
 
 /* see shabal_small.h */
 
-void simd128_mshabal_init(mshabal_context* sc, unsigned out_size) {
+void simd128_sse2_mshabal_init(mshabal_context* sc, unsigned out_size) {
     unsigned u;
 
     // for (u = 0; u < 176; u++)  sc->state[u] = 0;
@@ -246,7 +245,7 @@ void simd128_mshabal_init(mshabal_context* sc, unsigned out_size) {
         sc->buf3[4 * u + 1] = (out_size + u) >> 8;
     }
     sc->Whigh = sc->Wlow = C32(0xFFFFFFFF);
-    simd128_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+    simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
     for (u = 0; u < 16; u++) {
         sc->buf0[4 * u + 0] = (out_size + u + 16);
         sc->buf0[4 * u + 1] = (out_size + u + 16) >> 8;
@@ -257,13 +256,13 @@ void simd128_mshabal_init(mshabal_context* sc, unsigned out_size) {
         sc->buf3[4 * u + 0] = (out_size + u + 16);
         sc->buf3[4 * u + 1] = (out_size + u + 16) >> 8;
     }
-    simd128_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+    simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
     sc->ptr = 0;
     sc->out_size = out_size;
 }
 
 /* see shabal_small.h */
-void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1, const void* data2,
+void simd128_sse2_mshabal(mshabal_context* sc, const void* data0, const void* data1, const void* data2,
                      const void* data3, size_t len) {
     size_t ptr, num;
     ptr = sc->ptr;
@@ -281,7 +280,7 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1, 
             memcpy(sc->buf1 + ptr, data1, clen);
             memcpy(sc->buf2 + ptr, data2, clen);
             memcpy(sc->buf3 + ptr, data3, clen);
-            simd128_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+            simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
             data0 = (const unsigned char*)data0 + clen;
             data1 = (const unsigned char*)data1 + clen;
             data2 = (const unsigned char*)data2 + clen;
@@ -292,7 +291,7 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1, 
 
     num = 1;
     if (num != 0) {
-        simd128_mshabal_compress(sc, (const unsigned char*)data0, (const unsigned char*)data1,
+        simd128_sse2_mshabal_compress(sc, (const unsigned char*)data0, (const unsigned char*)data1,
                                  (const unsigned char*)data2, (const unsigned char*)data3, num);
         sc->xbuf0 = (unsigned char*)data0 + (num << 6);
         sc->xbuf1 = (unsigned char*)data1 + (num << 6);
@@ -303,7 +302,7 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1, 
     sc->ptr = len;
 }
 
-static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1, void* u2,
+static void simd128_sse2_mshabal_compress_fast(mshabal_context_fast* sc, void* u1, void* u2,
                                           size_t num) {
 #ifdef __AVX__
 #ifdef _MSC_VER
@@ -596,11 +595,11 @@ static void simd128_mshabal_compress_fast(mshabal_context_fast* sc, void* u1, vo
     }
 }
 
-void simd128_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0,
+void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0,
                                     void* dst1, void* dst2, void* dst3) {
     unsigned z, off, out_size_w32;
     // run shabal
-    simd128_mshabal_compress_fast(sc, u1, u2, 1);
+    simd128_sse2_mshabal_compress_fast(sc, u1, u2, 1);
     // extract results
     out_size_w32 = sc->out_size >> 5;
     off = 4 * (28 + (16 - out_size_w32));

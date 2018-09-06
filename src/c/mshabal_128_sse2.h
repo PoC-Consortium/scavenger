@@ -116,7 +116,7 @@ typedef struct {
  * of 32, between 32 and 512 (inclusive). The output size is expressed
  * in bits.
  */
-void simd128_mshabal_init(mshabal_context* sc, unsigned out_size);
+void simd128_sse2_mshabal_init(mshabal_context* sc, unsigned out_size);
 
 
 /*
@@ -131,7 +131,7 @@ void simd128_mshabal_init(mshabal_context* sc, unsigned out_size);
  * corresponding instance is deactivated (the final value obtained from
  * that instance is undefined).
  */
-void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1, const void* data2,
+void simd128_sse2_mshabal(mshabal_context* sc, const void* data0, const void* data1, const void* data2,
                      const void* data3, size_t len);
 
 /*
@@ -156,7 +156,7 @@ void simd128_mshabal(mshabal_context* sc, const void* data0, const void* data1, 
  * release it, or reinitialize it with mshabal_init(). The mshabal_close()
  * function does NOT imply a hidden call to mshabal_init().
  */
-void simd128_mshabal_close(mshabal_context* sc, unsigned ub0, unsigned ub1, unsigned ub2,
+void simd128_sse2_mshabal_close(mshabal_context* sc, unsigned ub0, unsigned ub1, unsigned ub2,
                            unsigned ub3, unsigned n, void* dst0, void* dst1, void* dst2,
                            void* dst3);
 
@@ -165,7 +165,7 @@ void simd128_mshabal_close(mshabal_context* sc, unsigned ub0, unsigned ub1, unsi
  * Combined open and close routines
  */
 
-void simd128_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0,
+void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0,
                                     void* dst1, void* dst2, void* dst3);
 #ifdef __cplusplus
 }

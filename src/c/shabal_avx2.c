@@ -2,6 +2,7 @@
 #include <immintrin.h>
 #include <string.h>
 #include "common.h"
+#include "mshabal_256_avx2.h"
 
 mshabal256_context global_256;
 mshabal256_context_fast global_256_fast;

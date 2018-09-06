@@ -1,9 +1,9 @@
 /*
- * A parallel implementation of Shabal, for platforms with SSE2.
+ * A parallel implementation of Shabal, for platforms with AVX2.
  *
  * This is the header file for an implementation of the Shabal family
  * of hash functions, designed for maximum parallel speed. It processes
- * up to four instances of Shabal in parallel, using the SSE2 unit.
+ * up to four instances of Shabal in parallel, using the AVX2 unit.
  * Total bandwidth appear to be up to twice that of a plain 32-bit
  * Shabal implementation.
  *
