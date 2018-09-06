@@ -6,7 +6,8 @@
 
 ### Features
 - direct io
-- avx2, avx, sse
+- avx512f, avx2, avx, sse
+- opencl
 - fastest burstminer there is
 
 ### Requirements
@@ -18,16 +19,16 @@ Binaries are in **target/debug** or **target/release** depending on optimazation
 
 ``` shell
 # build debug und run directly
-cargo run
+cargo run [--features opencl]
 
 # build debug (unoptimized)
-cargo build
+cargo build [--features opencl]
 
 # build release (optimized)
-cargo build --release
+cargo build --release [--features opencl]
 
 # test
-cargo test
+cargo test  [--features opencl]
 ```
 
 ### Run
