@@ -45,4 +45,10 @@ https://github.com/PoC-Consortium/scavenger/blob/master/config.yaml
 
 ### Donate 
 * bold: BURST-8V9Y-58B4-RVWP-8HQAV
+  - architecture
+  - linux support
 * JohnnyDeluxe: BURST-S338-R6VC-LTFA-2GC6G
+  - open cl
+  - direct io
+  - shabal optimizations
+  - windows support
