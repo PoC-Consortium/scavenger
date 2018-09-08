@@ -3,29 +3,18 @@ cfg_if! {
         use std::process::Command;
 
         pub fn get_device_id(path: &str) -> String {
-            let output = Command::new("stat")
-                .arg(path)
-                .arg("-c %D")
-                .output()
-                .expect("failed to execute 'stat -c %D'");
-            String::from_utf8(output.stdout).expect("not utf8").trim_right().to_owned()
-        }
-
-        // On unix, get the device id from 'df' command
-        fn get_device_id_unix(path: &str) -> String {
             let output = Command::new("df")
-                 .arg(path)
-                 .arg("--output=source")
-                 .output()
-                 .expect("failed to execute 'df --output=source'");
-             let source = String::from_utf8(output.stdout).expect("not utf8");
-             source.split('\n').collect::<Vec<&str>>()[1].to_string()
-         }
+                .arg(path)
+                .output()
+                .expect("failed to execute 'df'");
+            let source = String::from_utf8(output.stdout).expect("not utf8");
+            source.split('\n').collect::<Vec<&str>>()[1].split(' ').collect::<Vec<&str>>()[0].to_string()
+        }
 
         // On macos, use df and 'diskutil info <device>' to get the Device Block Size line
         // and extract the size
         fn get_sector_size_macos(path: &str) -> u64 {
-            let source = get_device_id_unix(path);
+            let source = get_device_id(path);
             let output = Command::new("diskutil")
                 .arg("info")
                 .arg(source)
@@ -49,7 +38,7 @@ cfg_if! {
 
         // On unix, use df and lsblk to extract the device sector size
         fn get_sector_size_unix(path: &str) -> u64 {
-            let source = get_device_id_unix(path);
+            let source = get_device_id(path);
             let output = Command::new("lsblk")
                 .arg(source)
                 .arg("-o")
@@ -73,7 +62,6 @@ cfg_if! {
                 get_sector_size_unix(path)
             }
         }
-
     } else {
         extern crate winapi;
         use std::os::windows::ffi::OsStrExt;
