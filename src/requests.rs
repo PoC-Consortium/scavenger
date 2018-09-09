@@ -61,7 +61,7 @@ pub struct MiningInfo {
     #[serde(deserialize_with = "from_str_or_int")]
     pub height: u64,
 
-    #[serde(default = "default_target_deadline")]
+    #[serde(default = "default_target_deadline", deserialize_with = "from_str_or_int")]
     pub target_deadline: u64,
 }
 
