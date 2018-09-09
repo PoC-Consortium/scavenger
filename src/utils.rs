@@ -1,29 +1,66 @@
 cfg_if! {
-    if #[cfg(target_os = "linux")] {
-        use std::fs;
-        use std::os::linux::fs::MetadataExt;
+    if #[cfg(unix)] {
+        use std::process::Command;
 
         pub fn get_device_id(path: &str) -> String {
-            let meta = fs::metadata(path).expect(&format!("could not get meta data from: {}", path));
-            meta.st_dev().to_string()
+            let output = Command::new("df")
+                .arg(path)
+                .output()
+                .expect("failed to execute 'df'");
+            let source = String::from_utf8(output.stdout).expect("not utf8");
+            source.split('\n').collect::<Vec<&str>>()[1].split(' ').collect::<Vec<&str>>()[0].to_string()
+        }
+
+        // On macos, use df and 'diskutil info <device>' to get the Device Block Size line
+        // and extract the size
+        fn get_sector_size_macos(path: &str) -> u64 {
+            let source = get_device_id(path);
+            let output = Command::new("diskutil")
+                .arg("info")
+                .arg(source)
+                .output()
+                .expect("failed to execute 'diskutil info'");
+            let source = String::from_utf8(output.stdout).expect("not utf8");
+            let mut sector_size: u64 = 0;
+            for line in source.split('\n').collect::<Vec<&str>>() {
+                if line.trim().starts_with("Device Block Size") {
+                    // e.g. in reverse: "Bytes 512 Size Block Device"
+                    let source = line.rsplit(' ').collect::<Vec<&str>>()[1];
+
+                    sector_size = source.parse::<u64>().unwrap();
+                }
+            }
+            if sector_size == 0 {
+                panic!("Abort: Unable to determine disk physical sector size from diskutil info")
+            }
+            sector_size
+        }
+
+        // On unix, use df and lsblk to extract the device sector size
+        fn get_sector_size_unix(path: &str) -> u64 {
+            let source = get_device_id(path);
+            let output = Command::new("lsblk")
+                .arg(source)
+                .arg("-o")
+                .arg("PHY-SeC")
+                .output()
+                .expect("failed to execute 'lsblk -o PHY-SeC'");
+
+            let sector_size = String::from_utf8(output.stdout).expect("not utf8");
+            let sector_size = sector_size.split('\n').collect::<Vec<&str>>().get(1).unwrap_or({
+                warn!("failed to determine sector size, defaulting to 4096.");
+                &"4096"
+            }).trim();
+
+            sector_size.parse::<u64>().unwrap()
         }
 
         pub fn get_sector_size(path: &str) -> u64 {
-            let meta = fs::metadata(path).expect(&format!("could not get meta data from: {}", path));
-            meta.st_blksize()
-        }
-    } else if #[cfg(target_os = "macos")] {
-        use std::fs;
-        use std::os::unix::fs::MetadataExt;
-
-        pub fn get_device_id(path: &str) -> String {
-            let meta = fs::metadata(path).expect(&format!("could not get meta data from: {}", path));
-            meta.dev().to_string()
-        }
-
-        pub fn get_sector_size(path: &str) -> u64 {
-            let meta = fs::metadata(path).expect(&format!("could not get meta data from: {}", path));
-            meta.blksize()
+            if cfg!(target_os = "macos") {
+                get_sector_size_macos(path)
+            } else {
+                get_sector_size_unix(path)
+            }
         }
     } else {
         extern crate winapi;
