@@ -71,7 +71,7 @@ fn init_simd_extensions() {
 }
 
 fn main() {
-    let matches = App::new("Scavenger - a Burst miner")
+    let arg = App::new("Scavenger - a Burst miner")
         .version(crate_version!())
         .author(crate_authors!())
         .about(crate_description!())
@@ -83,14 +83,17 @@ fn main() {
                 .help("Location of the config file")
                 .takes_value(true)
                 .default_value("config.yaml"),
-        ).arg(
+        );
+    #[cfg(feature = "opencl")]
+    let arg = arg.arg(
             Arg::with_name("opencl")
                 .short("ocl")
                 .long("opencl")
                 .help("Display OpenCL platforms and devices")
                 .takes_value(false),
-        ).get_matches();
+        );
 
+    let matches = &arg.get_matches();
     let config = matches.value_of("config").unwrap();
 
     let cfg_loaded = load_cfg(config);
