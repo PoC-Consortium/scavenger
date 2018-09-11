@@ -376,6 +376,7 @@ impl Miner {
                             nonce_data.account_id,
                             nonce_data.nonce,
                             nonce_data.height,
+                            nonce_data.deadline,
                             deadline,
                             0,
                         );

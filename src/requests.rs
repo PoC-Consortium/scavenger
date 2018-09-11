@@ -147,6 +147,7 @@ impl RequestHandler {
         account_id: u64,
         nonce: u64,
         height: u64,
+        d_unadjusted: u64,
         d: u64,
         retried: i32,
     ) {
@@ -156,15 +157,15 @@ impl RequestHandler {
             .get(&account_id)
             .unwrap_or(&empty);
 
-        let mut path = format!(
+     let mut path = format!(
             "/burst?requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
             account_id, nonce, secret_phrase_encoded, height
         );
         // if pool mining also send the deadline (usefull for proxies)
         if secret_phrase_encoded == "" {
-            path += &format!("&deadline={}", d);
+            path += &format!("&deadline={}", d_unadjusted);
         }
-
+        
         let req = self.post_req(&path);
 
         let rh = self.clone();
@@ -199,6 +200,7 @@ impl RequestHandler {
                                 account_id,
                                 nonce,
                                 height,
+                                d_unadjusted,
                                 d,
                                 retried + 1,
                             );
