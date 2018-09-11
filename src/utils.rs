@@ -74,6 +74,8 @@ cfg_if! {
         }
     } else {
         extern crate winapi;
+        use utils::winapi::um::processthreadsapi::SetThreadIdealProcessor;
+        use utils::winapi::um::processthreadsapi::GetCurrentThread;
         use std::os::windows::ffi::OsStrExt;
         use std::ffi::OsStr;
         use std::iter::once;
@@ -121,6 +123,17 @@ cfg_if! {
                 panic!("get sector size, filename={}",path);
             };
             bytes_per_sector as u64
+        }
+
+        pub fn set_thread_ideal_processor(id: usize){
+            // Set core affinity for current thread.
+        unsafe {
+            SetThreadIdealProcessor(
+                GetCurrentThread(),
+                id as u32
+            );
+
+            }
         }
     }
 }

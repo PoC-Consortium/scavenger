@@ -27,6 +27,7 @@ use tokio::prelude::*;
 use tokio::timer::Interval;
 use tokio_core::reactor::Core;
 use utils::get_device_id;
+use utils::set_thread_ideal_processor;
 use worker::{create_worker_task, NonceData};
 
 #[cfg(feature = "opencl")]
@@ -220,12 +221,17 @@ impl Miner {
         let core_ids = core_affinity::get_core_ids().unwrap();
         let (tx_nonce_data, rx_nonce_data) =
             mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
-
+        info!("CPU-cores: {}",core_ids.len());
         for id in 0..cpu_worker_thread_count {
+            #[cfg(not(windows))]
             let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
                 if cfg.cpu_thread_pinning {
+                    #[cfg(not(windows))]
                     core_affinity::set_for_current(core_id);
+                    #[cfg(windows)]
+                    set_thread_ideal_processor(id % core_ids.len());
+                    
                 }
                 create_worker_task(
                     cfg.benchmark_only.to_uppercase() == "I/O",

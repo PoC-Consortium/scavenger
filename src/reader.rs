@@ -13,6 +13,8 @@ use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
+use utils::set_thread_ideal_processor;
+use core_affinity;
 
 pub struct ReadReply {
     pub buffer: Box<Buffer + Send>,
@@ -62,7 +64,13 @@ impl Reader {
             total_size,
             pool: rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
-                .build()
+                .start_handler(move |idx| {
+                let core_ids = core_affinity::get_core_ids().unwrap();
+                info!("Pinning Reader#{} to Core#{}", idx,idx % core_ids.len());
+                #[cfg(windows)]
+                set_thread_ideal_processor(idx % core_ids.len());
+                })
+                .build() 
                 .unwrap(),
             rx_empty_buffers,
             tx_read_replies_cpu,
@@ -143,6 +151,8 @@ impl Reader {
         gensig: Arc<[u8; 32]>,
         show_drive_stats: bool,
     ) -> (Sender<()>, impl FnOnce()) {
+        //Pin!
+
         let (tx_interupt, rx_interupt) = channel();
         let rx_empty_buffers = self.rx_empty_buffers.clone();
         let tx_read_replies_cpu = self.tx_read_replies_cpu.clone();
