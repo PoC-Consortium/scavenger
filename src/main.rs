@@ -86,12 +86,12 @@ fn main() {
         );
     #[cfg(feature = "opencl")]
     let arg = arg.arg(
-            Arg::with_name("opencl")
-                .short("ocl")
-                .long("opencl")
-                .help("Display OpenCL platforms and devices")
-                .takes_value(false),
-        );
+        Arg::with_name("opencl")
+            .short("ocl")
+            .long("opencl")
+            .help("Display OpenCL platforms and devices")
+            .takes_value(false),
+    );
 
     let matches = &arg.get_matches();
     let config = matches.value_of("config").unwrap();

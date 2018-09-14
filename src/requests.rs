@@ -61,7 +61,10 @@ pub struct MiningInfo {
     #[serde(deserialize_with = "from_str_or_int")]
     pub height: u64,
 
-    #[serde(default = "default_target_deadline", deserialize_with = "from_str_or_int")]
+    #[serde(
+        default = "default_target_deadline",
+        deserialize_with = "from_str_or_int"
+    )]
     pub target_deadline: u64,
 }
 
@@ -157,7 +160,7 @@ impl RequestHandler {
             .get(&account_id)
             .unwrap_or(&empty);
 
-     let mut path = format!(
+        let mut path = format!(
             "/burst?requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
             account_id, nonce, secret_phrase_encoded, height
         );
@@ -165,7 +168,7 @@ impl RequestHandler {
         if secret_phrase_encoded == "" {
             path += &format!("&deadline={}", d_unadjusted);
         }
-        
+
         let req = self.post_req(&path);
 
         let rh = self.clone();

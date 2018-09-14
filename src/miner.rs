@@ -218,20 +218,19 @@ impl Miner {
             tx_empty_buffers.send(Box::new(cpu_buffer) as Box<Buffer + Send>);
         }
 
-        let core_ids = core_affinity::get_core_ids().unwrap();
         let (tx_nonce_data, rx_nonce_data) =
             mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
-        info!("CPU-cores: {}",core_ids.len());
+
         for id in 0..cpu_worker_thread_count {
-            #[cfg(not(windows))]
-            let core_id = core_ids[id % core_ids.len()];
             thread::spawn({
                 if cfg.cpu_thread_pinning {
+                    let core_ids = core_affinity::get_core_ids().unwrap();
+                    #[cfg(not(windows))]
+                    let core_id = core_ids[id % core_ids.len()];
                     #[cfg(not(windows))]
                     core_affinity::set_for_current(core_id);
                     #[cfg(windows)]
                     set_thread_ideal_processor(id % core_ids.len());
-                    
                 }
                 create_worker_task(
                     cfg.benchmark_only.to_uppercase() == "I/O",
@@ -265,6 +264,7 @@ impl Miner {
                 tx_read_replies_gpu,
                 cfg.show_progress,
                 cfg.show_drive_stats,
+                cfg.cpu_thread_pinning,
             ),
             rx_nonce_data,
             target_deadline: cfg.target_deadline,
