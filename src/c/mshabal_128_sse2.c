@@ -588,9 +588,9 @@ static void simd128_sse2_mshabal_compress_fast(mshabal_context_fast* sc, void* u
     }
 
     // transfer results to ram
-    for (j = 0; j < 12; j++) _mm_storeu_si128((__m128i*)sc->state + j, A[j]);
-    for (j = 0; j < 16; j++) {
-        _mm_storeu_si128((__m128i*)sc->state + j + 12, B[j]);
+    //for (j = 0; j < 12; j++) _mm_storeu_si128((__m128i*)sc->state + j, A[j]);
+    for (j = 8; j < 10; j++) {
+       // _mm_storeu_si128((__m128i*)sc->state + j + 12, B[j]);
         _mm_storeu_si128((__m128i*)sc->state + j + 28, C[j]);
     }
 }

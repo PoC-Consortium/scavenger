@@ -3,6 +3,7 @@ extern crate rayon;
 
 use self::pbr::{ProgressBar, Units};
 use chan;
+use core_affinity;
 use filetime::FileTime;
 use miner::Buffer;
 use plot::Plot;
@@ -13,6 +14,7 @@ use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
+use utils::set_thread_ideal_processor;
 
 pub struct ReadReply {
     pub buffer: Box<Buffer + Send>,
@@ -46,6 +48,7 @@ impl Reader {
         tx_read_replies_gpu: chan::Sender<ReadReply>,
         show_progress: bool,
         show_drive_stats: bool,
+        thread_pinning: bool,
     ) -> Reader {
         for plots in drive_id_to_plots.values() {
             let mut plots = plots.lock().unwrap();
@@ -62,7 +65,17 @@ impl Reader {
             total_size,
             pool: rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
-                .build()
+                .start_handler(move |id| {
+                    if thread_pinning {
+                        let core_ids = core_affinity::get_core_ids().unwrap();
+                        #[cfg(not(windows))]
+                        let core_id = core_ids[id % core_ids.len()];
+                        #[cfg(not(windows))]
+                        core_affinity::set_for_current(core_id);
+                        #[cfg(windows)]
+                        set_thread_ideal_processor(id % core_ids.len());
+                    }
+                }).build()
                 .unwrap(),
             rx_empty_buffers,
             tx_read_replies_cpu,
@@ -143,6 +156,8 @@ impl Reader {
         gensig: Arc<[u8; 32]>,
         show_drive_stats: bool,
     ) -> (Sender<()>, impl FnOnce()) {
+        //Pin!
+
         let (tx_interupt, rx_interupt) = channel();
         let rx_empty_buffers = self.rx_empty_buffers.clone();
         let tx_read_replies_cpu = self.tx_read_replies_cpu.clone();

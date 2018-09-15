@@ -30,6 +30,7 @@ target_deadline: 4294967295           # default u32::MAX
 
 get_mining_info_interval: 3000        # default 3000ms
 timeout: 5000                         # default 5000ms
+send_proxy_details: true              # default false
 
 console_log_level: 'info'             # default Info, options (off, error, warn, info, debug, trace)
 logfile_log_level: 'warn'             # default Warn, options (off, error, warn, info, debug, trace)
