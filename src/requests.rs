@@ -1,3 +1,4 @@
+extern crate hostname;
 extern crate hyper;
 extern crate hyper_rustls;
 extern crate serde_json;
@@ -24,6 +25,8 @@ pub struct RequestHandler {
     timeout: Duration,
     handle: Handle,
     ua: String,
+    total_size_gb: usize,
+    send_proxy_details: bool,
 }
 
 pub enum FetchError {
@@ -123,6 +126,8 @@ impl RequestHandler {
         mut secret_phrases: HashMap<u64, String>,
         timeout: u64,
         handle: Handle,
+        total_size_gb: usize,
+        send_proxy_details: bool,
     ) -> RequestHandler {
         for secret_phrase in secret_phrases.values_mut() {
             *secret_phrase = byte_serialize(secret_phrase.as_bytes()).collect();
@@ -137,6 +142,8 @@ impl RequestHandler {
             timeout: Duration::from_millis(timeout),
             handle,
             ua: "scavenger/".to_owned() + crate_version!(),
+            total_size_gb,
+            send_proxy_details,
         }
     }
 
@@ -225,10 +232,26 @@ impl RequestHandler {
     }
 
     fn post_req(&self, path: &str) -> Request<hyper::Body> {
-        Request::post(self.uri_for(path))
-            .header("User-Agent", self.ua.to_owned())
-            .body(hyper::Body::empty())
-            .unwrap()
+        if self.send_proxy_details {
+            Request::post(self.uri_for(path))
+                .header("User-Agent", self.ua.to_owned())
+                .header("X-Capacity", self.total_size_gb)
+                .header("X-Miner", self.ua.to_owned())
+                .header(
+                    "X-Minername",
+                    hostname::get_hostname().unwrap_or("".to_owned()),
+                ).header(
+                    "X-Plotfile",
+                    "ScavengerProxy/".to_owned()
+                        + &*hostname::get_hostname().unwrap_or("".to_owned()),
+                ).body(hyper::Body::empty())
+                .unwrap()
+        } else {
+            Request::post(self.uri_for(path))
+                .header("User-Agent", self.ua.to_owned())
+                .body(hyper::Body::empty())
+                .unwrap()
+        }
     }
 
     fn get_req(&self, path: &str) -> Request<hyper::Body> {

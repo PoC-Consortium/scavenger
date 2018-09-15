@@ -273,6 +273,8 @@ impl Miner {
                 cfg.account_id_to_secret_phrase,
                 cfg.timeout,
                 core.handle(),
+                total_size as usize / 1024 / 1024 / 1024,
+                cfg.send_proxy_details,
             ),
             state: Arc::new(Mutex::new(State {
                 height: 0,

@@ -55,6 +55,9 @@ pub struct Cfg {
     #[serde(default = "default_timeout")]
     pub timeout: u64,
 
+    #[serde(default = "default_send_proxy_details")]
+    pub send_proxy_details: bool,
+
     #[serde(default = "default_console_log_level")]
     pub console_log_level: String,
 
@@ -141,6 +144,10 @@ fn default_get_mining_info_interval() -> u64 {
 
 fn default_timeout() -> u64 {
     5000
+}
+
+fn default_send_proxy_details() -> bool {
+    false
 }
 
 fn default_console_log_level() -> String {
