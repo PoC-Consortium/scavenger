@@ -14,6 +14,7 @@ use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
+#[cfg(windows)]
 use utils::set_thread_ideal_processor;
 
 pub struct ReadReply {

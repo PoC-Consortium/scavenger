@@ -27,6 +27,7 @@ use tokio::prelude::*;
 use tokio::timer::Interval;
 use tokio_core::reactor::Core;
 use utils::get_device_id;
+#[cfg(windows)]
 use utils::set_thread_ideal_processor;
 use worker::{create_worker_task, NonceData};
 
