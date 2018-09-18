@@ -1,20 +1,20 @@
-os:
-  - linux
-  - osx
-
 language: rust
 rust:
   - stable
-  - beta
-  - nightly
 
 matrix:
   include:
     - os: linux
       dist: trusty
       sudo: required
+      addons:
+         apt:
+           sources:
+             - ubuntu-toolchain-r-test
+           packages:
+            - g++-4.9
+      env:
+         - CC=gcc-4.9      
     - os: osx
       
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
+fast_finish: true
