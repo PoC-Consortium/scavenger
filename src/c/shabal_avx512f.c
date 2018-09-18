@@ -17,9 +17,7 @@ void init_shabal_avx512f() {
 
 void find_best_deadline_avx512f(char *scoops, uint64_t nonce_count, char *gensig,
                                 uint64_t *best_deadline, uint64_t *best_offset) {
-    uint64_t d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15;
-    char res0[32], res1[32], res2[32], res3[32], res4[32], res5[32], res6[32], res7[32], res8[32],
-        res9[32], res10[32], res11[32], res12[32], res13[32], res14[32], res15[32];
+    uint64_t d0 = 0, d1 = 0, d2 = 0, d3 = 0, d4 = 0, d5 = 0, d6 = 0, d7 = 0, d8 = 0, d9 = 0, d10 = 0, d11 = 0, d12 = 0, d13 = 0, d14 = 0, d15 = 0;
     char end[32];
 
     end[0] = -128;
@@ -117,25 +115,8 @@ void find_best_deadline_avx512f(char *scoops, uint64_t nonce_count, char *gensig
             u2.words[j + 15] = *(mshabal_u32 *)(&scoops[(i + 15) * 64 + 32] + o);
         }
 
-        simd512_mshabal_openclose_fast(&x1, &u1, &u2, res0, res1, res2, res3, res4, res5, res6,
-                                       res7, res8, res9, res10, res11, res12, res13, res14, res15);
-
-        d0 = *((uint64_t *)res0);
-        d1 = *((uint64_t *)res1);
-        d2 = *((uint64_t *)res2);
-        d3 = *((uint64_t *)res3);
-        d4 = *((uint64_t *)res4);
-        d5 = *((uint64_t *)res5);
-        d6 = *((uint64_t *)res6);
-        d7 = *((uint64_t *)res7);
-        d8 = *((uint64_t *)res8);
-        d9 = *((uint64_t *)res9);
-        d10 = *((uint64_t *)res10);
-        d11 = *((uint64_t *)res11);
-        d12 = *((uint64_t *)res12);
-        d13 = *((uint64_t *)res13);
-        d14 = *((uint64_t *)res14);
-        d15 = *((uint64_t *)res15);
+        simd512_mshabal_openclose_fast(&x1, &u1, &u2, &d0, &d1, &d2, &d3, &d4, &d5, &d6,
+                                       &d7, &d8, &d9, &d10, &d11, &d12, &d13, &d14, &d15);
 
         SET_BEST_DEADLINE(d0, i + 0);
         SET_BEST_DEADLINE(d1, i + 1);
