@@ -203,7 +203,11 @@ impl Miner {
                 cfg.gpu_platform,
                 cfg.gpu_device,
                 cfg.gpu_nonces_per_cache,
-                cfg.gpu_mem_mapping,
+                if cfg.benchmark_only.to_uppercase() == "I/O" {
+                    false
+                } else {
+                    cfg.gpu_mem_mapping
+                },
             ))));
         }
 
