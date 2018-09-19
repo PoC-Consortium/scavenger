@@ -157,7 +157,8 @@ fn scan_plots(
     }
 
     info!(
-        "plot files loaded: total capacity={:.4} TiB",
+        "plot files loaded: total drives={}, total capacity={:.4} TiB",
+        drive_id_to_plots.len(),
         global_capacity as f64 / 4.0 / 1024.0 / 1024.0
     );
 
