@@ -157,7 +157,8 @@ fn scan_plots(
     }
 
     info!(
-        "plot files loaded: total capacity={:.4} TiB",
+        "plot files loaded: total drives={}, total capacity={:.4} TiB",
+        drive_id_to_plots.len(),
         global_capacity as f64 / 4.0 / 1024.0 / 1024.0
     );
 
@@ -202,7 +203,11 @@ impl Miner {
                 cfg.gpu_platform,
                 cfg.gpu_device,
                 cfg.gpu_nonces_per_cache,
-                cfg.gpu_mem_mapping,
+                if cfg.benchmark_only.to_uppercase() == "I/O" {
+                    false
+                } else {
+                    cfg.gpu_mem_mapping
+                },
             ))));
         }
 

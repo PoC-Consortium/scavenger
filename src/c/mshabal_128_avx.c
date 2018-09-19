@@ -20,7 +20,7 @@
  * deadline). Johnny
  */
 
-#include <emmintrin.h>
+#include <immintrin.h>
 #include <stddef.h>
 #include <string.h>
 #include "mshabal_128_avx.h"
@@ -42,7 +42,7 @@ typedef mshabal_u32 u32;
 static void simd128_avx_mshabal_compress(mshabal_context* sc, const unsigned char* buf0,
                                      const unsigned char* buf1, const unsigned char* buf2,
                                      const unsigned char* buf3, size_t num) {
-
+    _mm256_zeroupper();
     union {
         u32 words[64];
         __m128i data[16];
@@ -299,6 +299,8 @@ void simd128_avx_mshabal(mshabal_context* sc, const void* data0, const void* dat
 
 static void simd128_avx_mshabal_compress_fast(mshabal_context_fast* sc, void* u1, void* u2,
                                           size_t num) {
+    _mm256_zeroupper();
+
     union input {
         u32 words[64];
         __m128i data[16];
