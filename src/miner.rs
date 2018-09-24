@@ -388,11 +388,12 @@ impl Miner {
                             deadline,
                             0,
                         );
-
+                        /* tradeoff between non-verbosity and information: stopped informing about
+                           found deadlines, but reporting accepted deadlines instead.  
                         info!(
-                            "deadline found: account={}, nonce={}, deadline={}",
+                            "deadline captured: account={}, nonce={}, deadline={}",
                             nonce_data.account_id, nonce_data.nonce, deadline
-                        );
+                        );*/
                     }
                     if nonce_data.reader_task_processed {
                         state.processed_reader_tasks += 1;

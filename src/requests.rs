@@ -190,11 +190,13 @@ impl RequestHandler {
                                  deadline_miner={}, deadline_pool={}",
                                 height, account_id, nonce, d, result.deadline
                             );
+                        } else {
+                            info!("deadline accepted: account={}, nonce={}, deadline={}", account_id, nonce, d);
                         }
                     }
                     Err(FetchError::Pool(e)) => {
                         error!(
-                            "submit: error submitting nonce, height={}, account={}, nonce={}, \
+                            "submission not accepted: height={}, account={}, nonce={}, \
                              deadline={}\n\tcode: {}\n\tmessage: {}",
                             height, account_id, nonce, d, e.code, e.message,
                         );
@@ -202,7 +204,7 @@ impl RequestHandler {
                     Err(_) => {
                         warn!(
                             "{: <80}",
-                            format!("submit: error submitting nonce, retry={}", retried)
+                            format!("submission failed:, attempt={}, account={}, nonce={}, deadline={}", retried+1, account_id, nonce, d)
                         );
                         if retried < 3 {
                             rh.submit_nonce(
@@ -217,7 +219,7 @@ impl RequestHandler {
                         } else {
                             error!(
                                 "{: <80}",
-                                "submit: error submitting nonce, exhausted retries"
+                                format!("submission retries exhausted: account={}, nonce={}, deadline={}", account_id, nonce, d)
                             );
                         }
                     }
