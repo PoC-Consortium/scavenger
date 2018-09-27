@@ -19,6 +19,7 @@ pub struct Plot {
     start_nonce: u64,
     pub nonces: u64,
     pub fh: File,
+    pub path: String,
     read_offset: u64,
     use_direct_io: bool,
     pub name: String,
@@ -49,7 +50,6 @@ cfg_if! {
         use std::os::windows::fs::OpenOptionsExt;
 
         const FILE_FLAG_NO_BUFFERING: u32 = 0x20000000;
-        const FILE_FLAG_RANDOM_ACCESS: u32 = 0x10000000;
         const FILE_FLAG_SEQUENTIAL_SCAN: u32 = 0x08000000;
 
         pub fn open_using_direct_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
@@ -62,7 +62,7 @@ cfg_if! {
         pub fn open<P: AsRef<Path>>(path: P) -> io::Result<File> {
             OpenOptions::new()
                 .read(true)
-                .custom_flags(FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_RANDOM_ACCESS)
+                .custom_flags(FILE_FLAG_SEQUENTIAL_SCAN)
                 .open(path)
         }
     }
@@ -112,11 +112,13 @@ impl Plot {
             use_direct_io = false;
         }
 
+        let file_path = path.clone().into_os_string().into_string().unwrap();
         Ok(Plot {
             account_id: account_id,
             start_nonce,
             nonces,
             fh,
+            path: file_path,
             read_offset: 0,
             use_direct_io,
             sector_size,
@@ -129,7 +131,12 @@ impl Plot {
         self.read_offset = 0;
         let nonces = self.nonces;
         let mut seek_addr = u64::from(scoop) * nonces as u64 * SCOOP_SIZE;
-
+        
+        // flush buffer by reopening file handle
+        if !self.use_direct_io {
+            self.fh = open_using_direct_io(&self.path)?;
+        };
+        
         if self.use_direct_io {
             self.read_offset = self.round_seek_addr(&mut seek_addr);
         }
