@@ -32,21 +32,37 @@ cfg_if! {
 
         const O_DIRECT: i32 = 0o0_040_000;
 
-        pub fn open_usining_direc_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
+        pub fn open_using_direct_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
             OpenOptions::new()
                 .read(true)
                 .custom_flags(O_DIRECT)
                 .open(path)
         }
+
+        pub fn open<P: AsRef<Path>>(path: P) -> io::Result<File> {
+            OpenOptions::new()
+                .read(true)
+                .open(path)
+        }
+
     } else {
         use std::os::windows::fs::OpenOptionsExt;
 
         const FILE_FLAG_NO_BUFFERING: u32 = 0x20000000;
+        const FILE_FLAG_RANDOM_ACCESS: u32 = 0x10000000;
+        const FILE_FLAG_SEQUENTIAL_SCAN: u32 = 0x08000000;
 
-        pub fn open_usining_direc_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
+        pub fn open_using_direct_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
             OpenOptions::new()
                 .read(true)
                 .custom_flags(FILE_FLAG_NO_BUFFERING)
+                .open(path)
+        }
+
+        pub fn open<P: AsRef<Path>>(path: P) -> io::Result<File> {
+            OpenOptions::new()
+                .read(true)
+                .custom_flags(FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_RANDOM_ACCESS)
                 .open(path)
         }
     }
@@ -81,9 +97,9 @@ impl Plot {
         }
 
         let fh = if use_direct_io {
-            open_usining_direc_io(path)?
+            open_using_direct_io(path)?
         } else {
-            File::open(path)?
+            open(path)?
         };
 
         let plot_file_name = plot_file.to_string();
