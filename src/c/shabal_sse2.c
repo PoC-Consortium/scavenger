@@ -23,8 +23,8 @@ void find_best_deadline_sse2(char* scoops, uint64_t nonce_count, char* gensig,
     end[0] = -128;
     memset(&end[1], 0, 31);
 
-    mshabal_context_fast x1, x2;
-    memcpy(&x2, &global_128_fast,
+    mshabal_context_fast x;
+    memcpy(&x, &global_128_fast,
            sizeof(global_128_fast));  // local copy of global fast context
 
     // prepare shabal inputs
@@ -46,10 +46,6 @@ void find_best_deadline_sse2(char* scoops, uint64_t nonce_count, char* gensig,
     }
 
     for (uint64_t i = 0; i < nonce_count; i += 4) {
-        // initialise shabal
-        memcpy(&x1, &x2,
-               sizeof(x2));  // optimization: mshabal256_init(&x, 256);
-
         // load and shuffle data
         // NB: this can be further optimised by preshuffling plot files
         // depending on SIMD length and use avx2 memcpy did not find a away yet
@@ -67,7 +63,7 @@ void find_best_deadline_sse2(char* scoops, uint64_t nonce_count, char* gensig,
             u2.words[j + 3] = *(mshabal_u32*)(&scoops[(i + 3) * 64 + 32] + o);
         }
 
-        simd128_sse2_mshabal_openclose_fast(&x1, &u1, &u2, &d0, &d1, &d2, &d3);
+        simd128_sse2_mshabal_openclose_fast(&x, &u1, &u2, &d0, &d1, &d2, &d3);
 
         SET_BEST_DEADLINE(d0, i + 0);
         SET_BEST_DEADLINE(d1, i + 1);

@@ -44,6 +44,8 @@ use miner::Miner;
 use std::process;
 
 extern "C" {
+    pub fn init_shabal_avx512f() -> ();
+
     pub fn init_shabal_avx2() -> ();
 
     pub fn init_shabal_avx() -> ();
@@ -52,7 +54,12 @@ extern "C" {
 }
 
 fn init_simd_extensions() {
-    if is_x86_feature_detected!("avx2") {
+    if is_x86_feature_detected!("avx512f") {
+        info!("SIMD extensions: AVX512F");
+        unsafe {
+            init_shabal_avx512f();
+        }
+    } else if is_x86_feature_detected!("avx2") {
         info!("SIMD extensions: AVX2");
         unsafe {
             init_shabal_avx2();

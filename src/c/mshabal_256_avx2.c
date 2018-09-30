@@ -351,11 +351,10 @@ void simd256_mshabal(mshabal256_context* sc, void* data0, void* data1, void* dat
     sc->ptr = len;
 }
 
-// Johnnys double pointer no memmove no register buffering burst mining only
+// Johnnys double pointer no memmove no register buffering no simd unpack/repack no inital state change burst mining only
 // optimisation functions (tm) :-p
-
-static void simd256_mshabal_compress_fast(mshabal256_context_fast* sc, void* u1, void* u2,
-                                          size_t num) {
+void simd256_mshabal_openclose_fast(mshabal256_context_fast* sc, void* u1, void* u2, void* dst0, void* dst1, void* dst2, 
+                                          void* dst3, void* dst4, void* dst5, void* dst6, void* dst7) {
     //_mm256_zeroupper();
     union input {
         u32 words[64 * MSHABAL256_FACTOR];
@@ -376,7 +375,6 @@ static void simd256_mshabal_compress_fast(mshabal256_context_fast* sc, void* u1,
 // Round 1/5
 #define M(i) _mm256_load_si256((*(union input*)u1).data + (i))
 
-    while (num-- > 0) {
         for (j = 0; j < 16; j++) B[j] = _mm256_add_epi32(B[j], M(j));
 
         A[0] = _mm256_xor_si256(A[0], _mm256_set1_epi32(sc->Wlow));
@@ -513,7 +511,7 @@ static void simd256_mshabal_compress_fast(mshabal256_context_fast* sc, void* u1,
         SWAP_AND_SUB256(B[0xE], C[0xE], M(0xE));
         SWAP_AND_SUB256(B[0xF], C[0xF], M(0xF));
         if (++sc->Wlow == 0) sc->Whigh++;
-    }
+    
 
 // Round 2-5
 #define M2(i) _mm256_load_si256((*(union input*)u2).data + (i))
@@ -637,12 +635,30 @@ static void simd256_mshabal_compress_fast(mshabal256_context_fast* sc, void* u1,
         if (sc->Wlow-- == 0) sc->Whigh--;
     }
 
-    // transfer results to ram
-    //for (j = 0; j < 12; j++) _mm256_storeu_si256((__m256i*)sc->state + j, A[j]);
-    for (j = 8; j < 10; j++) {
-        //_mm256_storeu_si256((__m256i*)sc->state + j + 12, B[j]);
-        _mm256_storeu_si256((__m256i*)sc->state + j + 28, C[j]);
+    // transfer resuts to ram and quick state reset 
+    // download deadlines simd aligned
+    u32 simd_dst[16];
+    _mm256_storeu_si256((__m256i*)&simd_dst[0], C[8]);
+    _mm256_storeu_si256((__m256i*)&simd_dst[8], C[9]);
+   
+    // simd unpack
+    unsigned z;
+    for (z = 0; z < 2; z++) {
+        unsigned y = MSHABAL256_FACTOR * (z << 2);
+        ((u32*)dst0)[z] = simd_dst[y + 0];
+        ((u32*)dst1)[z] = simd_dst[y + 1];
+        ((u32*)dst2)[z] = simd_dst[y + 2];
+        ((u32*)dst3)[z] = simd_dst[y + 3];
+        ((u32*)dst4)[z] = simd_dst[y + 4];
+        ((u32*)dst5)[z] = simd_dst[y + 5];
+        ((u32*)dst6)[z] = simd_dst[y + 6];
+        ((u32*)dst7)[z] = simd_dst[y + 7];
     }
+    
+    // reset Wlow & Whigh
+    sc->Wlow = 1;
+    sc->Whigh = 0;
+
 }
 
 union input {
@@ -650,24 +666,3 @@ union input {
     __m256i data[16];
 };
 
-void simd256_mshabal_openclose_fast(mshabal256_context_fast* sc, void* u1, void* u2, void* dst0,
-                                    void* dst1, void* dst2, void* dst3, void* dst4, void* dst5,
-                                    void* dst6, void* dst7) {
-    unsigned z, off, out_size_w32;
-    // run shabal
-    simd256_mshabal_compress_fast(sc, u1, u2, 1);
-    // extract results
-    out_size_w32 = sc->out_size >> 5;
-    off = MSHABAL256_FACTOR * 4 * (28 + (16 - out_size_w32));
-    for (z = 0; z < 2; z++) {
-        unsigned y = off + MSHABAL256_FACTOR * (z << 2);
-        ((u32*)dst0)[z] = sc->state[y + 0];
-        ((u32*)dst1)[z] = sc->state[y + 1];
-        ((u32*)dst2)[z] = sc->state[y + 2];
-        ((u32*)dst3)[z] = sc->state[y + 3];
-        ((u32*)dst4)[z] = sc->state[y + 4];
-        ((u32*)dst5)[z] = sc->state[y + 5];
-        ((u32*)dst6)[z] = sc->state[y + 6];
-        ((u32*)dst7)[z] = sc->state[y + 7];
-    }
-}

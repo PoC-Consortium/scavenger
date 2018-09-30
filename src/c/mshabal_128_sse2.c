@@ -296,8 +296,10 @@ void simd128_sse2_mshabal(mshabal_context* sc, const void* data0, const void* da
     sc->ptr = len;
 }
 
-static void simd128_sse2_mshabal_compress_fast(mshabal_context_fast* sc, void* u1, void* u2,
-                                          size_t num) {
+// Johnnys double pointer no memmove no register buffering no simd unpack/repack no inital state change burst mining only
+// optimisation functions (tm) :-p
+void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0, void* dst1, void* dst2, 
+                                          void* dst3) {
     union input {
         u32 words[64];
         __m128i data[16];
@@ -316,7 +318,6 @@ static void simd128_sse2_mshabal_compress_fast(mshabal_context_fast* sc, void* u
 // Round 1/5
 #define M(i) _mm_load_si128((*(union input*)u1).data + (i))
 
-    while (num-- > 0) {
         for (j = 0; j < 16; j++) B[j] = _mm_add_epi32(B[j], M(j));
 
         A[0] = _mm_xor_si128(A[0], _mm_set1_epi32(sc->Wlow));
@@ -452,7 +453,7 @@ static void simd128_sse2_mshabal_compress_fast(mshabal_context_fast* sc, void* u
         SWAP_AND_SUB(B[0xE], C[0xE], M(0xE));
         SWAP_AND_SUB(B[0xF], C[0xF], M(0xF));
         if (++sc->Wlow == 0) sc->Whigh++;
-    }
+
 
 // Round 2-5
 #define M2(i) _mm_load_si128((*(union input*)u2).data + (i))
@@ -576,29 +577,25 @@ static void simd128_sse2_mshabal_compress_fast(mshabal_context_fast* sc, void* u
         if (sc->Wlow-- == 0) sc->Whigh--;
     }
 
-    // transfer results to ram
-    //for (j = 0; j < 12; j++) _mm_storeu_si128((__m128i*)sc->state + j, A[j]);
-    for (j = 8; j < 10; j++) {
-       // _mm_storeu_si128((__m128i*)sc->state + j + 12, B[j]);
-        _mm_storeu_si128((__m128i*)sc->state + j + 28, C[j]);
-    }
-}
-
-void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0,
-                                    void* dst1, void* dst2, void* dst3) {
-    unsigned z, off, out_size_w32;
-    // run shabal
-    simd128_sse2_mshabal_compress_fast(sc, u1, u2, 1);
-    // extract results
-    out_size_w32 = sc->out_size >> 5;
-    off = 4 * (28 + (16 - out_size_w32));
+    // transfer resuts to ram and quick state reset 
+    // download deadlines simd aligned
+    u32 simd_dst[8];
+    _mm_storeu_si128((__m128i*)&simd_dst[0], C[8]);
+    _mm_storeu_si128((__m128i*)&simd_dst[4], C[9]);
+   
+    // simd unpack
+    unsigned z;
     for (z = 0; z < 2; z++) {
-        unsigned y = off + (z << 2);
-        ((u32*)dst0)[z] = sc->state[y + 0];
-        ((u32*)dst1)[z] = sc->state[y + 1];
-        ((u32*)dst2)[z] = sc->state[y + 2];
-        ((u32*)dst3)[z] = sc->state[y + 3];
+        unsigned y = (z << 2);
+        ((u32*)dst0)[z] = simd_dst[y + 0];
+        ((u32*)dst1)[z] = simd_dst[y + 1];
+        ((u32*)dst2)[z] = simd_dst[y + 2];
+        ((u32*)dst3)[z] = simd_dst[y + 3];
     }
+    
+    // reset Wlow & Whigh
+    sc->Wlow = 1;
+    sc->Whigh = 0;
 }
 
 #ifdef __cplusplus

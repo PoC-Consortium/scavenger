@@ -451,11 +451,13 @@ void simd512_mshabal(mshabal512_context *sc, void *data0, void *data1, void *dat
     sc->ptr = len;
 }
 
-// Johnnys double pointer no memmove no register buffering burst mining only
+// Johnnys double pointer no memmove no register buffering no simd unpack/repack no inital state change burst mining only
 // optimisation functions (tm) :-p
-
-static void simd512_mshabal_compress_fast(mshabal512_context_fast *sc, void *u1, void *u2,
-                                          size_t num) {
+void simd512_mshabal_openclose_fast(mshabal512_context_fast *sc, void *u1, void *u2, void *dst0,
+                                    void *dst1, void *dst2, void *dst3, void *dst4, void *dst5,
+                                    void *dst6, void *dst7, void *dst8, void *dst9, void *dst10,
+                                    void *dst11, void *dst12, void *dst13, void *dst14,
+                                    void *dst15) {
     union input {
         u32 words[64 * MSHABAL512_FACTOR];
         __m512i data[16];
@@ -475,7 +477,6 @@ static void simd512_mshabal_compress_fast(mshabal512_context_fast *sc, void *u1,
     // Round 1/5
 #define M(i) _mm512_load_si512((*(union input *)u1).data + (i))
 
-    while (num-- > 0) {
         for (j = 0; j < 16; j++) B[j] = _mm512_add_epi32(B[j], M(j));
 
         A[0] = _mm512_xor_si512(A[0], _mm512_set1_epi32(sc->Wlow));
@@ -612,7 +613,6 @@ static void simd512_mshabal_compress_fast(mshabal512_context_fast *sc, void *u1,
         SWAP_AND_SUB512(B[0xE], C[0xE], M(0xE));
         SWAP_AND_SUB512(B[0xF], C[0xF], M(0xF));
         if (++sc->Wlow == 0) sc->Whigh++;
-    }
 
     // Round 2-5
 #define M2(i) _mm512_load_si512((*(union input *)u2).data + (i))
@@ -736,47 +736,40 @@ static void simd512_mshabal_compress_fast(mshabal512_context_fast *sc, void *u1,
         if (sc->Wlow-- == 0) sc->Whigh--;
     }
 
-    // transfer results to ram
-    //for (j = 0; j < 12; j++) _mm512_storeu_si512((__m512i *)sc->state + j, A[j]);
-    for (j = 8; j < 10; j++) {
-        //_mm512_storeu_si512((__m512i *)sc->state + j + 12, B[j]);
-        _mm512_storeu_si512((__m512i *)sc->state + j + 28, C[j]);
+    // transfer resuts to ram and quick state reset 
+    // download deadlines simd aligned
+    u32 simd_dst[32];
+    _mm512_storeu_si512((__m512i*)&simd_dst[0], C[8]);
+    _mm512_storeu_si512((__m512i*)&simd_dst[16], C[9]);
+   
+    // simd unpack
+    unsigned z;
+    for (z = 0; z < 2; z++) {
+        unsigned y = MSHABAL512_FACTOR * (z << 2);
+        ((u32*)dst0)[z] = simd_dst[y + 0];
+        ((u32*)dst1)[z] = simd_dst[y + 1];
+        ((u32*)dst2)[z] = simd_dst[y + 2];
+        ((u32*)dst3)[z] = simd_dst[y + 3];
+        ((u32*)dst4)[z] = simd_dst[y + 4];
+        ((u32*)dst5)[z] = simd_dst[y + 5];
+        ((u32*)dst6)[z] = simd_dst[y + 6];
+        ((u32*)dst7)[z] = simd_dst[y + 7];
+        ((u32*)dst8)[z] = simd_dst[y + 8];
+        ((u32*)dst9)[z] = simd_dst[y + 9];
+        ((u32*)dst10)[z] = simd_dst[y + 10];
+        ((u32*)dst11)[z] = simd_dst[y + 11];
+        ((u32*)dst12)[z] = simd_dst[y + 12];
+        ((u32*)dst13)[z] = simd_dst[y + 13];
+        ((u32*)dst14)[z] = simd_dst[y + 14];
+        ((u32*)dst15)[z] = simd_dst[y + 15];
     }
+    
+    // reset Wlow & Whigh
+    sc->Wlow = 1;
+    sc->Whigh = 0;
 }
 
 union input {
     mshabal_u32 words[64 * MSHABAL512_FACTOR];
     __m512i data[16];
 };
-
-void simd512_mshabal_openclose_fast(mshabal512_context_fast *sc, void *u1, void *u2, void *dst0,
-                                    void *dst1, void *dst2, void *dst3, void *dst4, void *dst5,
-                                    void *dst6, void *dst7, void *dst8, void *dst9, void *dst10,
-                                    void *dst11, void *dst12, void *dst13, void *dst14,
-                                    void *dst15) {
-    unsigned z, off, out_size_w32;
-    // run shabal
-    simd512_mshabal_compress_fast(sc, u1, u2, 1);
-    // extract results
-    out_size_w32 = sc->out_size >> 5;
-    off = MSHABAL512_FACTOR * 4 * (28 + (16 - out_size_w32));
-    for (z = 0; z < 2; z++) {
-        unsigned y = off + MSHABAL512_FACTOR * (z << 2);
-        ((u32 *)dst0)[z] = sc->state[y + 0];
-        ((u32 *)dst1)[z] = sc->state[y + 1];
-        ((u32 *)dst2)[z] = sc->state[y + 2];
-        ((u32 *)dst3)[z] = sc->state[y + 3];
-        ((u32 *)dst4)[z] = sc->state[y + 4];
-        ((u32 *)dst5)[z] = sc->state[y + 5];
-        ((u32 *)dst6)[z] = sc->state[y + 6];
-        ((u32 *)dst7)[z] = sc->state[y + 7];
-        ((u32 *)dst8)[z] = sc->state[y + 8];
-        ((u32 *)dst9)[z] = sc->state[y + 9];
-        ((u32 *)dst10)[z] = sc->state[y + 10];
-        ((u32 *)dst11)[z] = sc->state[y + 11];
-        ((u32 *)dst12)[z] = sc->state[y + 12];
-        ((u32 *)dst13)[z] = sc->state[y + 13];
-        ((u32 *)dst14)[z] = sc->state[y + 14];
-        ((u32 *)dst15)[z] = sc->state[y + 15];
-    }
-}
