@@ -40,6 +40,14 @@ extern "C" {
         best_deadline: *mut uint64_t,
         best_offset: *mut uint64_t,
     ) -> ();
+    
+    pub fn find_best_deadline_sph(
+        scoops: *mut c_void,
+        nonce_count: uint64_t,
+        gensig: *const c_void,
+        best_deadline: *mut uint64_t,
+        best_offset: *mut uint64_t,
+    ) -> ();
 }
 
 pub struct NonceData {
@@ -102,8 +110,16 @@ pub fn create_worker_task(
                                     &mut deadline,
                                     &mut offset,
                                 );
-                            } else {
+                            } else if is_x86_feature_detected!("sse2") {
                                 find_best_deadline_sse2(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            } else {
+                                find_best_deadline_sph(
                                     bs.as_ptr() as *mut c_void,
                                     (read_reply.len as u64 + padded as u64) / 64,
                                     read_reply.gensig.as_ptr() as *const c_void,
@@ -138,7 +154,7 @@ pub fn create_worker_task(
                                 &mut offset,
                             );
                         } else if is_x86_feature_detected!("avx2") {
-                            find_best_deadline_avx2(
+                            find_best_deadline_sph(
                                 bs.as_ptr() as *mut c_void,
                                 (read_reply.len as u64 + padded as u64) / 64,
                                 read_reply.gensig.as_ptr() as *const c_void,
@@ -153,15 +169,23 @@ pub fn create_worker_task(
                                 &mut deadline,
                                 &mut offset,
                             );
-                        } else {
-                            find_best_deadline_sse2(
-                                bs.as_ptr() as *mut c_void,
-                                (read_reply.len as u64 + padded as u64) / 64,
-                                read_reply.gensig.as_ptr() as *const c_void,
-                                &mut deadline,
-                                &mut offset,
-                            );
-                        }
+                        } else if is_x86_feature_detected!("sse2") {
+                                find_best_deadline_sse2(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            } else {
+                                find_best_deadline_sph(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            }
                     }
                 }
             }

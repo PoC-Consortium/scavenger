@@ -61,4 +61,10 @@ fn main() {
         .file("src/c/mshabal_512_avx512f.c")
         .file("src/c/shabal_avx512f.c")
         .compile("shabal_avx512f");
+
+    let mut config = shared_config.clone();
+
+    config
+        .file("src/c/shabal.c")
+        .compile("shabal_1d");
 }

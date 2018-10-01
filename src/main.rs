@@ -51,6 +51,8 @@ extern "C" {
     pub fn init_shabal_avx() -> ();
 
     pub fn init_shabal_sse2() -> ();
+
+    pub fn init_shabal_sph() -> ();
 }
 
 fn init_simd_extensions() {
@@ -62,18 +64,20 @@ fn init_simd_extensions() {
     } else if is_x86_feature_detected!("avx2") {
         info!("SIMD extensions: AVX2");
         unsafe {
-            init_shabal_avx2();
+            init_shabal_sph();
         }
     } else if is_x86_feature_detected!("avx") {
         info!("SIMD extensions: AVX");
         unsafe {
             init_shabal_avx();
         }
-    } else {
+    } else if is_x86_feature_detected!("sse2") {
         info!("SIMD extensions: SSE2");
         unsafe {
             init_shabal_sse2();
         }
+    } else {
+        info!("SIMD extensions: none");
     }
 }
 
