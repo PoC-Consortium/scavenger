@@ -16,7 +16,7 @@ cfg_if! {
             let output = Command::new("df")
                  .arg(path)
                  .output()
-                 .expect("failed to execute 'df --output=source'");
+                 .expect("failed to execute 'df'");
              let source = String::from_utf8(output.stdout).expect("not utf8");
              source.split('\n').collect::<Vec<&str>>()[1].split(' ').collect::<Vec<&str>>()[0].to_string()
          }
@@ -57,7 +57,7 @@ cfg_if! {
                 .expect("failed to execute 'lsblk -o PHY-SeC'");
 
             let sector_size = String::from_utf8(output.stdout).expect("not utf8");
-            let sector_size = sector_size.split('\n').collect::<Vec<&str>>().get(1).unwrap_or({
+            let sector_size = sector_size.split('\n').collect::<Vec<&str>>().get(1).trim().unwrap_or({
                 warn!("failed to determine sector size, defaulting to 4096.");
                 &"4096"
             }).trim();
