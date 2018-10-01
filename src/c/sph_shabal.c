@@ -540,113 +540,69 @@ void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n, void* ds
     shabal_close(cc, ub, n, dst, 8);
 }
 
-void sph_shabal_openclose_fast(void* cc, const unsigned char* data, size_t len, void* dst) {
-  sph_shabal_context* sc;
-    unsigned char* buf;
-    size_t ptr;
- //   DECL_STATE
+void sph_shabal_openclose_fast(const unsigned char* scoop_data, const unsigned char* gen_sig, void* dst) {
+    sph_u32
+        A00 = A_init_256[0], A01 = A_init_256[1], A02 = A_init_256[2], A03 = A_init_256[3],
+        A04 = A_init_256[4], A05 = A_init_256[5], A06 = A_init_256[6], A07 = A_init_256[7],
+        A08 = A_init_256[8], A09 = A_init_256[9], A0A = A_init_256[10], A0B = A_init_256[11];
+    sph_u32
+        B0 = B_init_256[0], B1 = B_init_256[1], B2 = B_init_256[2], B3 = B_init_256[3],
+        B4 = B_init_256[4], B5 = B_init_256[5], B6 = B_init_256[6], B7 = B_init_256[7],
+        B8 = B_init_256[8], B9 = B_init_256[9], BA = B_init_256[10], BB = B_init_256[11],
+        BC = B_init_256[12], BD = B_init_256[13], BE = B_init_256[14], BF = B_init_256[15];
+    sph_u32
+        C0 = C_init_256[0], C1 = C_init_256[1], C2 = C_init_256[2], C3 = C_init_256[3],
+        C4 = C_init_256[4], C5 = C_init_256[5], C6 = C_init_256[6], C7 = C_init_256[7],
+        C8 = C_init_256[8], C9 = C_init_256[9], CA = C_init_256[10], CB = C_init_256[11],
+        CC = C_init_256[12], CD = C_init_256[13], CE = C_init_256[14], CF = C_init_256[15];
+    sph_u32 M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, MA, MB, MC, MD, ME, MF;
+    sph_u32 Wlow = 1, Whigh = 0;
+         
+	M0 = ((unsigned int*)gen_sig)[0];
+	M1 = ((unsigned int*)gen_sig)[1];
+	M2 = ((unsigned int*)gen_sig)[2];
+	M3 = ((unsigned int*)gen_sig)[3];
+	M4 = ((unsigned int*)gen_sig)[4];
+	M5 = ((unsigned int*)gen_sig)[5];
+	M6 = ((unsigned int*)gen_sig)[6];
+	M7 = ((unsigned int*)gen_sig)[7];
+	M8 = ((unsigned int*)scoop_data)[0];
+	M9 = ((unsigned int*)scoop_data)[1];
+	MA = ((unsigned int*)scoop_data)[2];
+	MB = ((unsigned int*)scoop_data)[3];
+	MC = ((unsigned int*)scoop_data)[4];
+	MD = ((unsigned int*)scoop_data)[5];
+	ME = ((unsigned int*)scoop_data)[6];
+	MF = ((unsigned int*)scoop_data)[7];
 
-    sc = (sph_shabal_context*)cc;
-    buf = sc->buf;
-    ptr = sc->ptr;
-
-    /*
-     * We do not want to copy the state to local variables if the
-     * amount of data is less than what is needed to complete the
-     * current block. Note that it is anyway suboptimal to call
-     * this method many times for small chunks of data.
-     */
-    if (len < (sizeof sc->buf) - ptr) {
-        memcpy(buf + ptr, data, len);
-        ptr += len;
-        sc->ptr = ptr;
-        return;
-    }
-
-        sph_u32
-            A00 = A_init_256[0], A01 = A_init_256[1], A02 = A_init_256[2], A03 = A_init_256[3],
-            A04 = A_init_256[4], A05 = A_init_256[5], A06 = A_init_256[6], A07 = A_init_256[7],
-            A08 = A_init_256[8], A09 = A_init_256[9], A0A = A_init_256[10], A0B = A_init_256[11];
-        sph_u32
-            B0 = B_init_256[0], B1 = B_init_256[1], B2 = B_init_256[2], B3 = B_init_256[3],
-            B4 = B_init_256[4], B5 = B_init_256[5], B6 = B_init_256[6], B7 = B_init_256[7],
-            B8 = B_init_256[8], B9 = B_init_256[9], BA = B_init_256[10], BB = B_init_256[11],
-            BC = B_init_256[12], BD = B_init_256[13], BE = B_init_256[14], BF = B_init_256[15];
-        sph_u32
-            C0 = C_init_256[0], C1 = C_init_256[1], C2 = C_init_256[2], C3 = C_init_256[3],
-            C4 = C_init_256[4], C5 = C_init_256[5], C6 = C_init_256[6], C7 = C_init_256[7],
-            C8 = C_init_256[8], C9 = C_init_256[9], CA = C_init_256[10], CB = C_init_256[11],
-            CC = C_init_256[12], CD = C_init_256[13], CE = C_init_256[14], CF = C_init_256[15];
-        sph_u32 M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, MA, MB, MC, MD, ME, MF;
-        sph_u32 Wlow = 1, Whigh = 0;
-   // READ_STATE(sc);
-    while (len > 0) {
-        size_t clen;
-
-        clen = (sizeof sc->buf) - ptr;
-        if (clen > len) clen = len;
-        memcpy(buf + ptr, data, clen);
-        ptr += clen;
-        data += clen;
-        len -= clen;
-        if (ptr == sizeof sc->buf) {
-            DECODE_BLOCK;
-            INPUT_BLOCK_ADD;
-            XOR_W;
-            APPLY_P;
-            INPUT_BLOCK_SUB;
-            SWAP_BC;
-            INCR_W;
-            ptr = 0;
-        }
-    }
-  //  WRITE_STATE(sc);
-  //  sc->ptr = ptr;
-
-    unsigned z;
-    union {
-        unsigned char tmp_out[64];
-        sph_u32 dummy;
-    } u;
-    size_t out_len;
-
-    sc = (sph_shabal_context*)cc;
-   // buf = sc->buf;
-    //ptr = sc->ptr;
-    z = 0x80 >> 0;
-    buf[ptr] = ((0 & -z) | z) & 0xFF;
-    memset(buf + ptr + 1, 0, (sizeof sc->buf) - (ptr + 1));
-  //  READ_STATE(sc);
-    DECODE_BLOCK;
     INPUT_BLOCK_ADD;
     XOR_W;
     APPLY_P;
-    //#pragma loop(hint_parallel(3))
+    INPUT_BLOCK_SUB;
+    SWAP_BC;
+    INCR_W;
+
+	M0 = ((unsigned int*)scoop_data)[8];
+	M1 = ((unsigned int*)scoop_data)[9];
+	M2 = ((unsigned int*)scoop_data)[10];
+	M3 = ((unsigned int*)scoop_data)[11];
+	M4 = ((unsigned int*)scoop_data)[12];
+	M5 = ((unsigned int*)scoop_data)[13];
+	M6 = ((unsigned int*)scoop_data)[14];
+	M7 = ((unsigned int*)scoop_data)[15];
+	M8 = 0x80;
+	M9 = MA = MB = MC = MD = ME = MF = 0;
+
+    INPUT_BLOCK_ADD;
+    XOR_W;
+    APPLY_P;
+
     for (int i = 0; i < 3; i++) {
         SWAP_BC;
         XOR_W;
         APPLY_P;
     }
 
-    /*
-     * We just use our local variables; no need to go through
-     * the state structure. In order to share some code, we
-     * emit the relevant words into a temporary buffer, which
-     * we finally copy into the destination array.
-     */
-
-    sph_enc32le_aligned(u.tmp_out + 32, B8);
-
-    sph_enc32le_aligned(u.tmp_out + 36, B9);
-
-    sph_enc32le_aligned(u.tmp_out + 40, BA);
-    sph_enc32le_aligned(u.tmp_out + 44, BB);
-    sph_enc32le_aligned(u.tmp_out + 48, BC);
-    sph_enc32le_aligned(u.tmp_out + 52, BD);
-    sph_enc32le_aligned(u.tmp_out + 56, BE);
-    sph_enc32le_aligned(u.tmp_out + 60, BF);
-
-    out_len = 8 << 2;
-    memcpy(dst, u.tmp_out + (sizeof u.tmp_out) - out_len, out_len);
-    // sph_shabal256_init(sc, size_words << 5);    
+    sph_enc32le_aligned((sph_u32*)dst, B8);
+    sph_enc32le_aligned((sph_u32*)dst + 1, B9);    
 }

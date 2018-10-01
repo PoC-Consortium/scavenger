@@ -154,7 +154,7 @@ pub fn create_worker_task(
                                 &mut offset,
                             );
                         } else if is_x86_feature_detected!("avx2") {
-                            find_best_deadline_sph(
+                            find_best_deadline_avx2(
                                 bs.as_ptr() as *mut c_void,
                                 (read_reply.len as u64 + padded as u64) / 64,
                                 read_reply.gensig.as_ptr() as *const c_void,
