@@ -29,7 +29,7 @@ pub struct ReadReply {
 
 pub struct Reader {
     drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
-    total_size: u64,
+    pub total_size: u64,
     pool: rayon::ThreadPool,
     rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
     tx_read_replies_cpu: chan::Sender<ReadReply>,
@@ -67,8 +67,8 @@ impl Reader {
             pool: rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .start_handler(move |id| {
+                    let core_ids = core_affinity::get_core_ids().unwrap();
                     if thread_pinning {
-                        let core_ids = core_affinity::get_core_ids().unwrap();
                         #[cfg(not(windows))]
                         let core_id = core_ids[id % core_ids.len()];
                         #[cfg(not(windows))]

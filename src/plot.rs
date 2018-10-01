@@ -13,7 +13,6 @@ const SHABAL256_HASH_SIZE: u64 = 32;
 pub const SCOOP_SIZE: u64 = SHABAL256_HASH_SIZE * 2;
 const NONCE_SIZE: u64 = SCOOP_SIZE * SCOOPS_IN_NONCE;
 
-// TODO: mining for multiple accounts
 pub struct Plot {
     pub account_id: u64,
     start_nonce: u64,
@@ -131,12 +130,12 @@ impl Plot {
         self.read_offset = 0;
         let nonces = self.nonces;
         let mut seek_addr = u64::from(scoop) * nonces as u64 * SCOOP_SIZE;
-        
+
         // flush buffer by reopening file handle
         if !self.use_direct_io {
             self.fh = open_using_direct_io(&self.path)?;
         };
-        
+
         if self.use_direct_io {
             self.read_offset = self.round_seek_addr(&mut seek_addr);
         }
