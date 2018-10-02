@@ -44,33 +44,38 @@ use miner::Miner;
 use std::process;
 
 extern "C" {
+    #[cfg(not(feature = "arm"))]
     pub fn init_shabal_avx512f() -> ();
-
+    #[cfg(not(feature = "arm"))]
     pub fn init_shabal_avx2() -> ();
-
+    #[cfg(not(feature = "arm"))]
     pub fn init_shabal_avx() -> ();
-
+    #[cfg(not(feature = "arm"))]
     pub fn init_shabal_sse2() -> ();
 }
 
 fn init_simd_extensions() {
     if is_x86_feature_detected!("avx512f") {
         info!("SIMD extensions: AVX512F");
+        #[cfg(not(feature = "arm"))]
         unsafe {
             init_shabal_avx512f();
         }
     } else if is_x86_feature_detected!("avx2") {
         info!("SIMD extensions: AVX2");
+        #[cfg(not(feature = "arm"))]
         unsafe {
             init_shabal_avx2();
         }
     } else if is_x86_feature_detected!("avx") {
         info!("SIMD extensions: AVX");
+        #[cfg(not(feature = "arm"))]
         unsafe {
             init_shabal_avx();
         }
     } else if is_x86_feature_detected!("sse2") {
         info!("SIMD extensions: SSE2");
+        #[cfg(not(feature = "arm"))]
         unsafe {
             init_shabal_sse2();
         }
