@@ -133,7 +133,7 @@ impl Plot {
 
         // flush buffer by reopening file handle
         if !self.use_direct_io {
-            self.fh = open_using_direct_io(&self.path)?;
+            self.fh = open(&self.path)?;
         };
 
         if self.use_direct_io {
