@@ -118,7 +118,7 @@ void sph_shabal256_close(void* cc, void* dst);
 void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n, void* dst);
 
 //Calculate deadline
-void sph_shabal_openclose_fast(const unsigned char* scoop_data, const unsigned char* gen_sig, void* dst);
+void sph_shabal_openclose_fast(void* scoop_data, void* gen_sig, void* dst);
 
 #ifdef __cplusplus
 }

@@ -64,17 +64,15 @@ fn main() {
 
     let mut config = shared_config.clone();
 
-    config
-        .file("src/c/shabal.c")
-        .compile("shabal_1d");
+    config.file("src/c/shabal.c").compile("shabal_1d");
 
-    #[cfg(feature = "neon")]   
+    #[cfg(feature = "neon")]
     let mut config = shared_config.clone();
 
-    #[cfg(all(not(target_env = "msvc"),feature = "neon"))]
+    #[cfg(all(not(target_env = "msvc"), feature = "neon"))]
     config.flag("-mfpu=neon");
-    
-    #[cfg(feature = "neon")]   
+
+    #[cfg(feature = "neon")]
     config
         .file("src/c/mshabal_128_neon.c")
         .file("src/c/shabal_neon.c")

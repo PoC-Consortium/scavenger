@@ -300,7 +300,7 @@ impl Miner {
         let handle = self.core.handle();
         let request_handler = self.request_handler.clone();
         let total_size = self.reader.total_size;
- 
+
         // you left me no choice!!! at least not one that I could have worked out in two weeks...
         let reader = Rc::new(RefCell::new(self.reader));
 
@@ -401,7 +401,14 @@ impl Miner {
                         if state.processed_reader_tasks == reader_task_count {
                             info!(
                                 "{: <80}",
-                                format!("round finished: roundtime={}ms, speed={:.2}MiB/s", state.sw.elapsed_ms(), total_size as f64 * 1000.0 / 1024.0 / 1024.0 / state.sw.elapsed_ms() as f64)
+                                format!(
+                                    "round finished: roundtime={}ms, speed={:.2}MiB/s",
+                                    state.sw.elapsed_ms(),
+                                    total_size as f64 * 1000.0
+                                        / 1024.0
+                                        / 1024.0
+                                        / state.sw.elapsed_ms() as f64
+                                )
                             );
                             state.sw.restart();
                             state.scanning = false;

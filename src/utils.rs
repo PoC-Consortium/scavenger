@@ -159,4 +159,12 @@ mod test {
         // info!("{}", test_string);
         // assert_ne!(0, get_sector_size(&test_string));
     }
+
+    #[test]
+    fn test_neon() {
+        let neo = false;
+        #[cfg(feature = "neon")]
+        let neo = true;
+        assert_eq!(true, neo);
+    }
 }
