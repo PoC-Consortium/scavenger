@@ -14,8 +14,7 @@ matrix:
            packages:
             - g++-4.9
       env:
-         - CC=gcc-4.9   
-         - CARGO_FEATURE_NEON   
+         - CC=gcc-4.9      
     - os: osx
       
 fast_finish: true
