@@ -3,7 +3,7 @@ account_id_to_secret_phrase:                   # define accounts and passphrases
   1796535821016683299: 'stand rude those door invite reflection anywhere lace safe hidden fur horrible'  
 
 plot_dirs:
-  - 'D:\plot'
+  - 'test_data'
 
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
@@ -11,7 +11,7 @@ plot_dirs:
 
 # url: 'http://pool.dev.burst-test.net:8124'   # testnet pool
 # url: 'http://wallet.dev.burst-test.net:6876'   # testnet wallet
-url: 'https://wallet.burst.cryptoguru.org:8125'   # testnet wallet
+url: 'https://wallet.burst.cryptoguru.org:8125'   # cg wallet
 
 # url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
 
