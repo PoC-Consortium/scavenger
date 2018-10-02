@@ -1,7 +1,0 @@
-{
-    "files.associations": {
-        "mshabal.h": "c",
-        "immintrin.h": "c",
-        "mshabal_128_neon.h": "c"
-    }
-}

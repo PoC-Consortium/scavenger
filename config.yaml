@@ -4,16 +4,12 @@ account_id_to_secret_phrase:                   # define accounts and passphrases
 
 plot_dirs:
   - 'test_data'
-  - 'd:\plot'
-
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
 
 # url: 'http://pool.dev.burst-test.net:8124'   # testnet pool
-# url: 'http://wallet.dev.burst-test.net:6876'   # testnet wallet
-url: 'https://wallet.burst.cryptoguru.org:8125'   # cg wallet
-
+url: 'http://wallet.dev.burst-test.net:6876'   # testnet wallet
 # url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
 
 hdd_reader_thread_count: 0            # default 0 (=number of disks)

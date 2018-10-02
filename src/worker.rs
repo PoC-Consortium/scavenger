@@ -8,43 +8,8 @@ use ocl;
 
 use reader::ReadReply;
 use std::u64;
+
 extern "C" {
-    #[cfg(not(feature = "arm"))]
-    pub fn find_best_deadline_avx512f(
-        scoops: *mut c_void,
-        nonce_count: uint64_t,
-        gensig: *const c_void,
-        best_deadline: *mut uint64_t,
-        best_offset: *mut uint64_t,
-    ) -> ();
-
-    #[cfg(not(feature = "arm"))]
-    pub fn find_best_deadline_avx2(
-        scoops: *mut c_void,
-        nonce_count: uint64_t,
-        gensig: *const c_void,
-        best_deadline: *mut uint64_t,
-        best_offset: *mut uint64_t,
-    ) -> ();
-
-    #[cfg(not(feature = "arm"))]
-    pub fn find_best_deadline_avx(
-        scoops: *mut c_void,
-        nonce_count: uint64_t,
-        gensig: *const c_void,
-        best_deadline: *mut uint64_t,
-        best_offset: *mut uint64_t,
-    ) -> ();
-
-    #[cfg(not(feature = "arm"))]
-    pub fn find_best_deadline_sse2(
-        scoops: *mut c_void,
-        nonce_count: uint64_t,
-        gensig: *const c_void,
-        best_deadline: *mut uint64_t,
-        best_offset: *mut uint64_t,
-    ) -> ();
-
     pub fn find_best_deadline_sph(
         scoops: *mut c_void,
         nonce_count: uint64_t,
@@ -52,6 +17,58 @@ extern "C" {
         best_deadline: *mut uint64_t,
         best_offset: *mut uint64_t,
     ) -> ();
+}
+
+cfg_if! {
+    if #[cfg(feature = "simd")] {
+        extern "C" {
+            pub fn find_best_deadline_avx512f(
+                scoops: *mut c_void,
+                nonce_count: uint64_t,
+                gensig: *const c_void,
+                best_deadline: *mut uint64_t,
+                best_offset: *mut uint64_t,
+            ) -> ();
+
+            pub fn find_best_deadline_avx2(
+                scoops: *mut c_void,
+                nonce_count: uint64_t,
+                gensig: *const c_void,
+                best_deadline: *mut uint64_t,
+                best_offset: *mut uint64_t,
+            ) -> ();
+
+            pub fn find_best_deadline_avx(
+                scoops: *mut c_void,
+                nonce_count: uint64_t,
+                gensig: *const c_void,
+                best_deadline: *mut uint64_t,
+                best_offset: *mut uint64_t,
+            ) -> ();
+
+            pub fn find_best_deadline_sse2(
+                scoops: *mut c_void,
+                nonce_count: uint64_t,
+                gensig: *const c_void,
+                best_deadline: *mut uint64_t,
+                best_offset: *mut uint64_t,
+            ) -> ();
+        }
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "neon")] {
+        extern "C" {
+            pub fn find_best_deadline_neon(
+                scoops: *mut c_void,
+                nonce_count: uint64_t,
+                gensig: *const c_void,
+                best_deadline: *mut uint64_t,
+                best_offset: *mut uint64_t,
+            ) -> ();
+        }
+    }
 }
 
 pub struct NonceData {
@@ -89,7 +106,7 @@ pub fn create_worker_task(
                         let mut_bs = buffer.get_buffer();
                         let mut bs = mut_bs.lock().unwrap();
                         let padded = pad(&mut bs, read_reply.len, 8 * 64);
-                        #[cfg(not(feature = "arm"))]
+                        #[cfg(feature = "simd")]
                         unsafe {
                             if is_x86_feature_detected!("avx512f") {
                                 find_best_deadline_avx512f(
@@ -133,7 +150,27 @@ pub fn create_worker_task(
                                 );
                             }
                         }
-                        #[cfg(feature = "arm")]
+                        #[cfg(feature = "neon")]
+                        unsafe {
+                            if is_x86_feature_detected!("neon") {
+                                find_best_deadline_neon(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            } else {
+                                find_best_deadline_sph(
+                                    bs.as_ptr() as *mut c_void,
+                                    (read_reply.len as u64 + padded as u64) / 64,
+                                    read_reply.gensig.as_ptr() as *const c_void,
+                                    &mut deadline,
+                                    &mut offset,
+                                );
+                            }
+                        }
+                        #[cfg(not(any(feature = "simd", feature = "neon")))]
                         unsafe {
                             find_best_deadline_sph(
                                 bs.as_ptr() as *mut c_void,
@@ -159,7 +196,7 @@ pub fn create_worker_task(
                     let mut_bs = buffer.get_buffer();
                     let mut bs = mut_bs.lock().unwrap();
                     let padded = pad(&mut bs, read_reply.len, 8 * 64);
-                    #[cfg(not(feature = "arm"))]
+                    #[cfg(feature = "simd")]
                     unsafe {
                         if is_x86_feature_detected!("avx512f") {
                             find_best_deadline_avx512f(
@@ -203,7 +240,27 @@ pub fn create_worker_task(
                             );
                         }
                     }
-                    #[cfg(feature = "arm")]
+                    #[cfg(feature = "neon")]
+                    unsafe {
+                        if is_x86_feature_detected!("neon") {
+                            find_best_deadline_neon(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        } else {
+                            find_best_deadline_sph(
+                                bs.as_ptr() as *mut c_void,
+                                (read_reply.len as u64 + padded as u64) / 64,
+                                read_reply.gensig.as_ptr() as *const c_void,
+                                &mut deadline,
+                                &mut offset,
+                            );
+                        }
+                    }
+                    #[cfg(not(any(feature = "simd", feature = "neon")))]
                     unsafe {
                         find_best_deadline_sph(
                             bs.as_ptr() as *mut c_void,

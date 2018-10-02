@@ -15,7 +15,7 @@ readme = "README.md"
 [features]
 opencl = ["ocl-core"]
 neon = []
-arm = []
+simd = []
 
 [dependencies]
 hyper = "0.12"
