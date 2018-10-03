@@ -57,7 +57,7 @@ cfg_if! {
                 .expect("failed to execute 'lsblk -o PHY-SeC'");
 
             let sector_size = String::from_utf8(output.stdout).expect("not utf8");
-            let sector_size = sector_size.split('\n').collect::<Vec<&str>>().get(1).unwrap_or({
+            let sector_size = sector_size.split('\n').collect::<Vec<&str>>().get(1).unwrap_or_else(|| {
                 warn!("failed to determine sector size, defaulting to 4096.");
                 &"4096"
             }).trim();
