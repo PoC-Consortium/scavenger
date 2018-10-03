@@ -1675,10 +1675,12 @@ FORCE_INLINE void _mm_stream_si128(__m128i *p, __m128i a)
 }
 
 // Cache line containing p is flushed and invalidated from all caches in the coherency domain. : https://msdn.microsoft.com/en-us/library/ba08y07y(v=vs.100).aspx
+/*
 FORCE_INLINE void _mm_clflush(void const*p) 
 {
 	// no corollary for Neon?
 }
+*/
 
 #if defined(__GNUC__) || defined(__clang__)
 #	pragma pop_macro("ALIGN_STRUCT")

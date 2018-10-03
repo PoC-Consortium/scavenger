@@ -152,7 +152,7 @@ pub fn create_worker_task(
                         }
                         #[cfg(feature = "neon")]
                         unsafe {
-                            if is_x86_feature_detected!("neon") {
+                            if is_arm_feature_detected!("neon") {
                                 find_best_deadline_neon(
                                     bs.as_ptr() as *mut c_void,
                                     (read_reply.len as u64 + padded as u64) / 64,
@@ -242,7 +242,7 @@ pub fn create_worker_task(
                     }
                     #[cfg(feature = "neon")]
                     unsafe {
-                        if is_x86_feature_detected!("neon") {
+                        if is_arm_feature_detected!("neon") {
                             find_best_deadline_neon(
                                 bs.as_ptr() as *mut c_void,
                                 (read_reply.len as u64 + padded as u64) / 64,

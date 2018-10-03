@@ -1,3 +1,4 @@
+#![feature(stdsimd)]
 #[macro_use]
 extern crate serde_derive;
 extern crate crossbeam_channel as chan;
@@ -87,7 +88,7 @@ cfg_if! {
         }
 
         fn init_cpu_extensions() {
-            if is_x86_feature_detected!("neon") {
+            if is_arm_feature_detected!("neon") {
                 info!("SIMD extensions: NEON");
                 unsafe {
                     init_shabal_neon();
