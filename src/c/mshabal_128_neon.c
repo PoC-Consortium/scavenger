@@ -239,7 +239,7 @@ void simd128_neon_mshabal_init(mshabal_context* sc, unsigned out_size) {
         sc->buf3[4 * u + 1] = (out_size + u) >> 8;
     }
     sc->Whigh = sc->Wlow = C32(0xFFFFFFFF);
-    simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+    simd128_neon_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
     for (u = 0; u < 16; u++) {
         sc->buf0[4 * u + 0] = (out_size + u + 16);
         sc->buf0[4 * u + 1] = (out_size + u + 16) >> 8;
@@ -250,7 +250,7 @@ void simd128_neon_mshabal_init(mshabal_context* sc, unsigned out_size) {
         sc->buf3[4 * u + 0] = (out_size + u + 16);
         sc->buf3[4 * u + 1] = (out_size + u + 16) >> 8;
     }
-    simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+    simd128_neon_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
     sc->ptr = 0;
     sc->out_size = out_size;
 }
@@ -274,7 +274,7 @@ void simd128_neon_mshabal(mshabal_context* sc, const void* data0, const void* da
             memcpy(sc->buf1 + ptr, data1, clen);
             memcpy(sc->buf2 + ptr, data2, clen);
             memcpy(sc->buf3 + ptr, data3, clen);
-            simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+            simd128_neon_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
             data0 = (const unsigned char*)data0 + clen;
             data1 = (const unsigned char*)data1 + clen;
             data2 = (const unsigned char*)data2 + clen;
@@ -285,7 +285,7 @@ void simd128_neon_mshabal(mshabal_context* sc, const void* data0, const void* da
 
     num = 1;
     if (num != 0) {
-        simd128_sse2_mshabal_compress(sc, (const unsigned char*)data0, (const unsigned char*)data1,
+        simd128_neon_mshabal_compress(sc, (const unsigned char*)data0, (const unsigned char*)data1,
                                  (const unsigned char*)data2, (const unsigned char*)data3, num);
         sc->xbuf0 = (unsigned char*)data0 + (num << 6);
         sc->xbuf1 = (unsigned char*)data1 + (num << 6);
