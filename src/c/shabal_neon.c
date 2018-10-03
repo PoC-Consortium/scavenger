@@ -1,5 +1,5 @@
 #include "shabal_neon.h"
-#include <immintrin.h>
+#include "SSE2NEON.h"
 #include <string.h>
 #include "common.h"
 #include "mshabal_128_neon.h"
