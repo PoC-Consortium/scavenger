@@ -66,7 +66,7 @@ cfg_if! {
         }
 
         pub fn get_sector_size(path: &str) -> u64 {
-            if cfg!(target_arch = "aarch64") {
+            if cfg!(target_os = "android") {
                 4096
             } else if cfg!(target_os = "macos") {
                 get_sector_size_macos(path)
