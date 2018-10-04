@@ -17,6 +17,9 @@ fn main() {
     #[cfg(not(target_env = "msvc"))]
     shared_config.flag("-std=c99");
 
+    #[cfg(not(target_arch = "aarch64"))]
+    shared_config.flag("-mtune=native");
+
     let mut config = shared_config.clone();
 
     config
