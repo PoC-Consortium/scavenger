@@ -227,7 +227,10 @@ impl Miner {
         let (tx_nonce_data, rx_nonce_data) =
             mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
 
-        let core_ids = core_affinity::get_core_ids().unwrap();
+        let mut core_ids: Vec<core_affinity::CoreId> = Vec::new();
+        if cfg.cpu_thread_pinning {
+            core_ids = core_affinity::get_core_ids().unwrap();
+        }
         for id in 0..cpu_worker_thread_count {
             thread::spawn({
                 if cfg.cpu_thread_pinning {

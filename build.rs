@@ -15,7 +15,7 @@ fn main() {
         .flag("/GL");
 
     #[cfg(not(target_env = "msvc"))]
-    shared_config.flag("-std=c99").flag("-mtune=native");
+    shared_config.flag("-std=c99");
 
     let mut config = shared_config.clone();
 

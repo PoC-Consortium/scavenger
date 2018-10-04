@@ -61,13 +61,17 @@ impl Reader {
 
         check_overlap(&drive_id_to_plots);
 
+        let mut core_ids: Vec<core_affinity::CoreId> = Vec::new();
+        if thread_pinning {
+            core_ids = core_affinity::get_core_ids().unwrap();
+        }
+
         Reader {
             drive_id_to_plots,
             total_size,
             pool: rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .start_handler(move |id| {
-                    let core_ids = core_affinity::get_core_ids().unwrap();
                     if thread_pinning {
                         #[cfg(not(windows))]
                         let core_id = core_ids[id % core_ids.len()];

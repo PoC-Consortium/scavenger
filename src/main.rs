@@ -88,7 +88,12 @@ cfg_if! {
         }
 
         fn init_cpu_extensions() {
-            if is_arm_feature_detected!("neon") {
+            #[cfg(target_arch = "arm")]
+            let neon = is_arm_feature_detected!("neon");
+            #[cfg(target_arch = "aarch64")]
+            let neon = is_aarch64_feature_detected!("neon");
+
+            if neon {
                 info!("SIMD extensions: NEON");
                 unsafe {
                     init_shabal_neon();
