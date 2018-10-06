@@ -1,6 +1,6 @@
 [package]
 name = "scavenger"
-version = "1.5.0"
+version = "1.6.0"
 license = "GPL-3.0"
 authors = ["PoC Consortium <bots@cryptoguru.org>"]
 description = """
@@ -14,6 +14,8 @@ readme = "README.md"
 
 [features]
 opencl = ["ocl-core"]
+neon = []
+simd = []
 
 [dependencies]
 hyper = "0.12"
@@ -53,3 +55,4 @@ winapi = { version = "0.3", features = ["fileapi"] }
 
 [build-dependencies]
 cc = "1.0"
+cfg-if = "0.1"

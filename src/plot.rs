@@ -50,6 +50,7 @@ cfg_if! {
 
         const FILE_FLAG_NO_BUFFERING: u32 = 0x20000000;
         const FILE_FLAG_SEQUENTIAL_SCAN: u32 = 0x08000000;
+        const FILE_FLAG_RANDOM_ACCESS: u32 = 0x10000000;
 
         pub fn open_using_direct_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
             OpenOptions::new()
@@ -61,7 +62,7 @@ cfg_if! {
         pub fn open<P: AsRef<Path>>(path: P) -> io::Result<File> {
             OpenOptions::new()
                 .read(true)
-                .custom_flags(FILE_FLAG_SEQUENTIAL_SCAN)
+                .custom_flags(FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_RANDOM_ACCESS)
                 .open(path)
         }
     }
@@ -131,8 +132,10 @@ impl Plot {
         let nonces = self.nonces;
         let mut seek_addr = u64::from(scoop) * nonces as u64 * SCOOP_SIZE;
 
-        // flush buffer by reopening file handle
+        // reopening file handles
         if !self.use_direct_io {
+            self.fh = open(&self.path)?;
+        } else {
             self.fh = open_using_direct_io(&self.path)?;
         };
 

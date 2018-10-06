@@ -57,7 +57,7 @@ cfg_if! {
                 .expect("failed to execute 'lsblk -o PHY-SeC'");
 
             let sector_size = String::from_utf8(output.stdout).expect("not utf8");
-            let sector_size = sector_size.split('\n').collect::<Vec<&str>>().get(1).unwrap_or({
+            let sector_size = sector_size.split('\n').collect::<Vec<&str>>().get(1).unwrap_or_else(|| {
                 warn!("failed to determine sector size, defaulting to 4096.");
                 &"4096"
             }).trim();
@@ -66,7 +66,9 @@ cfg_if! {
         }
 
         pub fn get_sector_size(path: &str) -> u64 {
-            if cfg!(target_os = "macos") {
+            if cfg!(target_os = "android") {
+                4096
+            } else if cfg!(target_os = "macos") {
                 get_sector_size_macos(path)
             } else {
                 get_sector_size_unix(path)
