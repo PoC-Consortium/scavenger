@@ -5,6 +5,8 @@
 # Scavenger - Burstminer in Rust
 
 ### Features
+- windows, linux, macOS, android & more
+- x86 32 & 64bit, arm & aarch64 
 - direct io
 - avx512f, avx2, avx, sse
 - opencl
