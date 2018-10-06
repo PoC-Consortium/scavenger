@@ -132,9 +132,11 @@ impl Plot {
         let nonces = self.nonces;
         let mut seek_addr = u64::from(scoop) * nonces as u64 * SCOOP_SIZE;
 
-        // flush buffer by reopening file handle
+        // reopening file handles
         if !self.use_direct_io {
             self.fh = open(&self.path)?;
+        } else {
+            self.fh = open_using_direct_io(&self.path)?;
         };
 
         if self.use_direct_io {
