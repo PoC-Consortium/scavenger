@@ -18,17 +18,22 @@
 Binaries are in **target/debug** or **target/release** depending on optimazation.
 
 ``` shell
+# decide on features to run/build:
+simd: support for SSE2, AVX, AVX2 and AVX512F (x86_cpu)
+neon: support for Arm NEON (cpu)
+opencl: support for OpenCL (gpu)
+
 # build debug und run directly
-cargo run [--features opencl]
+e.g. cargo run --features=simd    #for a cpu version with SIMD support
 
 # build debug (unoptimized)
-cargo build [--features opencl]
+e.g cargo build --features=neon   #for a arm cpu version with NEON support
 
 # build release (optimized)
-cargo build --release [--features opencl]
+e.g. cargo build --release --features=opencl,simd    #for a cpu/gpu version
 
 # test
-cargo test  [--features opencl]
+cargo test  [--features={opencl,simd,neon}]
 ```
 
 ### Run
