@@ -52,7 +52,7 @@ https://github.com/PoC-Consortium/scavenger/blob/master/config.yaml
 
 ### Docker
 
-A docker image based on alpine linux is built automatically on every commit to master: `spebern/scavenger`
+A docker image based on alpine linux is built automatically on every commit to master: `burstcoin/scavenger`
 This image will use only your cpu.
 
 To run it on the fly use something like this:
@@ -62,7 +62,7 @@ docker run \
 --name scavenger \
 --volume /path/to/your/config.yaml:/data/config.yaml \
 --volume /path/to/your/disks:/disks \
-spebern/scavenger
+burstcoin/scavenger
 ```
 
 Alternatively a docker compose file could look like this:
@@ -70,7 +70,7 @@ Alternatively a docker compose file could look like this:
 version: '2'
 services:
   scavenger:
-    image: spebern/scavenger
+    image: burstcoin/scavenger
     restart: always
     volumes:
       - /path/to/your/disks:/disks
