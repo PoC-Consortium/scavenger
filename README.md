@@ -17,7 +17,7 @@
 
 ### Compile, test, ...
 
-Binaries are in **target/debug** or **target/release** depending on optimazation.
+Binaries are in **target/debug** or **target/release** depending on optimization.
 
 ``` shell
 # decide on features to run/build:
