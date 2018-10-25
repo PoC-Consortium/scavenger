@@ -76,14 +76,14 @@ static void simd512_mshabal_compress(mshabal512_context *sc, const unsigned char
             u.words[j + 5] = *(u32 *)(buf5 + o);
             u.words[j + 6] = *(u32 *)(buf6 + o);
             u.words[j + 7] = *(u32 *)(buf7 + o);
-            u.words[j + 0] = *(u32 *)(buf8 + o);
-            u.words[j + 1] = *(u32 *)(buf9 + o);
-            u.words[j + 2] = *(u32 *)(buf10 + o);
-            u.words[j + 3] = *(u32 *)(buf11 + o);
-            u.words[j + 4] = *(u32 *)(buf12 + o);
-            u.words[j + 5] = *(u32 *)(buf13 + o);
-            u.words[j + 6] = *(u32 *)(buf14 + o);
-            u.words[j + 7] = *(u32 *)(buf15 + o);
+            u.words[j + 8] = *(u32 *)(buf8 + o);
+            u.words[j + 9] = *(u32 *)(buf9 + o);
+            u.words[j + 10] = *(u32 *)(buf10 + o);
+            u.words[j + 11] = *(u32 *)(buf11 + o);
+            u.words[j + 12] = *(u32 *)(buf12 + o);
+            u.words[j + 13] = *(u32 *)(buf13 + o);
+            u.words[j + 14] = *(u32 *)(buf14 + o);
+            u.words[j + 15] = *(u32 *)(buf15 + o);
         }
 
         for (j = 0; j < 16; j++) B[j] = _mm512_add_epi32(B[j], M(j));
@@ -254,7 +254,7 @@ static void simd512_mshabal_compress(mshabal512_context *sc, const unsigned char
 void simd512_mshabal_init(mshabal512_context *sc, unsigned out_size) {
     unsigned u;
 
-    for (u = 0; u < (12 + 16 + 16) * 4 * MSHABAL512_FACTOR; u++) sc->state[u] = 0;
+    memset(sc->state, 0, sizeof sc->state);
     memset(sc->buf0, 0, sizeof sc->buf0);
     memset(sc->buf1, 0, sizeof sc->buf1);
     memset(sc->buf2, 0, sizeof sc->buf2);
