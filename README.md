@@ -17,12 +17,12 @@
 
 ### Compile, test, ...
 
-Binaries are in **target/debug** or **target/release** depending on optimazation.
+Binaries are in **target/debug** or **target/release** depending on optimization.
 
 ``` shell
 # decide on features to run/build:
 simd: support for SSE2, AVX, AVX2 and AVX512F (x86_cpu)
-neon: support for Arm NEON (cpu)
+neon: support for Arm NEON (arm_cpu)
 opencl: support for OpenCL (gpu)
 
 # build debug und run directly
@@ -49,6 +49,33 @@ scavenger --help
 The miner needs a **config.yaml** file with the following structure:
 
 https://github.com/PoC-Consortium/scavenger/blob/master/config.yaml
+
+### Docker
+
+A docker image based on alpine linux is built automatically on every commit to master: `burstcoin/scavenger`
+This image will use only your cpu.
+
+To run it on the fly use something like this:
+```
+docker run \
+--rm \
+--name scavenger \
+--volume /path/to/your/config.yaml:/data/config.yaml \
+--volume /path/to/your/disks:/disks \
+burstcoin/scavenger
+```
+
+Alternatively a docker compose file could look like this:
+```
+version: '2'
+services:
+  scavenger:
+    image: burstcoin/scavenger
+    restart: always
+    volumes:
+      - /path/to/your/disks:/disks
+      - /path/to/your/config.yaml:/data/config.yaml
+```
 
 ### Donate 
 * bold: BURST-8V9Y-58B4-RVWP-8HQAV
