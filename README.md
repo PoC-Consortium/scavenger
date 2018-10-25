@@ -22,7 +22,7 @@ Binaries are in **target/debug** or **target/release** depending on optimization
 ``` shell
 # decide on features to run/build:
 simd: support for SSE2, AVX, AVX2 and AVX512F (x86_cpu)
-neon: support for Arm NEON (cpu)
+neon: support for Arm NEON (arm_cpu)
 opencl: support for OpenCL (gpu)
 
 # build debug und run directly
