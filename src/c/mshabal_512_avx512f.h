@@ -94,7 +94,6 @@ typedef unsigned long mshabal_u32;
  * private. Such a structure should be allocated and released by
  * the caller, in any memory area.
  */
-#pragma pack(1)
 typedef struct {
     unsigned char buf0[64];
     unsigned char buf1[64];
@@ -112,22 +111,22 @@ typedef struct {
     unsigned char buf13[64];
     unsigned char buf14[64];
     unsigned char buf15[64];
-    unsigned char *xbuf0;
-    unsigned char *xbuf1;
-    unsigned char *xbuf2;
-    unsigned char *xbuf3;
-    unsigned char *xbuf4;
-    unsigned char *xbuf5;
-    unsigned char *xbuf6;
-    unsigned char *xbuf7;
-    unsigned char *xbuf8;
-    unsigned char *xbuf9;
-    unsigned char *xbuf10;
-    unsigned char *xbuf11;
-    unsigned char *xbuf12;
-    unsigned char *xbuf13;
-    unsigned char *xbuf14;
-    unsigned char *xbuf15;
+    unsigned char* xbuf0;
+    unsigned char* xbuf1;
+    unsigned char* xbuf2;
+    unsigned char* xbuf3;
+    unsigned char* xbuf4;
+    unsigned char* xbuf5;
+    unsigned char* xbuf6;
+    unsigned char* xbuf7;
+    unsigned char* xbuf8;
+    unsigned char* xbuf9;
+    unsigned char* xbuf10;
+    unsigned char* xbuf11;
+    unsigned char* xbuf12;
+    unsigned char* xbuf13;
+    unsigned char* xbuf14;
+    unsigned char* xbuf15;
     size_t ptr;
     mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL512_FACTOR];
     mshabal_u32 Whigh, Wlow;
@@ -140,6 +139,7 @@ typedef struct {
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal512_context_fast;
+#pragma pack()
 
 /*
  * Initialize a context structure. The output size must be a multiple

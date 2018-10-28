@@ -94,7 +94,6 @@ typedef unsigned long mshabal_u32;
  * private. Such a structure should be allocated and released by
  * the caller, in any memory area.
  */
-#pragma pack(1)
 typedef struct {
     unsigned char buf0[64];
     unsigned char buf1[64];
@@ -124,7 +123,6 @@ typedef struct {
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal256_context_fast;
-
 #pragma pack()
 
 /*
