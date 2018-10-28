@@ -69,7 +69,7 @@ void find_best_deadline_avx512f(char *scoops, uint64_t nonce_count, char *gensig
         u2.words[i + 15 + 128] = *(mshabal_u32 *)(end + o);
     }
 
-    for (uint64_t i = 0; i < nonce_count; i += 8) {
+    for (uint64_t i = 0; i < nonce_count; i += 16) {
         // Load and shuffle data
         // NB: this can be further optimised by preshuffling plot files
         // depending on SIMD length and use avx2 memcpy Did not find a away yet
