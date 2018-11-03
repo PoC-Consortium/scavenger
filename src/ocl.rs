@@ -356,7 +356,7 @@ pub fn find_best_deadline_gpu(
     }
 
     core::set_kernel_arg(&gpu_context.kernel2, 0, ArgVal::mem(&buffer.deadlines_gpu)).unwrap();
-    core::set_kernel_arg(&gpu_context.kernel2, 1, ArgVal::primitive(&nonce_count)).unwrap();
+    core::set_kernel_arg(&gpu_context.kernel2, 1, ArgVal::primitive(&(nonce_count as u64))).unwrap();
     core::set_kernel_arg(
         &gpu_context.kernel2,
         2,
