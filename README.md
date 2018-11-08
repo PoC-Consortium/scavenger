@@ -8,7 +8,7 @@
 - windows, linux, macOS, android & more
 - x86 32 & 64bit, arm, aarch64 
 - direct io
-- avx512f, avx2, avx, sse
+- avx512f, avx2, avx, sse, neon
 - opencl
 - fastest burstminer there is
 
