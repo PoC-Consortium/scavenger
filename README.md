@@ -12,7 +12,21 @@
 - opencl
 - fastest burstminer there is
 
-### Requirements
+### Documentation/Wiki
+
+https://github.com/PoC-Consortium/scavenger/wiki
+
+### Binary + source code releases
+
+https://github.com/PoC-Consortium/scavenger/releases
+
+Scavenger can also be installed direclty via cargo:
+
+``` shell
+cargo install scavenger
+```
+
+### Development Requirements
 - new version of rust
 
 ### Compile, test, ...
