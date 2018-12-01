@@ -20,14 +20,14 @@ https://github.com/PoC-Consortium/scavenger/wiki
 
 https://github.com/PoC-Consortium/scavenger/releases
 
-Scavenger can also be installed direclty via cargo:
+Scavenger can also be installed directly via cargo:
 
 ``` shell
 cargo install scavenger
 ```
 
 ### Development Requirements
-- new version of rust
+- new version of rust, nightly required
 
 ### Compile, test, ...
 
