@@ -41,6 +41,7 @@ pub struct Miner {
     request_handler: RequestHandler,
     rx_nonce_data: mpsc::Receiver<NonceData>,
     target_deadline: u64,
+    account_id_to_target_deadline : HashMap<u64,u64>,
     state: Arc<Mutex<State>>,
     reader_task_count: usize,
     get_mining_info_interval: u64,
@@ -49,6 +50,7 @@ pub struct Miner {
 }
 
 pub struct State {
+    generation_signature: String,
     height: u64,
     account_id_to_best_deadline: HashMap<u64, u64>,
     base_target: u64,
@@ -277,6 +279,7 @@ impl Miner {
             ),
             rx_nonce_data,
             target_deadline: cfg.target_deadline,
+            account_id_to_target_deadline: cfg.account_id_to_target_deadline,
             request_handler: RequestHandler::new(
                 cfg.url,
                 cfg.account_id_to_secret_phrase,
@@ -286,6 +289,7 @@ impl Miner {
                 cfg.send_proxy_details,
             ),
             state: Arc::new(Mutex::new(State {
+                generation_signature : "".to_owned(),
                 height: 0,
                 account_id_to_best_deadline: HashMap::new(),
                 base_target: 1,
@@ -322,7 +326,7 @@ impl Miner {
                     match mining_info {
                         Ok(mining_info) => {
                             let mut state = state.lock().unwrap();
-                            if mining_info.height > state.height {
+                            if mining_info.generation_signature != state.generation_signature {
                                 for best_deadlines in state.account_id_to_best_deadline.values_mut()
                                 {
                                     *best_deadlines = u64::MAX;
@@ -332,6 +336,8 @@ impl Miner {
 
                                 let gensig =
                                     burstmath::decode_gensig(&mining_info.generation_signature);
+                                state.generation_signature = mining_info.generation_signature;
+
                                 let scoop = burstmath::calculate_scoop(mining_info.height, &gensig);
                                 info!(
                                     "{: <80}",
@@ -366,6 +372,7 @@ impl Miner {
         );
 
         let target_deadline = self.target_deadline;
+        let account_id_to_target_deadline = self.account_id_to_target_deadline;
         let request_handler = self.request_handler.clone();
         let inner_handle = handle.clone();
         let state = self.state.clone();
@@ -379,7 +386,7 @@ impl Miner {
                         .account_id_to_best_deadline
                         .get(&nonce_data.account_id)
                         .unwrap_or(&u64::MAX);
-                    if best_deadline > deadline && deadline < target_deadline {
+                    if best_deadline > deadline && deadline < *(account_id_to_target_deadline.get(&nonce_data.account_id).unwrap_or(&target_deadline)) {
                         state
                             .account_id_to_best_deadline
                             .insert(nonce_data.account_id, deadline);

@@ -49,6 +49,9 @@ pub struct Cfg {
     #[serde(default = "default_target_deadline")]
     pub target_deadline: u64,
 
+    #[serde(default = "default_account_id_to_target_deadline")]
+    pub account_id_to_target_deadline: HashMap<u64, u64>,
+
     #[serde(default = "default_get_mining_info_interval")]
     pub get_mining_info_interval: u64,
 
@@ -136,6 +139,10 @@ fn default_gpu_mem_mapping() -> bool {
 
 fn default_target_deadline() -> u64 {
     u64::from(u32::MAX)
+}
+
+fn default_account_id_to_target_deadline() -> HashMap<u64, u64> {
+    HashMap::new()
 }
 
 fn default_get_mining_info_interval() -> u64 {

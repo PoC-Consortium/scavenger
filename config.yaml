@@ -27,6 +27,9 @@ gpu_nonces_per_cache: 262144          # default 262144
 gpu_mem_mapping: false                # default false
 
 target_deadline: 4294967295           # default u32::MAX
+account_id_to_target_deadline:        # target dls for multi-id (optional)
+ 10282355196851764065: 600000
+ 1796535821016683299: 55555555
 
 get_mining_info_interval: 3000        # default 3000ms
 timeout: 5000                         # default 5000ms
