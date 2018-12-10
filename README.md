@@ -8,12 +8,26 @@
 - windows, linux, macOS, android & more
 - x86 32 & 64bit, arm, aarch64 
 - direct io
-- avx512f, avx2, avx, sse
+- avx512f, avx2, avx, sse, neon
 - opencl
 - fastest burstminer there is
 
-### Requirements
-- new version of rust
+### Documentation/Wiki
+
+https://github.com/PoC-Consortium/scavenger/wiki
+
+### Binary + source code releases
+
+https://github.com/PoC-Consortium/scavenger/releases
+
+Scavenger can also be installed directly via cargo:
+
+``` shell
+cargo install scavenger
+```
+
+### Development Requirements
+- new version of rust, nightly required
 
 ### Compile, test, ...
 
