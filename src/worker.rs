@@ -155,7 +155,7 @@ pub fn create_worker_task(
                             #[cfg(target_arch = "arm")]
                             let neon = is_arm_feature_detected!("neon");
                             #[cfg(target_arch = "aarch64")]
-                            let neon = is_aarch64_feature_detected!("neon");
+                            let neon = true;
                             if neon {
                                 find_best_deadline_neon(
                                     bs.as_ptr() as *mut c_void,
@@ -249,7 +249,7 @@ pub fn create_worker_task(
                         #[cfg(target_arch = "arm")]
                         let neon = is_arm_feature_detected!("neon");
                         #[cfg(target_arch = "aarch64")]
-                        let neon = is_aarch64_feature_detected!("neon");
+                        let neon = true;
                         if neon {
                             find_best_deadline_neon(
                                 bs.as_ptr() as *mut c_void,

@@ -17,7 +17,7 @@ fn main() {
     #[cfg(not(target_env = "msvc"))]
     shared_config.flag("-std=c99");
 
-    #[cfg(all(not(target_env = "msvc"), not(target_arch = "aarch64")))]
+    #[cfg(not(target_env = "msvc"))]
     shared_config.flag("-mtune=native");
 
     let mut config = shared_config.clone();
@@ -32,7 +32,7 @@ fn main() {
              fn build(shared_config: cc::Build){
                 let mut config = shared_config.clone();
 
-                #[cfg(not(target_env = "msvc"))]
+                #[cfg(all(not(target_env = "msvc"), not(target_arch = "aarch64")))]
                 config.flag("-mfpu=neon");
 
                 config

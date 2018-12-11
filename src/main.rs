@@ -91,7 +91,7 @@ cfg_if! {
             #[cfg(target_arch = "arm")]
             let neon = is_arm_feature_detected!("neon");
             #[cfg(target_arch = "aarch64")]
-            let neon = is_aarch64_feature_detected!("neon");
+            let neon = true;
 
             if neon {
                 info!("SIMD extensions: NEON");
