@@ -27,7 +27,7 @@ cargo install scavenger
 ```
 
 ### Development Requirements
-- new version of rust, nightly required
+- new version of rust, stable toolchain
 
 ### Compile, test, ...
 
