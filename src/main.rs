@@ -1,4 +1,3 @@
-#![feature(stdsimd)]
 #[macro_use]
 extern crate serde_derive;
 extern crate crossbeam_channel as chan;
