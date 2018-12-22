@@ -289,7 +289,8 @@ pub fn create_worker_task(
                     nonce: offset + read_reply.start_nonce,
                     reader_task_processed: read_reply.finished,
                     account_id: read_reply.account_id,
-                }).wait()
+                })
+                .wait()
                 .expect("failed to send nonce data");
             tx_empty_buffers.send(buffer);
         }

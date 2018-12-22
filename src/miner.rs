@@ -41,12 +41,15 @@ pub struct Miner {
     request_handler: RequestHandler,
     rx_nonce_data: mpsc::Receiver<NonceData>,
     target_deadline: u64,
-    account_id_to_target_deadline : HashMap<u64,u64>,
+    account_id_to_target_deadline: HashMap<u64, u64>,
     state: Arc<Mutex<State>>,
     reader_task_count: usize,
     get_mining_info_interval: u64,
     core: Core,
     wakeup_after: i64,
+    multi_chain: bool,
+    maximum_fork_difference: u64,
+    minimum_block_height: u64,
 }
 
 pub struct State {
@@ -289,7 +292,7 @@ impl Miner {
                 cfg.send_proxy_details,
             ),
             state: Arc::new(Mutex::new(State {
-                generation_signature : "".to_owned(),
+                generation_signature: "".to_owned(),
                 height: 0,
                 account_id_to_best_deadline: HashMap::new(),
                 base_target: 1,
@@ -300,6 +303,9 @@ impl Miner {
             get_mining_info_interval: cfg.get_mining_info_interval,
             core,
             wakeup_after: cfg.hdd_wakeup_after * 1000, // ms -> s
+            multi_chain: cfg.multi_chain,
+            maximum_fork_difference: cfg.maximum_fork_difference,
+            minimum_block_height: cfg.minimum_block_height,
         }
     }
 
@@ -315,18 +321,29 @@ impl Miner {
         // there might be a way to solve this without two nested moves
         let get_mining_info_interval = self.get_mining_info_interval;
         let wakeup_after = self.wakeup_after;
+        let multi_chain = self.multi_chain;
+        let maximum_fork_difference = self.maximum_fork_difference;
+        let minimum_block_height = self.minimum_block_height;
         handle.spawn(
             Interval::new(
                 Instant::now(),
                 Duration::from_millis(get_mining_info_interval),
-            ).for_each(move |_| {
+            )
+            .for_each(move |_| {
                 let state = state.clone();
                 let reader = reader.clone();
                 request_handler.get_mining_info().then(move |mining_info| {
                     match mining_info {
                         Ok(mining_info) => {
                             let mut state = state.lock().unwrap();
-                            if mining_info.generation_signature != state.generation_signature {
+                            let new_block =
+                                mining_info.generation_signature != state.generation_signature;
+                            if (new_block && multi_chain)
+                                || (new_block
+                                    && (state.height == 0 || mining_info.height
+                                        > (state.height - maximum_fork_difference))
+                                    && mining_info.height > minimum_block_height)
+                            {
                                 for best_deadlines in state.account_id_to_best_deadline.values_mut()
                                 {
                                     *best_deadlines = u64::MAX;
@@ -368,7 +385,8 @@ impl Miner {
                     }
                     future::ok(())
                 })
-            }).map_err(|e| panic!("interval errored: err={:?}", e)),
+            })
+            .map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         let target_deadline = self.target_deadline;
@@ -386,7 +404,12 @@ impl Miner {
                         .account_id_to_best_deadline
                         .get(&nonce_data.account_id)
                         .unwrap_or(&u64::MAX);
-                    if best_deadline > deadline && deadline < *(account_id_to_target_deadline.get(&nonce_data.account_id).unwrap_or(&target_deadline)) {
+                    if best_deadline > deadline
+                        && deadline
+                            < *(account_id_to_target_deadline
+                                .get(&nonce_data.account_id)
+                                .unwrap_or(&target_deadline))
+                    {
                         state
                             .account_id_to_best_deadline
                             .insert(nonce_data.account_id, deadline);
@@ -400,7 +423,7 @@ impl Miner {
                             0,
                         );
                         /* tradeoff between non-verbosity and information: stopped informing about
-                           found deadlines, but reporting accepted deadlines instead.  
+                           found deadlines, but reporting accepted deadlines instead.
                         info!(
                             "deadline captured: account={}, nonce={}, deadline={}",
                             nonce_data.account_id, nonce_data.nonce, deadline
@@ -425,7 +448,8 @@ impl Miner {
                         }
                     }
                     Ok(())
-                }).map_err(|e| panic!("interval errored: err={:?}", e)),
+                })
+                .map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         self.core.run(future::empty::<(), ()>()).unwrap();

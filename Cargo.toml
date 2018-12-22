@@ -1,6 +1,6 @@
 [package]
 name = "scavenger"
-version = "1.6.7"
+version = "1.6.8"
 license = "GPL-3.0"
 authors = ["PoC Consortium <bots@cryptoguru.org>"]
 description = """

@@ -87,6 +87,15 @@ pub struct Cfg {
 
     #[serde(default = "default_benchmark_only")]
     pub benchmark_only: String,
+
+    #[serde(default = "default_multi_chain")]
+    pub multi_chain: bool,
+
+    #[serde(default = "default_maximum_fork_difference")]
+    pub maximum_fork_difference: u64,
+
+    #[serde(default = "default_minimum_block_height")]
+    pub minimum_block_height: u64,
 }
 
 fn default_secret_phrase() -> HashMap<u64, String> {
@@ -191,6 +200,18 @@ fn default_show_drive_stats() -> bool {
 
 fn default_benchmark_only() -> String {
     "disabled".to_owned()
+}
+
+fn default_multi_chain() -> bool {
+    false
+}
+
+fn default_maximum_fork_difference() -> u64 {
+    1440
+}
+
+fn default_minimum_block_height() -> u64 {
+    500000
 }
 
 pub fn load_cfg(config: &str) -> Cfg {

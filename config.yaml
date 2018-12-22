@@ -8,8 +8,8 @@ plot_dirs:
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
 
-# url: 'http://pool.dev.burst-test.net:8124'   # testnet pool
 url: 'http://wallet.dev.burst-test.net:6876'   # testnet wallet
+# url: 'http://pool.dev.burst-test.net:8124'   # testnet pool
 # url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
 
 hdd_reader_thread_count: 0            # default 0 (=number of disks)
@@ -43,6 +43,10 @@ logfile_max_size : 20                 # maximum size per logfile in MiB
 show_progress: true                   # default true  
 show_drive_stats: false               # default false 
 benchmark_only: 'disabled'            # default disabled, options (disabled, I/O, XPU)
+
+multi_chain: false                    # enable multi-chain mining
+maximum_fork_difference: 1440         # maximum block-height difference to last block
+minimum_block_height: 500000          # don't work blocks lower than this height
 
 # Low noise log patterns
 console_log_pattern: "{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}"

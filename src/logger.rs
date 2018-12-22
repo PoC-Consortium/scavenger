@@ -57,7 +57,8 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
                     .build("stdout", Box::new(stdout)),
-            ).build(Root::builder().appender("stdout").build(LevelFilter::Info))
+            )
+            .build(Root::builder().appender("stdout").build(LevelFilter::Info))
             .unwrap()
     } else {
         let logfile = RollingFileAppender::builder()
@@ -69,16 +70,19 @@ pub fn init_logger(cfg: &Cfg) -> log4rs::Handle {
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_console)))
                     .build("stdout", Box::new(stdout)),
-            ).appender(
+            )
+            .appender(
                 Appender::builder()
                     .filter(Box::new(ThresholdFilter::new(level_logfile)))
                     .build("logfile", Box::new(logfile)),
-            ).build(
+            )
+            .build(
                 Root::builder()
                     .appender("stdout")
                     .appender("logfile")
                     .build(LevelFilter::Trace),
-            ).unwrap()
+            )
+            .unwrap()
     };
     log4rs::init_config(config).unwrap()
 }
