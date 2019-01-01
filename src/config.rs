@@ -1,5 +1,4 @@
 extern crate serde_yaml;
-extern crate sys_info;
 
 use std::collections::HashMap;
 use std::fs;
