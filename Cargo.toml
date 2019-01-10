@@ -26,6 +26,7 @@ serde_yaml = "0.7"
 libc = "0.1"
 hex = "0.3.1"
 tokio = "0.1"
+tokio-timer = "0.2.8"
 tokio-core = "0.1"
 url = "1.7.1"
 crossbeam-channel = "0.2.4"
@@ -36,9 +37,9 @@ stopwatch = "0.0.7"
 cfg-if = "0.1"
 filetime = "0.2"
 clap = "~2.30"
-rand = "0.5"
+rand = "0.6"
 log = "0.4.3"
-log4rs = { version = "0.8.0", features = ["rolling_file_appender", "compound_policy", "size_trigger", "fixed_window_roller"] }
+log4rs = { version = "0.8.1", features = ["rolling_file_appender", "compound_policy", "size_trigger", "fixed_window_roller"] }
 chrono = "0.4.5"
 ocl-core = { version = "0.10.0", optional = true } 
 page_size = "0.4.1"
@@ -47,7 +48,9 @@ hyper-rustls = "0.14.0"
 core_affinity = "0.5.9"
 pbr = "1.0.1"
 hostname = "0.1.5"
-
+grpc = "0.6.1"
+grpcio = { version = "0.4.1", default-features = false, features = ["protobuf-codec"] }
+protobuf = "2.0.5"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi"] }
@@ -55,3 +58,5 @@ winapi = { version = "0.3", features = ["fileapi"] }
 [build-dependencies]
 cc = "1.0"
 cfg-if = "0.1"
+protoc-rust-grpc = "0.6"
+protoc-grpcio = "0.3.1"

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package api;
+
+service Api {
+    rpc get_mining_info(Void) returns (GetMiningInfoResponse) {}
+    rpc submit_nonce(SubmitNonceRequest) returns (SubmitNonceResponse) {}
+}
+
+message Void {}
+
+message GetMiningInfoResponse {
+    uint64 height = 1;
+    uint64 base_target = 2;
+    bytes generation_signature = 3;
+}
+
+message SubmitNonceResponse {
+    uint64 deadline = 1;
+}
+
+message SubmitNonceRequest {
+    uint64 account_id = 1;
+    uint64 nonce = 2;
+    uint64 height = 3;
+    string secret_phrase = 4;
+}

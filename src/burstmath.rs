@@ -2,7 +2,7 @@ use hex;
 use shabals;
 use std::mem::transmute;
 
-pub fn decode_gensig(gensig: &str) -> [u8; 32] {
+pub fn decode_gensig(gensig: &Vec<u8>) -> [u8; 32] {
     let mut gensig_bytes = [0; 32];
     gensig_bytes[..].clone_from_slice(&hex::decode(gensig).unwrap());
     gensig_bytes

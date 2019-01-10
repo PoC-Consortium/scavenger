@@ -54,9 +54,6 @@ pub struct Cfg {
     #[serde(default = "default_get_mining_info_interval")]
     pub get_mining_info_interval: u64,
 
-    #[serde(default = "default_timeout")]
-    pub timeout: u64,
-
     #[serde(default = "default_send_proxy_details")]
     pub send_proxy_details: bool,
 
@@ -157,10 +154,6 @@ fn default_get_mining_info_interval() -> u64 {
     3000
 }
 
-fn default_timeout() -> u64 {
-    5000
-}
-
 fn default_send_proxy_details() -> bool {
     false
 }
@@ -232,7 +225,6 @@ mod tests {
     #[test]
     fn test_load_cfg() {
         let cfg = load_cfg("config.yaml");
-        assert_eq!(cfg.timeout, 5000);
         assert_eq!(cfg.plot_dirs, vec!["test_data"]);
     }
 }

@@ -3,6 +3,11 @@ extern crate cc;
 extern crate cfg_if;
 
 fn main() {
+    build_clib();
+    build_api();
+}
+
+fn build_clib() {
     let mut shared_config = cc::Build::new();
 
     #[cfg(target_env = "msvc")]
@@ -28,8 +33,8 @@ fn main() {
         .compile("shabal");
 
     cfg_if! {
-         if #[cfg(feature = "neon")] {
-             fn build(shared_config: cc::Build){
+        if #[cfg(feature = "neon")] {
+            fn build(shared_config: cc::Build){
                 let mut config = shared_config.clone();
 
                 #[cfg(all(not(target_env = "msvc"), not(target_arch = "aarch64")))]
@@ -39,13 +44,13 @@ fn main() {
                     .file("src/c/mshabal_128_neon.c")
                     .file("src/c/shabal_neon.c")
                     .compile("shabal_neon");
-             }
-         }
+            }
+        }
     }
 
     cfg_if! {
-         if #[cfg(feature = "simd")] {
-             fn build(shared_config: cc::Build){
+        if #[cfg(feature = "simd")] {
+            fn build(shared_config: cc::Build){
                 let mut config = shared_config.clone();
 
                 #[cfg(not(target_env = "msvc"))]
@@ -99,4 +104,11 @@ fn main() {
     }
     #[cfg(any(feature = "simd", feature = "neon"))]
     build(shared_config);
+}
+
+fn build_api() {
+    let proto_root = "src";
+    println!("cargo:rerun-if-changed={}", proto_root);
+    protoc_grpcio::compile_grpc_protos(&["api.proto"], &["proto"], &proto_root)
+        .expect("Failed to compile gRPC definitions!");
 }

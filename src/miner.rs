@@ -4,14 +4,16 @@ extern crate num_cpus;
 extern crate ocl_core as core;
 extern crate page_size;
 
+use api;
+use api_grpc;
 use burstmath;
 use chan;
 use config::Cfg;
 use core_affinity;
 use futures::sync::mpsc;
+use grpcio::{ChannelBuilder, EnvBuilder};
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
-use requests::RequestHandler;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::read_dir;
@@ -38,7 +40,7 @@ use ocl::GpuContext;
 
 pub struct Miner {
     reader: Reader,
-    request_handler: RequestHandler,
+    client: api_grpc::ApiClient,
     rx_nonce_data: mpsc::Receiver<NonceData>,
     target_deadline: u64,
     account_id_to_target_deadline: HashMap<u64, u64>,
@@ -50,10 +52,11 @@ pub struct Miner {
     multi_chain: bool,
     maximum_fork_difference: u64,
     minimum_block_height: u64,
+    account_id_to_secret_phrase: HashMap<u64, String>,
 }
 
 pub struct State {
-    generation_signature: String,
+    generation_signature: Vec<u8>,
     height: u64,
     account_id_to_best_deadline: HashMap<u64, u64>,
     base_target: u64,
@@ -283,16 +286,11 @@ impl Miner {
             rx_nonce_data,
             target_deadline: cfg.target_deadline,
             account_id_to_target_deadline: cfg.account_id_to_target_deadline,
-            request_handler: RequestHandler::new(
-                cfg.url,
-                cfg.account_id_to_secret_phrase,
-                cfg.timeout,
-                core.handle(),
-                total_size as usize * 4096 / 1024 / 1024 / 1024,
-                cfg.send_proxy_details,
+            client: api_grpc::ApiClient::new(
+                ChannelBuilder::new(Arc::new(EnvBuilder::new().build())).connect(&cfg.url),
             ),
             state: Arc::new(Mutex::new(State {
-                generation_signature: "".to_owned(),
+                generation_signature: Vec::new(),
                 height: 0,
                 account_id_to_best_deadline: HashMap::new(),
                 base_target: 1,
@@ -306,12 +304,13 @@ impl Miner {
             multi_chain: cfg.multi_chain,
             maximum_fork_difference: cfg.maximum_fork_difference,
             minimum_block_height: cfg.minimum_block_height,
+            account_id_to_secret_phrase: cfg.account_id_to_secret_phrase,
         }
     }
 
     pub fn run(mut self) {
         let handle = self.core.handle();
-        let request_handler = self.request_handler.clone();
+        let client = self.client.clone();
         let total_size = self.reader.total_size;
 
         // you left me no choice!!! at least not one that I could have worked out in two weeks...
@@ -332,69 +331,76 @@ impl Miner {
             .for_each(move |_| {
                 let state = state.clone();
                 let reader = reader.clone();
-                request_handler.get_mining_info().then(move |mining_info| {
-                    match mining_info {
-                        Ok(mining_info) => {
-                            let mut state = state.lock().unwrap();
-                            let new_block =
-                                mining_info.generation_signature != state.generation_signature;
-                            if (new_block && multi_chain)
-                                || (new_block
-                                    && (state.height == 0 || mining_info.height
-                                        > (state.height - maximum_fork_difference))
-                                    && mining_info.height > minimum_block_height)
-                            {
-                                for best_deadlines in state.account_id_to_best_deadline.values_mut()
+                client
+                    .get_mining_info_async(&api::Void::new())
+                    .unwrap()
+                    .then(move |mining_info| {
+                        match mining_info {
+                            Ok(mining_info) => {
+                                let mut state = state.lock().unwrap();
+                                let new_block =
+                                    mining_info.generation_signature != state.generation_signature;
+                                if (new_block && multi_chain)
+                                    || (new_block
+                                        && (state.height == 0
+                                            || mining_info.height
+                                                > (state.height - maximum_fork_difference))
+                                        && mining_info.height > minimum_block_height)
                                 {
-                                    *best_deadlines = u64::MAX;
+                                    for best_deadlines in
+                                        state.account_id_to_best_deadline.values_mut()
+                                    {
+                                        *best_deadlines = u64::MAX;
+                                    }
+                                    state.height = mining_info.height;
+                                    state.base_target = mining_info.base_target;
+
+                                    let gensig =
+                                        burstmath::decode_gensig(&mining_info.generation_signature);
+                                    state.generation_signature = mining_info.generation_signature;
+
+                                    let scoop =
+                                        burstmath::calculate_scoop(mining_info.height, &gensig);
+                                    info!(
+                                        "{: <80}",
+                                        format!(
+                                            "new block: height={}, scoop={}",
+                                            mining_info.height, scoop
+                                        )
+                                    );
+
+                                    reader.borrow_mut().start_reading(
+                                        mining_info.height,
+                                        scoop,
+                                        &Arc::new(gensig),
+                                    );
+                                    state.sw.restart();
+                                    state.processed_reader_tasks = 0;
+                                    state.scanning = true;
+                                } else if !state.scanning
+                                    && wakeup_after != 0
+                                    && state.sw.elapsed_ms() > wakeup_after
+                                {
+                                    info!("HDD, wakeup!");
+                                    reader.borrow_mut().wakeup();
+                                    state.sw.restart();
                                 }
-                                state.height = mining_info.height;
-                                state.base_target = mining_info.base_target;
-
-                                let gensig =
-                                    burstmath::decode_gensig(&mining_info.generation_signature);
-                                state.generation_signature = mining_info.generation_signature;
-
-                                let scoop = burstmath::calculate_scoop(mining_info.height, &gensig);
-                                info!(
-                                    "{: <80}",
-                                    format!(
-                                        "new block: height={}, scoop={}",
-                                        mining_info.height, scoop
-                                    )
-                                );
-
-                                reader.borrow_mut().start_reading(
-                                    mining_info.height,
-                                    scoop,
-                                    &Arc::new(gensig),
-                                );
-                                state.sw.restart();
-                                state.processed_reader_tasks = 0;
-                                state.scanning = true;
-                            } else if !state.scanning
-                                && wakeup_after != 0
-                                && state.sw.elapsed_ms() > wakeup_after
-                            {
-                                info!("HDD, wakeup!");
-                                reader.borrow_mut().wakeup();
-                                state.sw.restart();
                             }
+                            _ => warn!("{: <80}", "error getting mining info"),
                         }
-                        _ => warn!("{: <80}", "error getting mining info"),
-                    }
-                    future::ok(())
-                })
+                        future::ok(())
+                    })
             })
             .map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         let target_deadline = self.target_deadline;
         let account_id_to_target_deadline = self.account_id_to_target_deadline;
-        let request_handler = self.request_handler.clone();
+        let client = self.client.clone();
         let inner_handle = handle.clone();
         let state = self.state.clone();
         let reader_task_count = self.reader_task_count;
+        let account_id_to_secret_phrase = self.account_id_to_secret_phrase;
         handle.spawn(
             self.rx_nonce_data
                 .for_each(move |nonce_data| {
@@ -413,15 +419,18 @@ impl Miner {
                         state
                             .account_id_to_best_deadline
                             .insert(nonce_data.account_id, deadline);
-                        request_handler.submit_nonce(
-                            &inner_handle,
-                            nonce_data.account_id,
-                            nonce_data.nonce,
-                            nonce_data.height,
-                            nonce_data.deadline,
-                            deadline,
-                            0,
-                        );
+
+                        let secret_phrase = account_id_to_secret_phrase
+                            .get(&nonce_data.account_id)
+                            .unwrap_or(&"".to_owned())
+                            .to_string();
+
+                        let mut msg = api::SubmitNonceRequest::new();
+                        msg.set_account_id(nonce_data.account_id);
+                        msg.set_nonce(nonce_data.nonce);
+                        msg.set_height(nonce_data.height);
+                        msg.set_secret_phrase(secret_phrase);
+                        client.submit_nonce_async(&msg);
                         /* tradeoff between non-verbosity and information: stopped informing about
                            found deadlines, but reporting accepted deadlines instead.
                         info!(
