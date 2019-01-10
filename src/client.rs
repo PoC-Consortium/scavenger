@@ -52,7 +52,6 @@ impl Client {
 }
 
 fn retry_submit_nonce(client: api_grpc::ApiClient, msg: api::SubmitNonceRequest) -> impl Future {
-    let client = Arc::new(client);
     Interval::new_interval(Duration::from_secs(3))
         .take(3)
         .then(move |_| client.submit_nonce_async(&msg).unwrap())
