@@ -71,6 +71,7 @@ fn retry_submit_nonce(client: api_grpc::ApiClient, msg: api::SubmitNonceRequest)
 mod test {
     use super::*;
     use futures::Future;
+    use grpcio::{Environment, RpcContext, ServerBuilder, UnarySink};
 
     #[derive(Clone)]
     struct ApiService;
