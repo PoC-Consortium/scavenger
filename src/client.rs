@@ -1,21 +1,20 @@
 use api;
 use api_grpc;
-use futures::{future, Future, IntoFuture, Stream};
-use grpcio::{ChannelBuilder, EnvBuilder, Environment, RpcContext, ServerBuilder, UnarySink};
-use std::cell::RefCell;
+use futures::{future, Future, Stream};
+use grpcio::{ChannelBuilder, EnvBuilder};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::timer::Interval;
-// use std::rc::Rc;
 
-struct Client {
+#[derive(Clone)]
+pub struct Client {
     client: api_grpc::ApiClient,
     account_id_to_secret_phrase: HashMap<u64, String>,
 }
 
 impl Client {
-    fn new(addr: &str, account_id_to_secret_phrase: HashMap<u64, String>) -> Client {
+    pub fn new(addr: &str, account_id_to_secret_phrase: HashMap<u64, String>) -> Client {
         let env = Arc::new(EnvBuilder::new().build());
         let ch = ChannelBuilder::new(env).connect(addr);
         let client = api_grpc::ApiClient::new(ch);

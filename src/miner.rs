@@ -4,6 +4,7 @@ extern crate num_cpus;
 extern crate ocl_core as core;
 extern crate page_size;
 
+use client;
 use api;
 use api_grpc;
 use burstmath;
@@ -40,7 +41,7 @@ use ocl::GpuContext;
 
 pub struct Miner {
     reader: Reader,
-    client: api_grpc::ApiClient,
+    client: client::Client,
     rx_nonce_data: mpsc::Receiver<NonceData>,
     target_deadline: u64,
     account_id_to_target_deadline: HashMap<u64, u64>,
@@ -52,7 +53,6 @@ pub struct Miner {
     multi_chain: bool,
     maximum_fork_difference: u64,
     minimum_block_height: u64,
-    account_id_to_secret_phrase: HashMap<u64, String>,
 }
 
 pub struct State {
@@ -286,9 +286,7 @@ impl Miner {
             rx_nonce_data,
             target_deadline: cfg.target_deadline,
             account_id_to_target_deadline: cfg.account_id_to_target_deadline,
-            client: api_grpc::ApiClient::new(
-                ChannelBuilder::new(Arc::new(EnvBuilder::new().build())).connect(&cfg.url),
-            ),
+            client: client::Client::new(&cfg.url, cfg.account_id_to_secret_phrase),
             state: Arc::new(Mutex::new(State {
                 generation_signature: Vec::new(),
                 height: 0,
@@ -304,7 +302,6 @@ impl Miner {
             multi_chain: cfg.multi_chain,
             maximum_fork_difference: cfg.maximum_fork_difference,
             minimum_block_height: cfg.minimum_block_height,
-            account_id_to_secret_phrase: cfg.account_id_to_secret_phrase,
         }
     }
 
@@ -332,8 +329,7 @@ impl Miner {
                 let state = state.clone();
                 let reader = reader.clone();
                 client
-                    .get_mining_info_async(&api::Void::new())
-                    .unwrap()
+                    .get_mining_info()
                     .then(move |mining_info| {
                         match mining_info {
                             Ok(mining_info) => {
@@ -397,10 +393,8 @@ impl Miner {
         let target_deadline = self.target_deadline;
         let account_id_to_target_deadline = self.account_id_to_target_deadline;
         let client = self.client.clone();
-        let inner_handle = handle.clone();
         let state = self.state.clone();
         let reader_task_count = self.reader_task_count;
-        let account_id_to_secret_phrase = self.account_id_to_secret_phrase;
         handle.spawn(
             self.rx_nonce_data
                 .for_each(move |nonce_data| {
@@ -420,17 +414,7 @@ impl Miner {
                             .account_id_to_best_deadline
                             .insert(nonce_data.account_id, deadline);
 
-                        let secret_phrase = account_id_to_secret_phrase
-                            .get(&nonce_data.account_id)
-                            .unwrap_or(&"".to_owned())
-                            .to_string();
-
-                        let mut msg = api::SubmitNonceRequest::new();
-                        msg.set_account_id(nonce_data.account_id);
-                        msg.set_nonce(nonce_data.nonce);
-                        msg.set_height(nonce_data.height);
-                        msg.set_secret_phrase(secret_phrase);
-                        client.submit_nonce_async(&msg);
+                        client.submit_nonce(nonce_data.account_id, nonce_data.nonce, nonce_data.height);
                         /* tradeoff between non-verbosity and information: stopped informing about
                            found deadlines, but reporting accepted deadlines instead.
                         info!(
