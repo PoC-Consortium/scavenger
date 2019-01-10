@@ -5,14 +5,11 @@ extern crate ocl_core as core;
 extern crate page_size;
 
 use client;
-use api;
-use api_grpc;
 use burstmath;
 use chan;
 use config::Cfg;
 use core_affinity;
 use futures::sync::mpsc;
-use grpcio::{ChannelBuilder, EnvBuilder};
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
 use std::cell::RefCell;
