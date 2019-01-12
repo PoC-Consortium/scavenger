@@ -230,7 +230,9 @@ impl RequestHandler {
     }
 
     fn uri_for(&self, path: &str) -> hyper::Uri {
-        (self.base_uri.clone() + path).parse().unwrap()
+        (self.base_uri.clone() + path)
+            .parse()
+            .expect("Failed to parse Server URL, please check format!")
     }
 
     fn post_req(&self, path: &str) -> Request<hyper::Body> {
@@ -241,12 +243,12 @@ impl RequestHandler {
                 .header("X-Miner", self.ua.to_owned())
                 .header(
                     "X-Minername",
-                    hostname::get_hostname().unwrap_or("".to_owned()),
+                    hostname::get_hostname().unwrap_or_else(|| "".to_owned()),
                 )
                 .header(
                     "X-Plotfile",
                     "ScavengerProxy/".to_owned()
-                        + &*hostname::get_hostname().unwrap_or("".to_owned()),
+                        + &*hostname::get_hostname().unwrap_or_else(|| "".to_owned()),
                 )
                 .body(hyper::Body::empty())
                 .unwrap()

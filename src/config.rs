@@ -21,8 +21,11 @@ pub struct Cfg {
     #[serde(default = "default_hdd_wakeup_after")]
     pub hdd_wakeup_after: i64,
 
-    #[serde(default = "default_cpu_worker_thread_count")]
-    pub cpu_worker_thread_count: usize,
+    #[serde(default = "default_cpu_threads")]
+    pub cpu_threads: usize,
+
+    #[serde(default = "default_cpu_worker_task_count")]
+    pub cpu_worker_task_count: usize,
 
     #[serde(default = "default_cpu_nonces_per_cache")]
     pub cpu_nonces_per_cache: usize,
@@ -30,20 +33,26 @@ pub struct Cfg {
     #[serde(default = "default_cpu_thread_pinning")]
     pub cpu_thread_pinning: bool,
 
+    #[serde(default = "default_gpu_threads")]
+    pub gpu_threads: usize,
+
     #[serde(default = "default_gpu_platform")]
     pub gpu_platform: usize,
 
     #[serde(default = "default_gpu_device")]
     pub gpu_device: usize,
 
-    #[serde(default = "default_gpu_worker_thread_count")]
-    pub gpu_worker_thread_count: usize,
+    #[serde(default = "default_gpu_worker_task_count")]
+    pub gpu_worker_task_count: usize,
 
     #[serde(default = "default_gpu_nonces_per_cache")]
     pub gpu_nonces_per_cache: usize,
 
     #[serde(default = "default_gpu_mem_mapping")]
     pub gpu_mem_mapping: bool,
+
+    #[serde(default = "default_gpu_async")]
+    pub gpu_async: bool,
 
     #[serde(default = "default_target_deadline")]
     pub target_deadline: u64,
@@ -86,15 +95,6 @@ pub struct Cfg {
 
     #[serde(default = "default_benchmark_only")]
     pub benchmark_only: String,
-
-    #[serde(default = "default_multi_chain")]
-    pub multi_chain: bool,
-
-    #[serde(default = "default_maximum_fork_difference")]
-    pub maximum_fork_difference: u64,
-
-    #[serde(default = "default_minimum_block_height")]
-    pub minimum_block_height: u64,
 }
 
 fn default_secret_phrase() -> HashMap<u64, String> {
@@ -113,7 +113,11 @@ fn default_hdd_wakeup_after() -> i64 {
     240
 }
 
-fn default_cpu_worker_thread_count() -> usize {
+fn default_cpu_threads() -> usize {
+    0
+}
+
+fn default_cpu_worker_task_count() -> usize {
     0
 }
 
@@ -125,6 +129,10 @@ fn default_cpu_thread_pinning() -> bool {
     false
 }
 
+fn default_gpu_threads() -> usize {
+    0
+}
+
 fn default_gpu_platform() -> usize {
     0
 }
@@ -133,7 +141,7 @@ fn default_gpu_device() -> usize {
     0
 }
 
-fn default_gpu_worker_thread_count() -> usize {
+fn default_gpu_worker_task_count() -> usize {
     0
 }
 
@@ -142,6 +150,10 @@ fn default_gpu_nonces_per_cache() -> usize {
 }
 
 fn default_gpu_mem_mapping() -> bool {
+    false
+}
+
+fn default_gpu_async() -> bool {
     false
 }
 
@@ -201,25 +213,13 @@ fn default_benchmark_only() -> String {
     "disabled".to_owned()
 }
 
-fn default_multi_chain() -> bool {
-    false
-}
-
-fn default_maximum_fork_difference() -> u64 {
-    1440
-}
-
-fn default_minimum_block_height() -> u64 {
-    500000
-}
-
 pub fn load_cfg(config: &str) -> Cfg {
     let cfg_str = fs::read_to_string(config).expect("failed to open config");
     let cfg: Cfg = serde_yaml::from_str(&cfg_str).expect("failed to parse config");
     if cfg.hdd_use_direct_io {
         assert!(
-            cfg.cpu_nonces_per_cache % 8 == 0 && cfg.gpu_nonces_per_cache % 8 == 0,
-            "nonces_per_cache must be devisable by 8 when using direct io"
+            cfg.cpu_nonces_per_cache % 64 == 0 && cfg.gpu_nonces_per_cache % 64 == 0,
+            "nonces_per_cache should be devisable by 64 when using direct io"
         );
     }
     cfg

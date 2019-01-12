@@ -84,7 +84,7 @@ cfg_if! {
         use std::ffi::CString;
         use std::path::Path;
 
-        pub fn get_device_id(path: &String) -> String {
+        pub fn get_device_id(path: &str) -> String {
             let path_encoded: Vec<u16> = OsStr::new(path).encode_wide().chain(once(0)).collect();
             let mut volume_encoded: Vec<u16> = OsStr::new(path)
                 .encode_wide()
@@ -105,7 +105,7 @@ cfg_if! {
             String::from(v[0])
         }
 
-        pub fn get_sector_size(path: &String) -> u64 {
+        pub fn get_sector_size(path: &str) -> u64 {
             let path_encoded = Path::new(path);
             let parent_path = path_encoded.parent().unwrap().to_str().unwrap();
             let parent_path_encoded = CString::new(parent_path).unwrap();
@@ -124,7 +124,7 @@ cfg_if! {
             } == 0  {
                 panic!("get sector size, filename={}",path);
             };
-            bytes_per_sector as u64
+            u64::from(bytes_per_sector)
         }
 
         pub fn set_thread_ideal_processor(id: usize){

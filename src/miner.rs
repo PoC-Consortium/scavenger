@@ -1,21 +1,29 @@
-extern crate aligned_alloc;
-extern crate num_cpus;
 #[cfg(feature = "opencl")]
 extern crate ocl_core as core;
-extern crate page_size;
 
 use burstmath;
 use chan;
 use config::Cfg;
 use core_affinity;
+use cpu_worker::create_cpu_worker_task;
 use futures::sync::mpsc;
+#[cfg(feature = "opencl")]
+use gpu_worker::create_gpu_worker_task;
+#[cfg(feature = "opencl")]
+use gpu_worker_async::create_gpu_worker_task_async;
+#[cfg(feature = "opencl")]
+use ocl::GpuBuffer;
+#[cfg(feature = "opencl")]
+use ocl::GpuContext;
 use plot::{Plot, SCOOP_SIZE};
 use reader::Reader;
 use requests::RequestHandler;
 use std::cell::RefCell;
+use std::cmp::min;
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
+use std::process;
 use std::rc::Rc;
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
@@ -29,12 +37,6 @@ use tokio_core::reactor::Core;
 use utils::get_device_id;
 #[cfg(windows)]
 use utils::set_thread_ideal_processor;
-use worker::{create_worker_task, NonceData};
-
-#[cfg(feature = "opencl")]
-use ocl::GpuBuffer;
-#[cfg(feature = "opencl")]
-use ocl::GpuContext;
 
 pub struct Miner {
     reader: Reader,
@@ -47,9 +49,6 @@ pub struct Miner {
     get_mining_info_interval: u64,
     core: Core,
     wakeup_after: i64,
-    multi_chain: bool,
-    maximum_fork_difference: u64,
-    minimum_block_height: u64,
 }
 
 pub struct State {
@@ -59,19 +58,27 @@ pub struct State {
     base_target: u64,
     sw: Stopwatch,
     scanning: bool,
-
-    // count how many reader's scoops have been processed
     processed_reader_tasks: usize,
+}
+
+pub struct NonceData {
+    pub height: u64,
+    pub base_target: u64,
+    pub deadline: u64,
+    pub nonce: u64,
+    pub reader_task_processed: bool,
+    pub account_id: u64,
 }
 
 pub trait Buffer {
     fn get_buffer(&mut self) -> Arc<Mutex<Vec<u8>>>;
-
     fn get_buffer_for_writing(&mut self) -> Arc<Mutex<Vec<u8>>>;
     #[cfg(feature = "opencl")]
-    fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>>;
-    #[cfg(feature = "opencl")]
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
+    #[cfg(feature = "opencl")]
+    fn get_gpu_data(&self) -> Option<core::Mem>;
+    fn unmap(&self);
+    fn get_id(&self) -> usize;
 }
 
 pub struct CpuBuffer {
@@ -79,15 +86,8 @@ pub struct CpuBuffer {
 }
 
 impl CpuBuffer {
-    fn new(buffer_size: usize) -> Self
-    where
-        Self: Sized,
-    {
-        let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
-        let data: Vec<u8>;
-        unsafe {
-            data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
-        }
+    pub fn new(buffer_size: usize) -> Self {
+        let data = vec![1u8; buffer_size];
         CpuBuffer {
             data: Arc::new(Mutex::new(data)),
         }
@@ -102,12 +102,16 @@ impl Buffer for CpuBuffer {
         self.data.clone()
     }
     #[cfg(feature = "opencl")]
-    fn get_gpu_context(&self) -> Option<Arc<Mutex<GpuContext>>> {
+    fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
         None
     }
     #[cfg(feature = "opencl")]
-    fn get_gpu_buffers(&self) -> Option<&GpuBuffer> {
+    fn get_gpu_data(&self) -> Option<core::Mem> {
         None
+    }
+    fn unmap(&self) {}
+    fn get_id(&self) -> usize {
+        0
     }
 }
 
@@ -178,93 +182,210 @@ impl Miner {
             cfg.benchmark_only.to_uppercase() == "XPU",
         );
 
+        let core_ids = core_affinity::get_core_ids().unwrap();
+        let thread_pinning = cfg.cpu_thread_pinning;
+        let cpu_threads = if cfg.cpu_threads == 0 {
+            core_ids.len()
+        } else {
+            min(cfg.cpu_threads, core_ids.len())
+        };
+
+        let cpu_worker_task_count = cfg.cpu_worker_task_count;
+
+        let cpu_buffer_count = cpu_worker_task_count
+            + if cpu_worker_task_count > 0 {
+                cpu_threads
+            } else {
+                0
+            };
+
         let reader_thread_count = if cfg.hdd_reader_thread_count == 0 {
             drive_id_to_plots.len()
         } else {
             cfg.hdd_reader_thread_count
         };
 
-        let cpu_worker_thread_count = cfg.cpu_worker_thread_count;
-        let gpu_worker_thread_count = cfg.gpu_worker_thread_count;
-
-        info!(
-            "CPU-worker: {}, GPU-worker: {}",
-            cpu_worker_thread_count, gpu_worker_thread_count
-        );
-
-        let buffer_count = cpu_worker_thread_count * 2 + gpu_worker_thread_count * 2;
-        let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
-
-        let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
-        let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_worker_thread_count * 2);
-        let (tx_read_replies_gpu, rx_read_replies_gpu) = chan::bounded(gpu_worker_thread_count * 2);
-
         #[cfg(feature = "opencl")]
-        let mut vec = Vec::new();
-
+        let gpu_worker_task_count = cfg.gpu_worker_task_count;
         #[cfg(feature = "opencl")]
-        for _ in 0..gpu_worker_thread_count {
-            vec.push(Arc::new(Mutex::new(GpuContext::new(
-                cfg.gpu_platform,
-                cfg.gpu_device,
-                cfg.gpu_nonces_per_cache,
-                if cfg.benchmark_only.to_uppercase() == "I/O" {
-                    false
+        let gpu_threads = cfg.gpu_threads;
+        #[cfg(feature = "opencl")]
+        let gpu_buffer_count = if gpu_worker_task_count > 0 {
+            if cfg.gpu_async {
+                gpu_worker_task_count + 2 * gpu_threads
+            } else {
+                gpu_worker_task_count + gpu_threads
+            }
+        } else {
+            0
+        };
+        #[cfg(feature = "opencl")]
+        {
+            info!(
+                "reader-threads={}, CPU-threads={}, GPU-threads={}",
+                reader_thread_count, cpu_threads, gpu_threads,
+            );
+
+            info!(
+                "CPU-buffer={}(+{}), GPU-buffer={}(+{})",
+                cpu_worker_task_count,
+                if cpu_worker_task_count > 0 {
+                    cpu_threads
                 } else {
-                    cfg.gpu_mem_mapping
+                    0
                 },
-            ))));
-        }
+                gpu_worker_task_count,
+                if gpu_worker_task_count > 0 {
+                    if cfg.gpu_async {
+                        2 * gpu_threads
+                    } else {
+                        gpu_threads
+                    }
+                } else {
+                    0
+                }
+            );
 
-        #[cfg(feature = "opencl")]
-        for _ in 0..1 {
-            for i in 0..gpu_worker_thread_count {
-                let gpu_buffer = GpuBuffer::new(&vec[i]);
-                tx_empty_buffers.send(Box::new(gpu_buffer) as Box<Buffer + Send>);
+            {
+                if cpu_threads * cpu_worker_task_count + gpu_threads * gpu_worker_task_count == 0 {
+                    error!("CPU, GPU: no active workers. Check thread and task configuration. Shutting down...");
+                    process::exit(0);
+                }
             }
         }
 
-        for _ in 0..cpu_worker_thread_count * 2 {
-            let cpu_buffer = CpuBuffer::new(buffer_size_cpu);
-            tx_empty_buffers.send(Box::new(cpu_buffer) as Box<Buffer + Send>);
-        }
-
-        let (tx_nonce_data, rx_nonce_data) =
-            mpsc::channel(cpu_worker_thread_count + gpu_worker_thread_count);
-
-        let mut core_ids: Vec<core_affinity::CoreId> = Vec::new();
-        if cfg.cpu_thread_pinning {
-            core_ids = core_affinity::get_core_ids().unwrap();
-        }
-        for id in 0..cpu_worker_thread_count {
-            thread::spawn({
-                if cfg.cpu_thread_pinning {
-                    #[cfg(not(windows))]
-                    let core_id = core_ids[id % core_ids.len()];
-                    #[cfg(not(windows))]
-                    core_affinity::set_for_current(core_id);
-                    #[cfg(windows)]
-                    set_thread_ideal_processor(id % core_ids.len());
+        #[cfg(not(feature = "opencl"))]
+        {
+            info!(
+                "reader-threads={} CPU-threads={}",
+                reader_thread_count, cpu_threads
+            );
+            info!("CPU-buffer={}(+{})", cpu_worker_task_count, cpu_threads);
+            {
+                if cpu_threads * cpu_worker_task_count == 0 {
+                    error!(
+                    "CPU: no active workers. Check thread and task configuration. Shutting down..."
+                );
+                    process::exit(0);
                 }
-                create_worker_task(
-                    cfg.benchmark_only.to_uppercase() == "I/O",
-                    rx_read_replies_cpu.clone(),
-                    tx_empty_buffers.clone(),
-                    tx_nonce_data.clone(),
-                )
-            });
+            }
         }
 
-        for _ in 0..gpu_worker_thread_count {
-            thread::spawn({
-                create_worker_task(
-                    cfg.benchmark_only.to_uppercase() == "I/O",
-                    rx_read_replies_gpu.clone(),
-                    tx_empty_buffers.clone(),
-                    tx_nonce_data.clone(),
-                )
-            });
+        #[cfg(not(feature = "opencl"))]
+        let buffer_count = cpu_buffer_count;
+        #[cfg(feature = "opencl")]
+        let buffer_count = cpu_buffer_count + gpu_buffer_count;
+        let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
+        let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
+        let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_buffer_count);
+
+        #[cfg(feature = "opencl")]
+        let mut tx_read_replies_gpu = Vec::new();
+        #[cfg(feature = "opencl")]
+        let mut rx_read_replies_gpu = Vec::new();
+        #[cfg(feature = "opencl")]
+        let mut gpu_contexts = Vec::new();
+        #[cfg(feature = "opencl")]
+        {
+            for _ in 0..gpu_threads {
+                let (tx, rx) = chan::unbounded();
+                tx_read_replies_gpu.push(tx);
+                rx_read_replies_gpu.push(rx);
+            }
+
+            for _ in 0..gpu_threads {
+                gpu_contexts.push(Arc::new(GpuContext::new(
+                    cfg.gpu_platform,
+                    cfg.gpu_device,
+                    cfg.gpu_nonces_per_cache,
+                    if cfg.benchmark_only.to_uppercase() == "I/O" {
+                        false
+                    } else {
+                        cfg.gpu_mem_mapping
+                    },
+                )));
+            }
         }
+
+        for _ in 0..cpu_buffer_count {
+            let cpu_buffer = CpuBuffer::new(buffer_size_cpu);
+            tx_empty_buffers
+                .send(Box::new(cpu_buffer) as Box<Buffer + Send>)
+                .unwrap();
+        }
+
+        #[cfg(feature = "opencl")]
+        for (i, context) in gpu_contexts.iter().enumerate() {
+            for _ in 0..(gpu_buffer_count / gpu_threads
+                + if i == 0 {
+                    gpu_buffer_count % gpu_threads
+                } else {
+                    0
+                })
+            {
+                let gpu_buffer = GpuBuffer::new(&context.clone(), i + 1);
+                tx_empty_buffers
+                    .send(Box::new(gpu_buffer) as Box<Buffer + Send>)
+                    .unwrap();
+            }
+        }
+
+        let (tx_nonce_data, rx_nonce_data) = mpsc::channel(buffer_count);
+
+        thread::spawn({
+            create_cpu_worker_task(
+                cfg.benchmark_only.to_uppercase() == "I/O",
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(cpu_threads)
+                    .start_handler(move |id| {
+                        if thread_pinning {
+                            #[cfg(not(windows))]
+                            let core_id = core_ids[id % core_ids.len()];
+                            #[cfg(not(windows))]
+                            core_affinity::set_for_current(core_id);
+                            #[cfg(windows)]
+                            set_thread_ideal_processor(id % core_ids.len());
+                        }
+                    })
+                    .build()
+                    .unwrap(),
+                rx_read_replies_cpu.clone(),
+                tx_empty_buffers.clone(),
+                tx_nonce_data.clone(),
+            )
+        });
+
+        #[cfg(feature = "opencl")]
+        for i in 0..gpu_threads {
+            if cfg.gpu_async {
+                thread::spawn({
+                    create_gpu_worker_task_async(
+                        cfg.benchmark_only.to_uppercase() == "I/O",
+                        rx_read_replies_gpu[i].clone(),
+                        tx_empty_buffers.clone(),
+                        tx_nonce_data.clone(),
+                        gpu_contexts[i].clone(),
+                        drive_id_to_plots.len(),
+                    )
+                });
+            } else {
+                #[cfg(feature = "opencl")]
+                thread::spawn({
+                    create_gpu_worker_task(
+                        cfg.benchmark_only.to_uppercase() == "I/O",
+                        rx_read_replies_gpu[i].clone(),
+                        tx_empty_buffers.clone(),
+                        tx_nonce_data.clone(),
+                        gpu_contexts[i].clone(),
+                    )
+                });
+            }
+        }
+
+        #[cfg(feature = "opencl")]
+        let tx_read_replies_gpu = Some(tx_read_replies_gpu);
+        #[cfg(not(feature = "opencl"))]
+        let tx_read_replies_gpu = None;
 
         let core = Core::new().unwrap();
         Miner {
@@ -274,11 +395,13 @@ impl Miner {
                 total_size,
                 reader_thread_count,
                 rx_empty_buffers,
+                tx_empty_buffers,
                 tx_read_replies_cpu,
                 tx_read_replies_gpu,
                 cfg.show_progress,
                 cfg.show_drive_stats,
                 cfg.cpu_thread_pinning,
+                cfg.benchmark_only.to_uppercase() == "XPU",
             ),
             rx_nonce_data,
             target_deadline: cfg.target_deadline,
@@ -303,9 +426,6 @@ impl Miner {
             get_mining_info_interval: cfg.get_mining_info_interval,
             core,
             wakeup_after: cfg.hdd_wakeup_after * 1000, // ms -> s
-            multi_chain: cfg.multi_chain,
-            maximum_fork_difference: cfg.maximum_fork_difference,
-            minimum_block_height: cfg.minimum_block_height,
         }
     }
 
@@ -321,9 +441,6 @@ impl Miner {
         // there might be a way to solve this without two nested moves
         let get_mining_info_interval = self.get_mining_info_interval;
         let wakeup_after = self.wakeup_after;
-        let multi_chain = self.multi_chain;
-        let maximum_fork_difference = self.maximum_fork_difference;
-        let minimum_block_height = self.minimum_block_height;
         handle.spawn(
             Interval::new(
                 Instant::now(),
@@ -336,14 +453,7 @@ impl Miner {
                     match mining_info {
                         Ok(mining_info) => {
                             let mut state = state.lock().unwrap();
-                            let new_block =
-                                mining_info.generation_signature != state.generation_signature;
-                            if (new_block && multi_chain)
-                                || (new_block
-                                    && (state.height == 0 || mining_info.height
-                                        > (state.height - maximum_fork_difference))
-                                    && mining_info.height > minimum_block_height)
-                            {
+                            if mining_info.generation_signature != state.generation_signature {
                                 for best_deadlines in state.account_id_to_best_deadline.values_mut()
                                 {
                                     *best_deadlines = u64::MAX;
@@ -364,14 +474,18 @@ impl Miner {
                                     )
                                 );
 
-                                reader.borrow_mut().start_reading(
-                                    mining_info.height,
-                                    scoop,
-                                    &Arc::new(gensig),
-                                );
                                 state.sw.restart();
                                 state.processed_reader_tasks = 0;
                                 state.scanning = true;
+
+                                drop(state);
+
+                                reader.borrow_mut().start_reading(
+                                    mining_info.height,
+                                    mining_info.base_target,
+                                    scoop,
+                                    &Arc::new(gensig),
+                                );
                             } else if !state.scanning
                                 && wakeup_after != 0
                                 && state.sw.elapsed_ms() > wakeup_after
@@ -399,52 +513,49 @@ impl Miner {
             self.rx_nonce_data
                 .for_each(move |nonce_data| {
                     let mut state = state.lock().unwrap();
-                    let deadline = nonce_data.deadline / state.base_target;
-                    let best_deadline = *state
-                        .account_id_to_best_deadline
-                        .get(&nonce_data.account_id)
-                        .unwrap_or(&u64::MAX);
-                    if best_deadline > deadline
-                        && deadline
-                            < *(account_id_to_target_deadline
-                                .get(&nonce_data.account_id)
-                                .unwrap_or(&target_deadline))
-                    {
-                        state
+                    let deadline = nonce_data.deadline / nonce_data.base_target;
+                    if state.height == nonce_data.height {
+                        let best_deadline = *state
                             .account_id_to_best_deadline
-                            .insert(nonce_data.account_id, deadline);
-                        request_handler.submit_nonce(
-                            &inner_handle,
-                            nonce_data.account_id,
-                            nonce_data.nonce,
-                            nonce_data.height,
-                            nonce_data.deadline,
-                            deadline,
-                            0,
-                        );
-                        /* tradeoff between non-verbosity and information: stopped informing about
-                           found deadlines, but reporting accepted deadlines instead.
-                        info!(
-                            "deadline captured: account={}, nonce={}, deadline={}",
-                            nonce_data.account_id, nonce_data.nonce, deadline
-                        );*/
-                    }
-                    if nonce_data.reader_task_processed {
-                        state.processed_reader_tasks += 1;
-                        if state.processed_reader_tasks == reader_task_count {
-                            info!(
-                                "{: <80}",
-                                format!(
-                                    "round finished: roundtime={}ms, speed={:.2}MiB/s",
-                                    state.sw.elapsed_ms(),
-                                    total_size as f64 * 1000.0
-                                        / 1024.0
-                                        / 1024.0
-                                        / state.sw.elapsed_ms() as f64
-                                )
+                            .get(&nonce_data.account_id)
+                            .unwrap_or(&u64::MAX);
+                        if best_deadline > deadline
+                            && deadline
+                                < *(account_id_to_target_deadline
+                                    .get(&nonce_data.account_id)
+                                    .unwrap_or(&target_deadline))
+                        {
+                            state
+                                .account_id_to_best_deadline
+                                .insert(nonce_data.account_id, deadline);
+                            request_handler.submit_nonce(
+                                &inner_handle,
+                                nonce_data.account_id,
+                                nonce_data.nonce,
+                                nonce_data.height,
+                                nonce_data.deadline,
+                                deadline,
+                                0,
                             );
-                            state.sw.restart();
-                            state.scanning = false;
+                        }
+
+                        if nonce_data.reader_task_processed {
+                            state.processed_reader_tasks += 1;
+                            if state.processed_reader_tasks == reader_task_count {
+                                info!(
+                                    "{: <80}",
+                                    format!(
+                                        "round finished: roundtime={}ms, speed={:.2}MiB/s",
+                                        state.sw.elapsed_ms(),
+                                        total_size as f64 * 1000.0
+                                            / 1024.0
+                                            / 1024.0
+                                            / state.sw.elapsed_ms() as f64
+                                    )
+                                );
+                                state.sw.restart();
+                                state.scanning = false;
+                            }
                         }
                     }
                     Ok(())

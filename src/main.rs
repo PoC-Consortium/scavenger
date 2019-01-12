@@ -20,12 +20,12 @@ extern crate clap;
 extern crate rand;
 #[macro_use]
 extern crate log;
-extern crate chrono;
 extern crate core_affinity;
 extern crate log4rs;
 
 mod burstmath;
 mod config;
+mod cpu_worker;
 mod logger;
 mod miner;
 mod plot;
@@ -33,8 +33,11 @@ mod reader;
 mod requests;
 mod shabals;
 mod utils;
-mod worker;
 
+#[cfg(feature = "opencl")]
+mod gpu_worker;
+#[cfg(feature = "opencl")]
+mod gpu_worker_async;
 #[cfg(feature = "opencl")]
 mod ocl;
 

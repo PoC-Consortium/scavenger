@@ -3,30 +3,31 @@ account_id_to_secret_phrase:                   # define accounts and passphrases
   1796535821016683299: 'stand rude those door invite reflection anywhere lace safe hidden fur horrible'  
 
 plot_dirs:
-  - 'test_data'
+   - 'test_data'
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
 
-url: 'http://wallet.dev.burst-test.net:6876'   # testnet wallet
-# url: 'http://pool.dev.burst-test.net:8124'   # testnet pool
-# url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
+url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
 
-hdd_reader_thread_count: 0            # default 0 (=number of disks)
+hdd_reader_thread_count: 0            # default 0 (=auto: number of disks)
 hdd_use_direct_io: true               # default true
 hdd_wakeup_after: 240                 # default 240s
 
-cpu_worker_thread_count: 4            # default 4 (0=GPU only)
+cpu_threads: 0                        # default 0 (=auto: number of logical cpu cores)
+cpu_worker_task_count: 4              # default 4 (0=GPU only)
 cpu_nonces_per_cache: 65536           # default 65536
 cpu_thread_pinning: false             # default false
 
+gpu_threads: 0                        # default 0 (=GPU off)
 gpu_platform: 0                       # default 0
 gpu_device: 0                         # default 0
-gpu_worker_thread_count: 0            # default 0 (=CPU only)
+gpu_worker_task_count: 0              # default 0 (=CPU only)
 gpu_nonces_per_cache: 262144          # default 262144
 gpu_mem_mapping: false                # default false
+gpu_async: false                      # default false
 
-target_deadline: 4294967295           # default u32::MAX
+target_deadline: 31536000             # default u32::MAX
 account_id_to_target_deadline:        # target dls for multi-id (optional)
  10282355196851764065: 600000
  1796535821016683299: 55555555
@@ -43,10 +44,6 @@ logfile_max_size : 20                 # maximum size per logfile in MiB
 show_progress: true                   # default true  
 show_drive_stats: false               # default false 
 benchmark_only: 'disabled'            # default disabled, options (disabled, I/O, XPU)
-
-multi_chain: false                    # enable multi-chain mining
-maximum_fork_difference: 1440         # maximum block-height difference to last block
-minimum_block_height: 500000          # don't work blocks lower than this height
 
 # Low noise log patterns
 console_log_pattern: "{({d(%H:%M:%S)} [{l}]):16.16} {m}{n}"

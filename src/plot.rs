@@ -48,9 +48,9 @@ cfg_if! {
     } else {
         use std::os::windows::fs::OpenOptionsExt;
 
-        const FILE_FLAG_NO_BUFFERING: u32 = 0x20000000;
-        const FILE_FLAG_SEQUENTIAL_SCAN: u32 = 0x08000000;
-        const FILE_FLAG_RANDOM_ACCESS: u32 = 0x10000000;
+        const FILE_FLAG_NO_BUFFERING: u32 = 0x2000_0000;
+        const FILE_FLAG_SEQUENTIAL_SCAN: u32 = 0x0800_0000;
+        const FILE_FLAG_RANDOM_ACCESS: u32 = 0x1000_0000;
 
         pub fn open_using_direct_io<P: AsRef<Path>>(path: P) -> io::Result<File> {
             OpenOptions::new()
@@ -114,7 +114,7 @@ impl Plot {
 
         let file_path = path.clone().into_os_string().into_string().unwrap();
         Ok(Plot {
-            account_id: account_id,
+            account_id,
             start_nonce,
             nonces,
             fh,
@@ -174,6 +174,13 @@ impl Plot {
         if !self.dummy {
             self.fh.seek(seek_addr)?;
             self.fh.read_exact(&mut bs[0..bytes_to_read])?;
+            // interrupt avoider (not implemented)
+            // let read_chunk_size_in_nonces = 65536;
+            // for i in (0..bytes_to_read).step_by(read_chunk_size_in_nonces) {
+            //     self.fh.read_exact(
+            //         &mut bs[i..(i + min(read_chunk_size_in_nonces, bytes_to_read - i))],
+            //     )?;
+            // }
         }
         self.read_offset += bytes_to_read as u64;
 
@@ -204,8 +211,8 @@ impl Plot {
     }
 
     pub fn overlaps_with(&self, plot: &Plot) -> bool {
-        if self.start_nonce <= plot.start_nonce + plot.nonces - 1
-            && plot.start_nonce <= self.start_nonce + self.nonces - 1
+        if self.start_nonce < plot.start_nonce + plot.nonces
+            && plot.start_nonce < self.start_nonce + self.nonces
         {
             let overlap = min(
                 plot.start_nonce + plot.nonces,
