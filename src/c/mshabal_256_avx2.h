@@ -81,13 +81,7 @@ typedef unsigned long mshabal_u32;
 #endif
 #endif
 
-/*
- * The context structure for a Shabal computation. Contents are
- * private. Such a structure should be allocated and released by
- * the caller, in any memory area.
- */
-
-#define MSHABAL256_FACTOR 2
+#define MSHABAL256_VECTOR_SIZE 8
 
 /*
  * The context structure for a Shabal computation. Contents are
@@ -103,23 +97,15 @@ typedef struct {
     unsigned char buf5[64];
     unsigned char buf6[64];
     unsigned char buf7[64];
-    unsigned char* xbuf0;
-    unsigned char* xbuf1;
-    unsigned char* xbuf2;
-    unsigned char* xbuf3;
-    unsigned char* xbuf4;
-    unsigned char* xbuf5;
-    unsigned char* xbuf6;
-    unsigned char* xbuf7;
     size_t ptr;
-    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL256_FACTOR];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL256_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal256_context;
 
 #pragma pack(1)
 typedef struct {
-    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL256_FACTOR];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL256_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal256_context_fast;
@@ -130,8 +116,7 @@ typedef struct {
  * of 32, between 32 and 512 (inclusive). The output size is expressed
  * in bits.
  */
-
-void simd256_mshabal_init(mshabal256_context* sc, unsigned out_size);
+void mshabal_init_avx2(mshabal256_context *sc, unsigned out_size);
 
 /*
  * Process some more data bytes; four chunks of data, pointed to by
@@ -145,9 +130,9 @@ void simd256_mshabal_init(mshabal256_context* sc, unsigned out_size);
  * corresponding instance is deactivated (the final value obtained from
  * that instance is undefined).
  */
+void mshabal_avx2(mshabal256_context *sc, const void *data0, const void *data1, const void *data2, const void *data3,
+                     const void *data4, const void *data5, const void *data6, const void *data7, size_t len);
 
-void simd256_mshabal(mshabal256_context* sc, void* data0, void* data1, void* data2, void* data3,
-                     void* data4, void* data5, void* data6, void* data7, size_t len);
 /*
  * Terminate the Shabal computation incarnated by the provided context
  * structure. "n" shall be a value between 0 and 7 (inclusive): this is
@@ -170,19 +155,18 @@ void simd256_mshabal(mshabal256_context* sc, void* data0, void* data1, void* dat
  * release it, or reinitialize it with mshabal_init(). The mshabal_close()
  * function does NOT imply a hidden call to mshabal_init().
  */
-
-void simd256_mshabal_close(mshabal256_context* sc, unsigned ub0, unsigned ub1, unsigned ub2,
+void mshabal_close_avx2(mshabal256_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
                            unsigned ub3, unsigned ub4, unsigned ub5, unsigned ub6, unsigned ub7,
-                           unsigned n, void* dst0, void* dst1, void* dst2, void* dst3, void* dst4,
-                           void* dst5, void* dst6, void* dst7);
+                           unsigned n, void *dst0, void *dst1, void *dst2, void *dst3, void *dst4,
+                           void *dst5, void *dst6, void *dst7);
 
 /*
- * Combined open and close routines
+ * optimised Shabal Routine for Burstcoin Mining
  */
+void mshabal_deadline_fast_avx2(mshabal256_context_fast *sc, void *message, void *termination, void *dst0,
+                                    void *dst1, void *dst2, void *dst3, void *dst4, void *dst5,
+                                    void *dst6, void *dst7);
 
-void simd256_mshabal_openclose_fast(mshabal256_context_fast* sc, void* u1, void* u2, void* dst0,
-                                    void* dst1, void* dst2, void* dst3, void* dst4, void* dst5,
-                                    void* dst6, void* dst7);
 #ifdef __cplusplus
 }
 #endif

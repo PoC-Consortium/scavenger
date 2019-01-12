@@ -1,9 +1,9 @@
 /*
- * A parallel implementation of Shabal, for platforms with SSE2.
+ * A parallel implementation of Shabal, for platforms with NEON.
  *
  * This is the header file for an implementation of the Shabal family
  * of hash functions, designed for maximum parallel speed. It processes
- * up to four instances of Shabal in parallel, using the SSE2 unit.
+ * up to four instances of Shabal in parallel, using the NEON unit.
  * Total bandwidth appear to be up to twice that of a plain 32-bit
  * Shabal implementation.
  *
@@ -81,6 +81,8 @@ typedef unsigned long mshabal_u32;
 #endif
 #endif
 
+#define MSHABAL128_VECTOR_SIZE 4
+
 /*
  * The context structure for a Shabal computation. Contents are
  * private. Such a structure should be allocated and released by
@@ -91,32 +93,26 @@ typedef struct {
     unsigned char buf1[64];
     unsigned char buf2[64];
     unsigned char buf3[64];
-    unsigned char* xbuf0;
-    unsigned char* xbuf1;
-    unsigned char* xbuf2;
-    unsigned char* xbuf3;
     size_t ptr;
-    mshabal_u32 state[(12 + 16 + 16) * 4];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL128_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal_context;
 
 #pragma pack(1)
 typedef struct {
-    mshabal_u32 state[(12 + 16 + 16) * 4];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL128_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal_context_fast;
 #pragma pack()
-
-#define MSHABAL256_FACTOR 2
 
 /*
  * Initialize a context structure. The output size must be a multiple
  * of 32, between 32 and 512 (inclusive). The output size is expressed
  * in bits.
  */
-void simd128_neon_mshabal_init(mshabal_context* sc, unsigned out_size);
+void mshabal_init_neon(mshabal_context *sc, unsigned out_size);
 
 
 /*
@@ -131,8 +127,8 @@ void simd128_neon_mshabal_init(mshabal_context* sc, unsigned out_size);
  * corresponding instance is deactivated (the final value obtained from
  * that instance is undefined).
  */
-void simd128_neon_mshabal(mshabal_context* sc, const void* data0, const void* data1, const void* data2,
-                     const void* data3, size_t len);
+void eon_mshabal_neon(mshabal_context *sc, const void *data0, const void *data1, const void *data2,
+                     const void *data3, size_t len);
 
 /*
  * Terminate the Shabal computation incarnated by the provided context
@@ -156,17 +152,15 @@ void simd128_neon_mshabal(mshabal_context* sc, const void* data0, const void* da
  * release it, or reinitialize it with mshabal_init(). The mshabal_close()
  * function does NOT imply a hidden call to mshabal_init().
  */
-void simd128_neon_mshabal_close(mshabal_context* sc, unsigned ub0, unsigned ub1, unsigned ub2,
-                           unsigned ub3, unsigned n, void* dst0, void* dst1, void* dst2,
-                           void* dst3);
-
+void mshabal_close_neon(mshabal_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
+                           unsigned ub3, unsigned n, void *dst0, void *dst1, void *dst2,
+                           void *dst3);
 
 /*
- * Combined open and close routines
+ * optimised Shabal Routine for Burstcoin Mining
  */
-
-void simd128_neon_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0,
-                                    void* dst1, void* dst2, void* dst3);
+void mshabal_deadline_fast_neon(mshabal_context_fast *sc, void *u1, void *u2, void *dst0,
+                                    void *dst1, void *dst2, void *dst3);
 #ifdef __cplusplus
 }
 #endif

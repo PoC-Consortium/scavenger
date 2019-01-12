@@ -81,13 +81,7 @@ typedef unsigned long mshabal_u32;
 #endif
 #endif
 
-/*
- * The context structure for a Shabal computation. Contents are
- * private. Such a structure should be allocated and released by
- * the caller, in any memory area.
- */
-
-#define MSHABAL512_FACTOR 4
+#define MSHABAL512_VECTOR_SIZE 16
 
 /*
  * The context structure for a Shabal computation. Contents are
@@ -111,31 +105,15 @@ typedef struct {
     unsigned char buf13[64];
     unsigned char buf14[64];
     unsigned char buf15[64];
-    unsigned char* xbuf0;
-    unsigned char* xbuf1;
-    unsigned char* xbuf2;
-    unsigned char* xbuf3;
-    unsigned char* xbuf4;
-    unsigned char* xbuf5;
-    unsigned char* xbuf6;
-    unsigned char* xbuf7;
-    unsigned char* xbuf8;
-    unsigned char* xbuf9;
-    unsigned char* xbuf10;
-    unsigned char* xbuf11;
-    unsigned char* xbuf12;
-    unsigned char* xbuf13;
-    unsigned char* xbuf14;
-    unsigned char* xbuf15;
     size_t ptr;
-    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL512_FACTOR];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL512_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal512_context;
 
 #pragma pack(1)
 typedef struct {
-    mshabal_u32 state[(12 + 16 + 16) * 4 * MSHABAL512_FACTOR];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL512_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal512_context_fast;
@@ -146,8 +124,7 @@ typedef struct {
  * of 32, between 32 and 512 (inclusive). The output size is expressed
  * in bits.
  */
-
-void simd512_mshabal_init(mshabal512_context *sc, unsigned out_size);
+void mshabal_init_avx512f(mshabal512_context *sc, unsigned out_size);
 
 /*
  * Process some more data bytes; four chunks of data, pointed to by
@@ -161,11 +138,11 @@ void simd512_mshabal_init(mshabal512_context *sc, unsigned out_size);
  * corresponding instance is deactivated (the final value obtained from
  * that instance is undefined).
  */
+void mshabal_avx512f(mshabal512_context *sc, const void *data0, const void *data1, const void *data2, const void *data3,
+                     const void *data4, const void *data5, const void *data6, const void *data7, const void *data8, const void *data9,
+                     const void *data10, const void *data11, const void *data12, const void *data13, const void *data14,
+                     const void *data15, size_t len);
 
-void simd512_mshabal(mshabal512_context *sc, void *data0, void *data1, void *data2, void *data3,
-                     void *data4, void *data5, void *data6, void *data7, void *data8, void *data9,
-                     void *data10, void *data11, void *data12, void *data13, void *data14,
-                     void *data15, size_t len);
 /*
  * Terminate the Shabal computation incarnated by the provided context
  * structure. "n" shall be a value between 0 and 7 (inclusive): this is
@@ -188,8 +165,7 @@ void simd512_mshabal(mshabal512_context *sc, void *data0, void *data1, void *dat
  * release it, or reinitialize it with mshabal_init(). The mshabal_close()
  * function does NOT imply a hidden call to mshabal_init().
  */
-
-void simd512_mshabal_close(mshabal512_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
+void mshabal_close_avx512f(mshabal512_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
                            unsigned ub3, unsigned ub4, unsigned ub5, unsigned ub6, unsigned ub7,
                            unsigned ub8, unsigned ub9, unsigned ub10, unsigned ub11, unsigned ub12,
                            unsigned ub13, unsigned ub14, unsigned ub15, unsigned n, void *dst0,
@@ -198,10 +174,9 @@ void simd512_mshabal_close(mshabal512_context *sc, unsigned ub0, unsigned ub1, u
                            void *dst12, void *dst13, void *dst14, void *dst15);
 
 /*
- * Combined open and close routines
+ * optimised Shabal Routine for Burstcoin Mining
  */
-
-void simd512_mshabal_openclose_fast(mshabal512_context_fast *sc, void *u1, void *u2, void *dst0,
+void mshabal_deadline_fast_avx512f(mshabal512_context_fast *sc, void *message, void *termination, void *dst0,
                                     void *dst1, void *dst2, void *dst3, void *dst4, void *dst5,
                                     void *dst6, void *dst7, void *dst8, void *dst9, void *dst10,
                                     void *dst11, void *dst12, void *dst13, void *dst14,

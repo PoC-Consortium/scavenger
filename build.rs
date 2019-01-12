@@ -25,6 +25,7 @@ fn main() {
     config
         .file("src/c/sph_shabal.c")
         .file("src/c/shabal.c")
+        .file("src/c/common.c")
         .compile("shabal");
 
     cfg_if! {

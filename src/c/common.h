@@ -5,3 +5,5 @@
         *best_deadline = (d);   \
         *best_offset = (o);     \
     }
+
+void write_term(char term[32]);

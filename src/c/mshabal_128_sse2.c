@@ -14,10 +14,6 @@
  *
  * Technical remarks and questions can be addressed to:
  * <thomas.pornin@cryptolog.com>
- *
- * Routines have been optimized for and limited to burst mining. Deadline
- * generation only, no signature generation possible (use sph_shabal for the
- * deadline). Johnny
  */
 
 #include <emmintrin.h>
@@ -39,11 +35,11 @@ typedef mshabal_u32 u32;
 #define T32(x) ((x)&C32(0xFFFFFFFF))
 #define ROTL32(x, n) T32(((x) << (n)) | ((x) >> (32 - (n))))
 
-static void simd128_sse2_mshabal_compress(mshabal_context* sc, const unsigned char* buf0,
-                                     const unsigned char* buf1, const unsigned char* buf2,
-                                     const unsigned char* buf3, size_t num) {
+static void mshabal_compress_sse2(mshabal_context *sc, const unsigned char *buf0,
+                                          const unsigned char *buf1, const unsigned char *buf2,
+                                          const unsigned char *buf3, size_t num) {
     union {
-        u32 words[64];
+        u32 words[16 * MSHABAL128_VECTOR_SIZE];
         __m128i data[16];
     } u;
     size_t j;
@@ -57,10 +53,10 @@ static void simd128_sse2_mshabal_compress(mshabal_context* sc, const unsigned ch
     }
     one = _mm_set1_epi32(C32(0xFFFFFFFF));
 
-#define M(i) _mm_load_si128(u.data + (i))
+#define M(i) _mm_load_si128(u.data + i)
 
     while (num-- > 0) {
-        for (j = 0; j < 64; j += 4) {
+        for (j = 0; j < 16 * MSHABAL128_VECTOR_SIZE; j += MSHABAL128_VECTOR_SIZE) {
             u.words[j + 0] = *(u32*)(buf0 + j);
             u.words[j + 1] = *(u32*)(buf1 + j);
             u.words[j + 2] = *(u32*)(buf2 + j);
@@ -217,12 +213,9 @@ static void simd128_sse2_mshabal_compress(mshabal_context* sc, const unsigned ch
 #undef M
 }
 
-/* see shabal_small.h */
-
-void simd128_sse2_mshabal_init(mshabal_context* sc, unsigned out_size) {
+void mshabal_init_sse2(mshabal_context *sc, unsigned out_size) {
     unsigned u;
 
-    // for (u = 0; u < 176; u++)  sc->state[u] = 0;
     memset(sc->state, 0, sizeof sc->state);
     memset(sc->buf0, 0, sizeof sc->buf0);
     memset(sc->buf1, 0, sizeof sc->buf1);
@@ -239,7 +232,7 @@ void simd128_sse2_mshabal_init(mshabal_context* sc, unsigned out_size) {
         sc->buf3[4 * u + 1] = (out_size + u) >> 8;
     }
     sc->Whigh = sc->Wlow = C32(0xFFFFFFFF);
-    simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+    mshabal_compress_sse2(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
     for (u = 0; u < 16; u++) {
         sc->buf0[4 * u + 0] = (out_size + u + 16);
         sc->buf0[4 * u + 1] = (out_size + u + 16) >> 8;
@@ -250,15 +243,35 @@ void simd128_sse2_mshabal_init(mshabal_context* sc, unsigned out_size) {
         sc->buf3[4 * u + 0] = (out_size + u + 16);
         sc->buf3[4 * u + 1] = (out_size + u + 16) >> 8;
     }
-    simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+    mshabal_compress_sse2(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
     sc->ptr = 0;
     sc->out_size = out_size;
 }
 
-/* see shabal_small.h */
-void simd128_sse2_mshabal(mshabal_context* sc, const void* data0, const void* data1, const void* data2,
-                     const void* data3, size_t len) {
+void mshabal_sse2(mshabal_context *sc, const void *data0, const void *data1, const void *data2,
+                  const void *data3, size_t len) {
     size_t ptr, num;
+
+    if (data0 == NULL) {
+        if (data1 == NULL) {
+            if (data2 == NULL) {
+                if (data3 == NULL) {
+                    return;
+                } else {
+                    data0 = data3;
+                }
+            } else {
+                data0 = data2;
+            }
+        } else {
+            data0 = data1;
+        }
+    }
+
+    if (data1 == NULL) data1 = data0;
+    if (data2 == NULL) data2 = data0;
+    if (data3 == NULL) data3 = data0;
+
     ptr = sc->ptr;
     if (ptr != 0) {
         size_t clen = (sizeof sc->buf0 - ptr);
@@ -274,7 +287,7 @@ void simd128_sse2_mshabal(mshabal_context* sc, const void* data0, const void* da
             memcpy(sc->buf1 + ptr, data1, clen);
             memcpy(sc->buf2 + ptr, data2, clen);
             memcpy(sc->buf3 + ptr, data3, clen);
-            simd128_sse2_mshabal_compress(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+            mshabal_compress_sse2(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
             data0 = (const unsigned char*)data0 + clen;
             data1 = (const unsigned char*)data1 + clen;
             data2 = (const unsigned char*)data2 + clen;
@@ -283,25 +296,80 @@ void simd128_sse2_mshabal(mshabal_context* sc, const void* data0, const void* da
         }
     }
 
-    num = 1;
+    num = len >> 6;
     if (num != 0) {
-        simd128_sse2_mshabal_compress(sc, (const unsigned char*)data0, (const unsigned char*)data1,
-                                 (const unsigned char*)data2, (const unsigned char*)data3, num);
-        sc->xbuf0 = (unsigned char*)data0 + (num << 6);
-        sc->xbuf1 = (unsigned char*)data1 + (num << 6);
-        sc->xbuf2 = (unsigned char*)data2 + (num << 6);
-        sc->xbuf3 = (unsigned char*)data3 + (num << 6);
+        mshabal_compress_sse2(sc, (const unsigned char*)data0, (const unsigned char*)data1,
+                                  (const unsigned char*)data2, (const unsigned char*)data3, num);
+        data0 = (const unsigned char*)data0 + (num << 6);
+        data1 = (const unsigned char*)data1 + (num << 6);
+        data2 = (const unsigned char*)data2 + (num << 6);
+        data3 = (const unsigned char*)data3 + (num << 6);
     }
     len &= 63;
+    memcpy(sc->buf0, data0, len);
+    memcpy(sc->buf1, data1, len);
+    memcpy(sc->buf2, data2, len);
+    memcpy(sc->buf3, data3, len);
     sc->ptr = len;
 }
 
-// Johnnys double pointer no memmove no register buffering no simd unpack/repack no inital state change burst mining only
-// optimisation functions (tm) :-p
-void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, void* u2, void* dst0, void* dst1, void* dst2, 
-                                          void* dst3) {
+void mshabal_close_sse2(mshabal_context *sc, unsigned ub0, unsigned ub1, unsigned ub2, unsigned ub3,
+                        unsigned n, void *dst0, void *dst1, void *dst2, void *dst3) {
+    size_t ptr, off;
+    unsigned z, out_size_w32;
+
+    z = 0x80 >> n;
+    ptr = sc->ptr;
+    sc->buf0[ptr] = (ub0 & -z) | z;
+    sc->buf1[ptr] = (ub1 & -z) | z;
+    sc->buf2[ptr] = (ub2 & -z) | z;
+    sc->buf3[ptr] = (ub3 & -z) | z;
+    ptr++;
+    memset(sc->buf0 + ptr, 0, (sizeof sc->buf0) - ptr);
+    memset(sc->buf1 + ptr, 0, (sizeof sc->buf1) - ptr);
+    memset(sc->buf2 + ptr, 0, (sizeof sc->buf2) - ptr);
+    memset(sc->buf3 + ptr, 0, (sizeof sc->buf3) - ptr);
+    for (z = 0; z < 4; z++) {
+        mshabal_compress_sse2(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+        if (sc->Wlow-- == 0) sc->Whigh--;
+    }
+    out_size_w32 = sc->out_size >> 5;
+    off = MSHABAL128_VECTOR_SIZE * (28 + (16 - out_size_w32));
+    if (dst0 != NULL) {
+        u32 *out;
+
+        out = (u32 *)dst0;
+        for (z = 0; z < out_size_w32; z++) 
+            out[z] = sc->state[off + z * MSHABAL128_VECTOR_SIZE + 0];
+    }
+    if (dst1 != NULL) {
+        u32 *out;
+
+        out = (u32 *)dst1;
+        for (z = 0; z < out_size_w32; z++) 
+            out[z] = sc->state[off + z * MSHABAL128_VECTOR_SIZE + 1];
+    }
+    if (dst2 != NULL) {
+        u32 *out;
+
+        out = (u32 *)dst2;
+        for (z = 0; z < out_size_w32; z++) 
+            out[z] = sc->state[off + z * MSHABAL128_VECTOR_SIZE + 2];
+    }
+    if (dst3 != NULL) {
+        u32 *out;
+
+        out = (u32 *)dst3;
+        for (z = 0; z < out_size_w32; z++) 
+            out[z] = sc->state[off + z * MSHABAL128_VECTOR_SIZE + 3];
+    }
+}
+
+// Shabal routine optimized for mining
+void mshabal_deadline_fast_sse2(mshabal_context_fast *sc, void *message, void *termination, void *dst0,
+                                         void *dst1, void *dst2, void *dst3) {
     union input {
-        u32 words[64];
+        u32 words[16 * MSHABAL128_VECTOR_SIZE];
         __m128i data[16];
     };
     size_t j;
@@ -315,16 +383,16 @@ void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, voi
     }
     one = _mm_set1_epi32(C32(0xFFFFFFFF));
 
-// Round 1/5
-#define M(i) _mm_load_si128((*(union input*)u1).data + (i))
+    // round 1/5
+#define M(i) _mm_load_si128((__m128i *)message + i)
 
-        for (j = 0; j < 16; j++) B[j] = _mm_add_epi32(B[j], M(j));
+    for (j = 0; j < 16; j++) B[j] = _mm_add_epi32(B[j], M(j));
 
-        A[0] = _mm_xor_si128(A[0], _mm_set1_epi32(sc->Wlow));
-        A[1] = _mm_xor_si128(A[1], _mm_set1_epi32(sc->Whigh));
+    A[0] = _mm_xor_si128(A[0], _mm_set1_epi32(sc->Wlow));
+    A[1] = _mm_xor_si128(A[1], _mm_set1_epi32(sc->Whigh));
 
-        for (j = 0; j < 16; j++)
-            B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17), _mm_srli_epi32(B[j], 15));
+    for (j = 0; j < 16; j++)
+        B[j] = _mm_or_si128(_mm_slli_epi32(B[j], 17), _mm_srli_epi32(B[j], 15));
 
 #define PP(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                                                   \
     do {                                                                                           \
@@ -340,93 +408,93 @@ void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, voi
         xb0 = _mm_xor_si128(tt, _mm_xor_si128(xa0, one));                                          \
     } while (0)
 
-        PP(A[0x0], A[0xB], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
-        PP(A[0x1], A[0x0], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
-        PP(A[0x2], A[0x1], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
-        PP(A[0x3], A[0x2], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
-        PP(A[0x4], A[0x3], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
-        PP(A[0x5], A[0x4], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
-        PP(A[0x6], A[0x5], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
-        PP(A[0x7], A[0x6], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
-        PP(A[0x8], A[0x7], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
-        PP(A[0x9], A[0x8], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
-        PP(A[0xA], A[0x9], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
-        PP(A[0xB], A[0xA], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
-        PP(A[0x0], A[0xB], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
-        PP(A[0x1], A[0x0], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
-        PP(A[0x2], A[0x1], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
-        PP(A[0x3], A[0x2], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
+    PP(A[0x0], A[0xB], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
+    PP(A[0x1], A[0x0], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
+    PP(A[0x2], A[0x1], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
+    PP(A[0x3], A[0x2], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
+    PP(A[0x4], A[0x3], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
+    PP(A[0x5], A[0x4], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
+    PP(A[0x6], A[0x5], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
+    PP(A[0x7], A[0x6], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
+    PP(A[0x8], A[0x7], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
+    PP(A[0x9], A[0x8], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
+    PP(A[0xA], A[0x9], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
+    PP(A[0xB], A[0xA], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
+    PP(A[0x0], A[0xB], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
+    PP(A[0x1], A[0x0], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
+    PP(A[0x2], A[0x1], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
+    PP(A[0x3], A[0x2], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
 
-        PP(A[0x4], A[0x3], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
-        PP(A[0x5], A[0x4], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
-        PP(A[0x6], A[0x5], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
-        PP(A[0x7], A[0x6], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
-        PP(A[0x8], A[0x7], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
-        PP(A[0x9], A[0x8], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
-        PP(A[0xA], A[0x9], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
-        PP(A[0xB], A[0xA], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
-        PP(A[0x0], A[0xB], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
-        PP(A[0x1], A[0x0], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
-        PP(A[0x2], A[0x1], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
-        PP(A[0x3], A[0x2], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
-        PP(A[0x4], A[0x3], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
-        PP(A[0x5], A[0x4], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
-        PP(A[0x6], A[0x5], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
-        PP(A[0x7], A[0x6], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
+    PP(A[0x4], A[0x3], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
+    PP(A[0x5], A[0x4], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
+    PP(A[0x6], A[0x5], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
+    PP(A[0x7], A[0x6], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
+    PP(A[0x8], A[0x7], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
+    PP(A[0x9], A[0x8], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
+    PP(A[0xA], A[0x9], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
+    PP(A[0xB], A[0xA], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
+    PP(A[0x0], A[0xB], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
+    PP(A[0x1], A[0x0], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
+    PP(A[0x2], A[0x1], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
+    PP(A[0x3], A[0x2], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
+    PP(A[0x4], A[0x3], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
+    PP(A[0x5], A[0x4], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
+    PP(A[0x6], A[0x5], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
+    PP(A[0x7], A[0x6], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
 
-        PP(A[0x8], A[0x7], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
-        PP(A[0x9], A[0x8], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
-        PP(A[0xA], A[0x9], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
-        PP(A[0xB], A[0xA], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
-        PP(A[0x0], A[0xB], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
-        PP(A[0x1], A[0x0], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
-        PP(A[0x2], A[0x1], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
-        PP(A[0x3], A[0x2], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
-        PP(A[0x4], A[0x3], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
-        PP(A[0x5], A[0x4], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
-        PP(A[0x6], A[0x5], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
-        PP(A[0x7], A[0x6], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
-        PP(A[0x8], A[0x7], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
-        PP(A[0x9], A[0x8], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
-        PP(A[0xA], A[0x9], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
-        PP(A[0xB], A[0xA], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
+    PP(A[0x8], A[0x7], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
+    PP(A[0x9], A[0x8], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
+    PP(A[0xA], A[0x9], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
+    PP(A[0xB], A[0xA], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
+    PP(A[0x0], A[0xB], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
+    PP(A[0x1], A[0x0], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
+    PP(A[0x2], A[0x1], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
+    PP(A[0x3], A[0x2], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
+    PP(A[0x4], A[0x3], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
+    PP(A[0x5], A[0x4], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
+    PP(A[0x6], A[0x5], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
+    PP(A[0x7], A[0x6], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
+    PP(A[0x8], A[0x7], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
+    PP(A[0x9], A[0x8], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
+    PP(A[0xA], A[0x9], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
+    PP(A[0xB], A[0xA], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
 
-        A[0xB] = _mm_add_epi32(A[0xB], C[0x6]);
-        A[0xA] = _mm_add_epi32(A[0xA], C[0x5]);
-        A[0x9] = _mm_add_epi32(A[0x9], C[0x4]);
-        A[0x8] = _mm_add_epi32(A[0x8], C[0x3]);
-        A[0x7] = _mm_add_epi32(A[0x7], C[0x2]);
-        A[0x6] = _mm_add_epi32(A[0x6], C[0x1]);
-        A[0x5] = _mm_add_epi32(A[0x5], C[0x0]);
-        A[0x4] = _mm_add_epi32(A[0x4], C[0xF]);
-        A[0x3] = _mm_add_epi32(A[0x3], C[0xE]);
-        A[0x2] = _mm_add_epi32(A[0x2], C[0xD]);
-        A[0x1] = _mm_add_epi32(A[0x1], C[0xC]);
-        A[0x0] = _mm_add_epi32(A[0x0], C[0xB]);
-        A[0xB] = _mm_add_epi32(A[0xB], C[0xA]);
-        A[0xA] = _mm_add_epi32(A[0xA], C[0x9]);
-        A[0x9] = _mm_add_epi32(A[0x9], C[0x8]);
-        A[0x8] = _mm_add_epi32(A[0x8], C[0x7]);
-        A[0x7] = _mm_add_epi32(A[0x7], C[0x6]);
-        A[0x6] = _mm_add_epi32(A[0x6], C[0x5]);
-        A[0x5] = _mm_add_epi32(A[0x5], C[0x4]);
-        A[0x4] = _mm_add_epi32(A[0x4], C[0x3]);
-        A[0x3] = _mm_add_epi32(A[0x3], C[0x2]);
-        A[0x2] = _mm_add_epi32(A[0x2], C[0x1]);
-        A[0x1] = _mm_add_epi32(A[0x1], C[0x0]);
-        A[0x0] = _mm_add_epi32(A[0x0], C[0xF]);
-        A[0xB] = _mm_add_epi32(A[0xB], C[0xE]);
-        A[0xA] = _mm_add_epi32(A[0xA], C[0xD]);
-        A[0x9] = _mm_add_epi32(A[0x9], C[0xC]);
-        A[0x8] = _mm_add_epi32(A[0x8], C[0xB]);
-        A[0x7] = _mm_add_epi32(A[0x7], C[0xA]);
-        A[0x6] = _mm_add_epi32(A[0x6], C[0x9]);
-        A[0x5] = _mm_add_epi32(A[0x5], C[0x8]);
-        A[0x4] = _mm_add_epi32(A[0x4], C[0x7]);
-        A[0x3] = _mm_add_epi32(A[0x3], C[0x6]);
-        A[0x2] = _mm_add_epi32(A[0x2], C[0x5]);
-        A[0x1] = _mm_add_epi32(A[0x1], C[0x4]);
-        A[0x0] = _mm_add_epi32(A[0x0], C[0x3]);
+    A[0xB] = _mm_add_epi32(A[0xB], C[0x6]);
+    A[0xA] = _mm_add_epi32(A[0xA], C[0x5]);
+    A[0x9] = _mm_add_epi32(A[0x9], C[0x4]);
+    A[0x8] = _mm_add_epi32(A[0x8], C[0x3]);
+    A[0x7] = _mm_add_epi32(A[0x7], C[0x2]);
+    A[0x6] = _mm_add_epi32(A[0x6], C[0x1]);
+    A[0x5] = _mm_add_epi32(A[0x5], C[0x0]);
+    A[0x4] = _mm_add_epi32(A[0x4], C[0xF]);
+    A[0x3] = _mm_add_epi32(A[0x3], C[0xE]);
+    A[0x2] = _mm_add_epi32(A[0x2], C[0xD]);
+    A[0x1] = _mm_add_epi32(A[0x1], C[0xC]);
+    A[0x0] = _mm_add_epi32(A[0x0], C[0xB]);
+    A[0xB] = _mm_add_epi32(A[0xB], C[0xA]);
+    A[0xA] = _mm_add_epi32(A[0xA], C[0x9]);
+    A[0x9] = _mm_add_epi32(A[0x9], C[0x8]);
+    A[0x8] = _mm_add_epi32(A[0x8], C[0x7]);
+    A[0x7] = _mm_add_epi32(A[0x7], C[0x6]);
+    A[0x6] = _mm_add_epi32(A[0x6], C[0x5]);
+    A[0x5] = _mm_add_epi32(A[0x5], C[0x4]);
+    A[0x4] = _mm_add_epi32(A[0x4], C[0x3]);
+    A[0x3] = _mm_add_epi32(A[0x3], C[0x2]);
+    A[0x2] = _mm_add_epi32(A[0x2], C[0x1]);
+    A[0x1] = _mm_add_epi32(A[0x1], C[0x0]);
+    A[0x0] = _mm_add_epi32(A[0x0], C[0xF]);
+    A[0xB] = _mm_add_epi32(A[0xB], C[0xE]);
+    A[0xA] = _mm_add_epi32(A[0xA], C[0xD]);
+    A[0x9] = _mm_add_epi32(A[0x9], C[0xC]);
+    A[0x8] = _mm_add_epi32(A[0x8], C[0xB]);
+    A[0x7] = _mm_add_epi32(A[0x7], C[0xA]);
+    A[0x6] = _mm_add_epi32(A[0x6], C[0x9]);
+    A[0x5] = _mm_add_epi32(A[0x5], C[0x8]);
+    A[0x4] = _mm_add_epi32(A[0x4], C[0x7]);
+    A[0x3] = _mm_add_epi32(A[0x3], C[0x6]);
+    A[0x2] = _mm_add_epi32(A[0x2], C[0x5]);
+    A[0x1] = _mm_add_epi32(A[0x1], C[0x4]);
+    A[0x0] = _mm_add_epi32(A[0x0], C[0x3]);
 
 #define SWAP_AND_SUB(xb, xc, xm)    \
     do {                            \
@@ -436,27 +504,26 @@ void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, voi
         xc = tmp;                   \
     } while (0)
 
-        SWAP_AND_SUB(B[0x0], C[0x0], M(0x0));
-        SWAP_AND_SUB(B[0x1], C[0x1], M(0x1));
-        SWAP_AND_SUB(B[0x2], C[0x2], M(0x2));
-        SWAP_AND_SUB(B[0x3], C[0x3], M(0x3));
-        SWAP_AND_SUB(B[0x4], C[0x4], M(0x4));
-        SWAP_AND_SUB(B[0x5], C[0x5], M(0x5));
-        SWAP_AND_SUB(B[0x6], C[0x6], M(0x6));
-        SWAP_AND_SUB(B[0x7], C[0x7], M(0x7));
-        SWAP_AND_SUB(B[0x8], C[0x8], M(0x8));
-        SWAP_AND_SUB(B[0x9], C[0x9], M(0x9));
-        SWAP_AND_SUB(B[0xA], C[0xA], M(0xA));
-        SWAP_AND_SUB(B[0xB], C[0xB], M(0xB));
-        SWAP_AND_SUB(B[0xC], C[0xC], M(0xC));
-        SWAP_AND_SUB(B[0xD], C[0xD], M(0xD));
-        SWAP_AND_SUB(B[0xE], C[0xE], M(0xE));
-        SWAP_AND_SUB(B[0xF], C[0xF], M(0xF));
-        if (++sc->Wlow == 0) sc->Whigh++;
+    SWAP_AND_SUB(B[0x0], C[0x0], M(0x0));
+    SWAP_AND_SUB(B[0x1], C[0x1], M(0x1));
+    SWAP_AND_SUB(B[0x2], C[0x2], M(0x2));
+    SWAP_AND_SUB(B[0x3], C[0x3], M(0x3));
+    SWAP_AND_SUB(B[0x4], C[0x4], M(0x4));
+    SWAP_AND_SUB(B[0x5], C[0x5], M(0x5));
+    SWAP_AND_SUB(B[0x6], C[0x6], M(0x6));
+    SWAP_AND_SUB(B[0x7], C[0x7], M(0x7));
+    SWAP_AND_SUB(B[0x8], C[0x8], M(0x8));
+    SWAP_AND_SUB(B[0x9], C[0x9], M(0x9));
+    SWAP_AND_SUB(B[0xA], C[0xA], M(0xA));
+    SWAP_AND_SUB(B[0xB], C[0xB], M(0xB));
+    SWAP_AND_SUB(B[0xC], C[0xC], M(0xC));
+    SWAP_AND_SUB(B[0xD], C[0xD], M(0xD));
+    SWAP_AND_SUB(B[0xE], C[0xE], M(0xE));
+    SWAP_AND_SUB(B[0xF], C[0xF], M(0xF));
+    if (++sc->Wlow == 0) sc->Whigh++;
 
-
-// Round 2-5
-#define M2(i) _mm_load_si128((*(union input*)u2).data + (i))
+    // round 2-5
+#define M2(i) _mm_load_si128((__m128i *)termination + i)
 
     for (int k = 0; k < 4; k++) {
         for (j = 0; j < 16; j++) B[j] = _mm_add_epi32(B[j], M2(j));
@@ -577,27 +644,26 @@ void simd128_sse2_mshabal_openclose_fast(mshabal_context_fast* sc, void* u1, voi
         if (sc->Wlow-- == 0) sc->Whigh--;
     }
 
-    // transfer resuts to ram and quick state reset 
-    // download deadlines simd aligned
+    // download SIMD aligned deadlines
     u32 simd_dst[8];
     _mm_storeu_si128((__m128i*)&simd_dst[0], C[8]);
     _mm_storeu_si128((__m128i*)&simd_dst[4], C[9]);
-   
-    // simd unpack
+
+    // unpack SIMD data
     unsigned z;
     for (z = 0; z < 2; z++) {
-        unsigned y = (z << 2);
-        ((u32*)dst0)[z] = simd_dst[y + 0];
-        ((u32*)dst1)[z] = simd_dst[y + 1];
-        ((u32*)dst2)[z] = simd_dst[y + 2];
-        ((u32*)dst3)[z] = simd_dst[y + 3];
+        unsigned y = z * MSHABAL128_VECTOR_SIZE;
+        ((u32 *)dst0)[z] = simd_dst[y + 0];
+        ((u32 *)dst1)[z] = simd_dst[y + 1];
+        ((u32 *)dst2)[z] = simd_dst[y + 2];
+        ((u32 *)dst3)[z] = simd_dst[y + 3];
     }
-    
+
     // reset Wlow & Whigh
     sc->Wlow = 1;
     sc->Whigh = 0;
 }
 
 #ifdef __cplusplus
-extern "C" {
+}
 #endif

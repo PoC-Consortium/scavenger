@@ -540,7 +540,8 @@ void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n, void* ds
     shabal_close(cc, ub, n, dst, 8);
 }
 
-void sph_shabal_openclose_fast(void* scoop_data, void* gen_sig, void* dst) {
+/* see sph_shabal.h */
+void sph_shabal_deadline_fast(void *scoop_data, void *gen_sig, void *dst) {
     sph_u32
         A00 = A_init_256[0], A01 = A_init_256[1], A02 = A_init_256[2], A03 = A_init_256[3],
         A04 = A_init_256[4], A05 = A_init_256[5], A06 = A_init_256[6], A07 = A_init_256[7],
@@ -558,22 +559,22 @@ void sph_shabal_openclose_fast(void* scoop_data, void* gen_sig, void* dst) {
     sph_u32 M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, MA, MB, MC, MD, ME, MF;
     sph_u32 Wlow = 1, Whigh = 0;
          
-	M0 = ((unsigned int*)gen_sig)[0];
-	M1 = ((unsigned int*)gen_sig)[1];
-	M2 = ((unsigned int*)gen_sig)[2];
-	M3 = ((unsigned int*)gen_sig)[3];
-	M4 = ((unsigned int*)gen_sig)[4];
-	M5 = ((unsigned int*)gen_sig)[5];
-	M6 = ((unsigned int*)gen_sig)[6];
-	M7 = ((unsigned int*)gen_sig)[7];
-	M8 = ((unsigned int*)scoop_data)[0];
-	M9 = ((unsigned int*)scoop_data)[1];
-	MA = ((unsigned int*)scoop_data)[2];
-	MB = ((unsigned int*)scoop_data)[3];
-	MC = ((unsigned int*)scoop_data)[4];
-	MD = ((unsigned int*)scoop_data)[5];
-	ME = ((unsigned int*)scoop_data)[6];
-	MF = ((unsigned int*)scoop_data)[7];
+	M0 = ((unsigned int *)gen_sig)[0];
+	M1 = ((unsigned int *)gen_sig)[1];
+	M2 = ((unsigned int *)gen_sig)[2];
+	M3 = ((unsigned int *)gen_sig)[3];
+	M4 = ((unsigned int *)gen_sig)[4];
+	M5 = ((unsigned int *)gen_sig)[5];
+	M6 = ((unsigned int *)gen_sig)[6];
+	M7 = ((unsigned int *)gen_sig)[7];
+	M8 = ((unsigned int *)scoop_data)[0];
+	M9 = ((unsigned int *)scoop_data)[1];
+	MA = ((unsigned int *)scoop_data)[2];
+	MB = ((unsigned int *)scoop_data)[3];
+	MC = ((unsigned int *)scoop_data)[4];
+	MD = ((unsigned int *)scoop_data)[5];
+	ME = ((unsigned int *)scoop_data)[6];
+	MF = ((unsigned int *)scoop_data)[7];
 
     INPUT_BLOCK_ADD;
     XOR_W;
@@ -582,14 +583,14 @@ void sph_shabal_openclose_fast(void* scoop_data, void* gen_sig, void* dst) {
     SWAP_BC;
     INCR_W;
 
-	M0 = ((unsigned int*)scoop_data)[8];
-	M1 = ((unsigned int*)scoop_data)[9];
-	M2 = ((unsigned int*)scoop_data)[10];
-	M3 = ((unsigned int*)scoop_data)[11];
-	M4 = ((unsigned int*)scoop_data)[12];
-	M5 = ((unsigned int*)scoop_data)[13];
-	M6 = ((unsigned int*)scoop_data)[14];
-	M7 = ((unsigned int*)scoop_data)[15];
+	M0 = ((unsigned int *)scoop_data)[8];
+	M1 = ((unsigned int *)scoop_data)[9];
+	M2 = ((unsigned int *)scoop_data)[10];
+	M3 = ((unsigned int *)scoop_data)[11];
+	M4 = ((unsigned int *)scoop_data)[12];
+	M5 = ((unsigned int *)scoop_data)[13];
+	M6 = ((unsigned int *)scoop_data)[14];
+	M7 = ((unsigned int *)scoop_data)[15];
 	M8 = 0x80;
 	M9 = MA = MB = MC = MD = ME = MF = 0;
 
