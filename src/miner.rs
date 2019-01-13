@@ -86,10 +86,10 @@ pub struct CpuBuffer {
 }
 
 impl CpuBuffer {
-   pub fn new(buffer_size: usize) -> Self {
+    pub fn new(buffer_size: usize) -> Self {
         let pointer = aligned_alloc::aligned_alloc(buffer_size, page_size::get());
         let data: Vec<u8>;
-        unsafe { 
+        unsafe {
             data = Vec::from_raw_parts(pointer as *mut u8, buffer_size, buffer_size);
         }
         CpuBuffer {
@@ -186,12 +186,17 @@ impl Miner {
             cfg.benchmark_only.to_uppercase() == "XPU",
         );
 
-        let core_ids = core_affinity::get_core_ids().unwrap();
         let thread_pinning = cfg.cpu_thread_pinning;
-        let cpu_threads = if cfg.cpu_threads == 0 {
-            core_ids.len()
+        let core_ids = if thread_pinning {
+            core_affinity::get_core_ids().unwrap()
         } else {
-            min(cfg.cpu_threads, core_ids.len())
+            Vec::new()
+        };
+
+        let cpu_threads = if cfg.cpu_threads == 0 {
+            num_cpus::get()
+        } else {
+            min(cfg.cpu_threads, num_cpus::get())
         };
 
         let cpu_worker_task_count = cfg.cpu_worker_task_count;
