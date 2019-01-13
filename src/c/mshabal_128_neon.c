@@ -330,7 +330,7 @@ void mshabal_close_neon(mshabal_context *sc, unsigned ub0, unsigned ub1, unsigne
     memset(sc->buf2 + ptr, 0, (sizeof sc->buf2) - ptr);
     memset(sc->buf3 + ptr, 0, (sizeof sc->buf3) - ptr);
     for (z = 0; z < 4; z++) {
-        mshabal_compress_avx(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
+        mshabal_compress_neon(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, 1);
         if (sc->Wlow-- == 0) sc->Whigh--;
     }
     out_size_w32 = sc->out_size >> 5;
