@@ -234,7 +234,7 @@ impl Reader {
                     }
                     let mut_bs = buffer.get_buffer_for_writing();
                     let mut bs = mut_bs.lock().unwrap();
-                    let (bytes_read, start_nonce, next_plot) = match p.read(&mut *bs, scoop) {
+                    let (bytes_read, start_nonce, next_plot) = match p.read(&mut bs, scoop) {
                         Ok(x) => x,
                         Err(e) => {
                             error!(

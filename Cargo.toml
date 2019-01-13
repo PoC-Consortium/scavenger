@@ -44,6 +44,8 @@ stopwatch = "0.0.7"
 tokio = "0.1"
 tokio-core = "0.1"
 url = "1.7"
+page_size = "0.4.1"
+aligned_alloc = "0.1"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi"] }
