@@ -94,14 +94,14 @@ typedef struct {
     unsigned char buf2[64];
     unsigned char buf3[64];
     size_t ptr;
-    mshabal_u32 state[(12 + 16 + 16)  * MSHABAL128_VECTOR_SIZE];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL128_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal_context;
 
 #pragma pack(1)
 typedef struct {
-    mshabal_u32 state[(12 + 16 + 16)  * MSHABAL128_VECTOR_SIZE];
+    mshabal_u32 state[(12 + 16 + 16) * MSHABAL128_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
 } mshabal_context_fast;

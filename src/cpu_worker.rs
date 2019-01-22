@@ -306,24 +306,30 @@ mod tests {
     fn test_deadline_hashing() {
         let mut deadline: u64 = u64::MAX;
         let mut offset: u64 = 0;
-        let len: u64 = 16;
         let gensig =
             hex::decode("4a6f686e6e7946464d206861742064656e206772f6df74656e2050656e697321")
                 .unwrap();
-        let mut data: [u8; 64 * 16] = [0; 64 * 16];
+        let winner: [u8; 64] = [0; 64];
+        let loser: [u8; 64] = [5; 64];
+        let mut data: [u8; 64 * 32] = [5; 64 * 32];
+
         for i in 0..32 {
-            data[i * 32..i * 32 + 32].clone_from_slice(&gensig);
+            data[i * 64..i * 64 + 64].clone_from_slice(&winner);
+
+            unsafe {
+                find_best_deadline_sph(
+                    data.as_ptr() as *mut c_void,
+                    (i + 1) as u64,
+                    gensig.as_ptr() as *const c_void,
+                    &mut deadline,
+                    &mut offset,
+                );
+            }
+            assert_eq!(3084580316385335914u64, deadline);
+            deadline = u64::MAX;
+            offset = 0;
+            data[i * 64..i * 64 + 64].clone_from_slice(&loser);
         }
-        unsafe {
-            find_best_deadline_sph(
-                data.as_ptr() as *mut c_void,
-                len,
-                gensig.as_ptr() as *const c_void,
-                &mut deadline,
-                &mut offset,
-            );
-        }
-        assert_eq!(18043101931632730606u64, deadline);
     }
 
     #[test]
@@ -331,105 +337,110 @@ mod tests {
     fn test_simd_deadline_hashing() {
         let mut deadline: u64 = u64::MAX;
         let mut offset: u64 = 0;
-        let len: u64 = 16;
         let gensig =
             hex::decode("4a6f686e6e7946464d206861742064656e206772f6df74656e2050656e697321")
                 .unwrap();
-        let mut data: [u8; 64 * 16] = [0; 64 * 16];
+        let winner: [u8; 64] = [0; 64];
+        let loser: [u8; 64] = [5; 64];
+        let mut data: [u8; 64 * 32] = [5; 64 * 32];
         for i in 0..32 {
-            data[i * 32..i * 32 + 32].clone_from_slice(&gensig);
-        }
-
-        unsafe {
-            if is_x86_feature_detected!("avx512f") {
-                init_shabal_avx512f();
-                find_best_deadline_avx512f(
+            data[i * 64..i * 64 + 64].clone_from_slice(&winner);
+            unsafe {
+                if is_x86_feature_detected!("avx512f") {
+                    init_shabal_avx512f();
+                    find_best_deadline_avx512f(
+                        data.as_ptr() as *mut c_void,
+                        (i + 1) as u64,
+                        gensig.as_ptr() as *const c_void,
+                        &mut deadline,
+                        &mut offset,
+                    );
+                    assert_eq!(3084580316385335914u64, deadline);
+                    deadline = u64::MAX;
+                    offset = 0;
+                }
+                if is_x86_feature_detected!("avx2") {
+                    init_shabal_avx2();
+                    find_best_deadline_avx2(
+                        data.as_ptr() as *mut c_void,
+                        (i + 1) as u64,
+                        gensig.as_ptr() as *const c_void,
+                        &mut deadline,
+                        &mut offset,
+                    );
+                    assert_eq!(3084580316385335914u64, deadline);
+                    deadline = u64::MAX;
+                    offset = 0;
+                }
+                if is_x86_feature_detected!("avx") {
+                    init_shabal_avx();
+                    find_best_deadline_avx(
+                        data.as_ptr() as *mut c_void,
+                        (i + 1) as u64,
+                        gensig.as_ptr() as *const c_void,
+                        &mut deadline,
+                        &mut offset,
+                    );
+                    assert_eq!(3084580316385335914u64, deadline);
+                    deadline = u64::MAX;
+                    offset = 0;
+                }
+                if is_x86_feature_detected!("sse2") {
+                    init_shabal_sse2();
+                    find_best_deadline_sse2(
+                        data.as_ptr() as *mut c_void,
+                        (i + 1) as u64,
+                        gensig.as_ptr() as *const c_void,
+                        &mut deadline,
+                        &mut offset,
+                    );
+                    assert_eq!(3084580316385335914u64, deadline);
+                    deadline = u64::MAX;
+                    offset = 0;
+                }
+                find_best_deadline_sph(
                     data.as_ptr() as *mut c_void,
-                    len,
+                    (i + 1) as u64,
                     gensig.as_ptr() as *const c_void,
                     &mut deadline,
                     &mut offset,
                 );
-                assert_eq!(18043101931632730606u64, deadline);
+                assert_eq!(3084580316385335914u64, deadline);
                 deadline = u64::MAX;
                 offset = 0;
             }
-            if is_x86_feature_detected!("avx2") {
-                init_shabal_avx2();
-                find_best_deadline_avx2(
-                    data.as_ptr() as *mut c_void,
-                    len,
-                    gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
-                );
-                assert_eq!(18043101931632730606u64, deadline);
-                deadline = u64::MAX;
-                offset = 0;
-            }
-            if is_x86_feature_detected!("avx") {
-                init_shabal_avx();
-                find_best_deadline_avx(
-                    data.as_ptr() as *mut c_void,
-                    len,
-                    gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
-                );
-                assert_eq!(18043101931632730606u64, deadline);
-                deadline = u64::MAX;
-                offset = 0;
-            }
-            if is_x86_feature_detected!("sse2") {
-                init_shabal_sse2();
-                find_best_deadline_sse2(
-                    data.as_ptr() as *mut c_void,
-                    len,
-                    gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
-                );
-                assert_eq!(18043101931632730606u64, deadline);
-                deadline = u64::MAX;
-                offset = 0;
-            }
-            find_best_deadline_sph(
-                data.as_ptr() as *mut c_void,
-                len,
-                gensig.as_ptr() as *const c_void,
-                &mut deadline,
-                &mut offset,
-            );
-            assert_eq!(18043101931632730606u64, deadline);
+            data[i * 64..i * 64 + 64].clone_from_slice(&loser);
         }
     }
     #[cfg(feature = "neon")]
     fn test_simd_deadline_hashing() {
         let mut deadline: u64 = u64::MAX;
         let mut offset: u64 = 0;
-        let len: u64 = 16;
         let gensig =
             hex::decode("4a6f686e6e7946464d206861742064656e206772f6df74656e2050656e697321")
                 .unwrap();
-        let mut data: [u8; 64 * 16] = [0; 64 * 16];
-        for i in 0..32 {
-            data[i * 32..i * 32 + 32].clone_from_slice(&gensig);
-        }
+        let winner: [u8; 64] = [0; 64];
+        let loser: [u8; 64] = [5; 64];
+        let mut data: [u8; 64 * 32] = [5; 64 * 32];
         #[cfg(target_arch = "arm")]
         let neon = is_arm_feature_detected!("neon");
         #[cfg(target_arch = "aarch64")]
         let neon = true;
-        if neon {
-            find_best_deadline_neon(
-                bs.as_ptr() as *mut c_void,
-                (read_reply.info.len as u64) / 64,
-                read_reply.info.gensig.as_ptr() as *const c_void,
-                &mut deadline,
-                &mut offset,
-            );
-            assert_eq!(18043101931632730606u64, deadline);
-            deadline = u64::MAX;
-            offset = 0;
+        for i in 0..32 {
+            data[i * 64..i * 64 + 64].clone_from_slice(&winner);
+            if neon {
+                find_best_deadline_neon(
+                    data.as_ptr() as *mut c_void,
+                    (i + 1) as u64,
+                    gensig.as_ptr() as *const c_void,
+                    &mut deadline,
+                    &mut offset,
+                );
+                assert_eq!(3084580316385335914u64, deadline);
+                data[i * 64..i * 64 + 64].clone_from_slice(&loser);
+                deadline = u64::MAX;
+                offset = 0;
+            }
         }
     }
 }

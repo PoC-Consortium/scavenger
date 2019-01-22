@@ -11,7 +11,7 @@ mshabal256_context_fast global_256_fast;
 void init_shabal_avx2() {
     mshabal_init_avx2(&global_256, 256);
     global_256_fast.out_size = global_256.out_size;
-    for (int i = 0; i < 352; i++) global_256_fast.state[i] = global_256.state[i];
+    for (uint64_t i = 0; i < 352; i++) global_256_fast.state[i] = global_256.state[i];
     global_256_fast.Whigh = global_256.Whigh;
     global_256_fast.Wlow = global_256.Wlow;
 }
@@ -24,8 +24,7 @@ void find_best_deadline_avx2(char *scoops, uint64_t nonce_count, char *gensig,
 
     // local copy of global fast context
     mshabal256_context_fast x;
-    memcpy(&x, &global_256_fast,
-           sizeof(global_256_fast));
+    memcpy(&x, &global_256_fast, sizeof(global_256_fast));
 
     // prepare shabal inputs
     union {
@@ -35,22 +34,22 @@ void find_best_deadline_avx2(char *scoops, uint64_t nonce_count, char *gensig,
 
     for (uint64_t i = 0; i < 16 * MSHABAL256_VECTOR_SIZE / 2; i += MSHABAL256_VECTOR_SIZE) {
         size_t o = i / 2;
-        u1.words[i + 0] = *(mshabal_u32*)(gensig + o);
-        u1.words[i + 1] = *(mshabal_u32*)(gensig + o);
-        u1.words[i + 2] = *(mshabal_u32*)(gensig + o);
-        u1.words[i + 3] = *(mshabal_u32*)(gensig + o);
-        u1.words[i + 4] = *(mshabal_u32*)(gensig + o);
-        u1.words[i + 5] = *(mshabal_u32*)(gensig + o);
-        u1.words[i + 6] = *(mshabal_u32*)(gensig + o);
-        u1.words[i + 7] = *(mshabal_u32*)(gensig + o);
-        u2.words[i + 0 + 64] = *(mshabal_u32*)(term + o);
-        u2.words[i + 1 + 64] = *(mshabal_u32*)(term + o);
-        u2.words[i + 2 + 64] = *(mshabal_u32*)(term + o);
-        u2.words[i + 3 + 64] = *(mshabal_u32*)(term + o);
-        u2.words[i + 4 + 64] = *(mshabal_u32*)(term + o);
-        u2.words[i + 5 + 64] = *(mshabal_u32*)(term + o);
-        u2.words[i + 6 + 64] = *(mshabal_u32*)(term + o);
-        u2.words[i + 7 + 64] = *(mshabal_u32*)(term + o);
+        u1.words[i + 0] = *(mshabal_u32 *)(gensig + o);
+        u1.words[i + 1] = *(mshabal_u32 *)(gensig + o);
+        u1.words[i + 2] = *(mshabal_u32 *)(gensig + o);
+        u1.words[i + 3] = *(mshabal_u32 *)(gensig + o);
+        u1.words[i + 4] = *(mshabal_u32 *)(gensig + o);
+        u1.words[i + 5] = *(mshabal_u32 *)(gensig + o);
+        u1.words[i + 6] = *(mshabal_u32 *)(gensig + o);
+        u1.words[i + 7] = *(mshabal_u32 *)(gensig + o);
+        u2.words[i + 0 + 64] = *(mshabal_u32 *)(term + o);
+        u2.words[i + 1 + 64] = *(mshabal_u32 *)(term + o);
+        u2.words[i + 2 + 64] = *(mshabal_u32 *)(term + o);
+        u2.words[i + 3 + 64] = *(mshabal_u32 *)(term + o);
+        u2.words[i + 4 + 64] = *(mshabal_u32 *)(term + o);
+        u2.words[i + 5 + 64] = *(mshabal_u32 *)(term + o);
+        u2.words[i + 6 + 64] = *(mshabal_u32 *)(term + o);
+        u2.words[i + 7 + 64] = *(mshabal_u32 *)(term + o);
     }
 
     for (uint64_t i = 0; i < nonce_count;) {
@@ -58,22 +57,22 @@ void find_best_deadline_avx2(char *scoops, uint64_t nonce_count, char *gensig,
             // load and align data for SIMD
             for (uint64_t j = 0; j < 16 * MSHABAL256_VECTOR_SIZE / 2; j += MSHABAL256_VECTOR_SIZE) {
                 size_t o = j / 2;
-                u1.words[j + 0 + 64] = *(mshabal_u32*)(&scoops[(i + 0) * 64] + o);
-                u1.words[j + 1 + 64] = *(mshabal_u32*)(&scoops[(i + 1) * 64] + o);
-                u1.words[j + 2 + 64] = *(mshabal_u32*)(&scoops[(i + 2) * 64] + o);
-                u1.words[j + 3 + 64] = *(mshabal_u32*)(&scoops[(i + 3) * 64] + o);
-                u1.words[j + 4 + 64] = *(mshabal_u32*)(&scoops[(i + 4) * 64] + o);
-                u1.words[j + 5 + 64] = *(mshabal_u32*)(&scoops[(i + 5) * 64] + o);
-                u1.words[j + 6 + 64] = *(mshabal_u32*)(&scoops[(i + 6) * 64] + o);
-                u1.words[j + 7 + 64] = *(mshabal_u32*)(&scoops[(i + 7) * 64] + o);
-                u2.words[j + 0] = *(mshabal_u32*)(&scoops[(i + 0) * 64 + 32] + o);
-                u2.words[j + 1] = *(mshabal_u32*)(&scoops[(i + 1) * 64 + 32] + o);
-                u2.words[j + 2] = *(mshabal_u32*)(&scoops[(i + 2) * 64 + 32] + o);
-                u2.words[j + 3] = *(mshabal_u32*)(&scoops[(i + 3) * 64 + 32] + o);
-                u2.words[j + 4] = *(mshabal_u32*)(&scoops[(i + 4) * 64 + 32] + o);
-                u2.words[j + 5] = *(mshabal_u32*)(&scoops[(i + 5) * 64 + 32] + o);
-                u2.words[j + 6] = *(mshabal_u32*)(&scoops[(i + 6) * 64 + 32] + o);
-                u2.words[j + 7] = *(mshabal_u32*)(&scoops[(i + 7) * 64 + 32] + o);
+                u1.words[j + 0 + 64] = *(mshabal_u32 *)(&scoops[(i + 0) * 64] + o);
+                u1.words[j + 1 + 64] = *(mshabal_u32 *)(&scoops[(i + 1) * 64] + o);
+                u1.words[j + 2 + 64] = *(mshabal_u32 *)(&scoops[(i + 2) * 64] + o);
+                u1.words[j + 3 + 64] = *(mshabal_u32 *)(&scoops[(i + 3) * 64] + o);
+                u1.words[j + 4 + 64] = *(mshabal_u32 *)(&scoops[(i + 4) * 64] + o);
+                u1.words[j + 5 + 64] = *(mshabal_u32 *)(&scoops[(i + 5) * 64] + o);
+                u1.words[j + 6 + 64] = *(mshabal_u32 *)(&scoops[(i + 6) * 64] + o);
+                u1.words[j + 7 + 64] = *(mshabal_u32 *)(&scoops[(i + 7) * 64] + o);
+                u2.words[j + 0] = *(mshabal_u32 *)(&scoops[(i + 0) * 64 + 32] + o);
+                u2.words[j + 1] = *(mshabal_u32 *)(&scoops[(i + 1) * 64 + 32] + o);
+                u2.words[j + 2] = *(mshabal_u32 *)(&scoops[(i + 2) * 64 + 32] + o);
+                u2.words[j + 3] = *(mshabal_u32 *)(&scoops[(i + 3) * 64 + 32] + o);
+                u2.words[j + 4] = *(mshabal_u32 *)(&scoops[(i + 4) * 64 + 32] + o);
+                u2.words[j + 5] = *(mshabal_u32 *)(&scoops[(i + 5) * 64 + 32] + o);
+                u2.words[j + 6] = *(mshabal_u32 *)(&scoops[(i + 6) * 64 + 32] + o);
+                u2.words[j + 7] = *(mshabal_u32 *)(&scoops[(i + 7) * 64 + 32] + o);
             }
 
             mshabal_deadline_fast_avx2(&x, &u1, &u2, &d0, &d1, &d2, &d3, &d4, &d5, &d6, &d7);

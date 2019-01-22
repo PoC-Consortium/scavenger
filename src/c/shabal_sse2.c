@@ -11,7 +11,7 @@ mshabal_context_fast global_128_fast;
 void init_shabal_sse2() {
     mshabal_init_sse2(&global_128, 256);
     global_128_fast.out_size = global_128.out_size;
-    for (int i = 0; i < 176; i++) global_128_fast.state[i] = global_128.state[i];
+    for (uint64_t i = 0; i < 176; i++) global_128_fast.state[i] = global_128.state[i];
     global_128_fast.Whigh = global_128.Whigh;
     global_128_fast.Wlow = global_128.Wlow;
 }
@@ -32,7 +32,7 @@ void find_best_deadline_sse2(char *scoops, uint64_t nonce_count, char *gensig,
         __m128i data[16];
     } u1, u2;
 
-    for (int i = 0; i < 16 * MSHABAL128_VECTOR_SIZE / 2; i += MSHABAL128_VECTOR_SIZE) {
+    for (uint64_t i = 0; i < 16 * MSHABAL128_VECTOR_SIZE / 2; i += MSHABAL128_VECTOR_SIZE) {
         size_t o = i;
         u1.words[i + 0] = *(mshabal_u32 *)(gensig + o);
         u1.words[i + 1] = *(mshabal_u32 *)(gensig + o);
@@ -44,10 +44,10 @@ void find_best_deadline_sse2(char *scoops, uint64_t nonce_count, char *gensig,
         u2.words[i + 3 + 32] = *(mshabal_u32 *)(term + o);
     }
 
-    for (uint64_t i = 0; i < nonce_count; i += 4) {
+    for (uint64_t i = 0; i < nonce_count;) {
         if (i + 4 <= nonce_count) {
             // load and align data for SIMD
-            for (uint64_t j = 0; j < 64 / 2; j += 4) {
+            for (uint64_t j = 0; j < 16 * MSHABAL128_VECTOR_SIZE / 2; j += MSHABAL128_VECTOR_SIZE) {
                 size_t o = j;
                 u1.words[j + 0 + 32] = *(mshabal_u32 *)(&scoops[(i + 0) * 64] + o);
                 u1.words[j + 1 + 32] = *(mshabal_u32 *)(&scoops[(i + 1) * 64] + o);

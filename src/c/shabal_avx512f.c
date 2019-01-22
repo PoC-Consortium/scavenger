@@ -11,7 +11,7 @@ mshabal512_context_fast global_512_fast;
 void init_shabal_avx512f() {
     mshabal_init_avx512f(&global_512, 256);
     global_512_fast.out_size = global_512.out_size;
-    for (int i = 0; i < 704; i++) global_512_fast.state[i] = global_512.state[i];
+    for (uint64_t i = 0; i < 704; i++) global_512_fast.state[i] = global_512.state[i];
     global_512_fast.Whigh = global_512.Whigh;
     global_512_fast.Wlow = global_512.Wlow;
 }
