@@ -141,7 +141,7 @@ impl RequestHandler {
             client,
             timeout: Duration::from_millis(timeout),
             handle,
-            ua: "scavenger/".to_owned() + crate_version!(),
+            ua: "Scavenger/".to_owned() + crate_version!(),
             total_size_gb,
             send_proxy_details,
         }
