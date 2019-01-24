@@ -431,6 +431,7 @@ mod tests {
             for i in 0..32 {
                 data[i * 64..i * 64 + 64].clone_from_slice(&winner);
                 unsafe {
+                    init_shabal_neon();
                     find_best_deadline_neon(
                         data.as_ptr() as *mut c_void,
                         (i + 1) as u64,
