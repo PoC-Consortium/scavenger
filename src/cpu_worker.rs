@@ -426,16 +426,18 @@ mod tests {
         let neon = is_arm_feature_detected!("neon");
         #[cfg(target_arch = "aarch64")]
         let neon = true;
-        for i in 0..32 {
-            data[i * 64..i * 64 + 64].clone_from_slice(&winner);
-            if neon {
-                find_best_deadline_neon(
-                    data.as_ptr() as *mut c_void,
-                    (i + 1) as u64,
-                    gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
-                );
+        if neon {
+            for i in 0..32 {
+                data[i * 64..i * 64 + 64].clone_from_slice(&winner);
+                unsafe {
+                    find_best_deadline_neon(
+                        data.as_ptr() as *mut c_void,
+                        (i + 1) as u64,
+                        gensig.as_ptr() as *const c_void,
+                        &mut deadline,
+                        &mut offset,
+                    );
+                }
                 assert_eq!(3084580316385335914u64, deadline);
                 data[i * 64..i * 64 + 64].clone_from_slice(&loser);
                 deadline = u64::MAX;

@@ -35,7 +35,7 @@ pub fn create_gpu_worker_task_async(
         for read_reply in rx_read_replies {
             let mut buffer = read_reply.buffer;
             // handle empty buffers (read errors) && benchmark
-            if read_reply.info.len == 0 && benchmark {
+            if read_reply.info.len == 0 || benchmark {
                 // forward 'drive finished signal'
                 if read_reply.info.finished {
                     let deadline = u64::MAX;
