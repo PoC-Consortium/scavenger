@@ -412,6 +412,7 @@ mod tests {
             data[i * 64..i * 64 + 64].clone_from_slice(&loser);
         }
     }
+    #[test]
     #[cfg(feature = "neon")]
     fn test_simd_deadline_hashing() {
         let mut deadline: u64 = u64::MAX;
