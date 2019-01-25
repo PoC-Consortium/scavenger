@@ -4,12 +4,12 @@ version = "1.7.2"
 license = "GPL-3.0"
 authors = ["PoC Consortium <bots@cryptoguru.org>"]
 description = """
-Scavenger - a Burst miner written in Rust
+Scavenger - a PoC miner written in Rust
 """
 build = "build.rs"
 repository = "https://github.com/PoC-Consortium/scavenger"
 documentation = "https://github.com/PoC-Consortium/scavenger"
-keywords = ["burstcoin", "miner", "rust","cryptocurrency"]
+keywords = ["poc", "miner", "rust","cryptocurrency"]
 readme = "README.md"
 
 [features]

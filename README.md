@@ -2,7 +2,7 @@
  
  [![Build Status](https://travis-ci.org/PoC-Consortium/scavenger.svg?branch=master)](https://travis-ci.org/PoC-Consortium/scavenger)
 
-# Scavenger - Burstminer in Rust
+# Scavenger - PoC miner in Rust
 
 ### Features
 - windows, linux, macOS, android & more
@@ -10,7 +10,7 @@
 - direct io
 - avx512f, avx2, avx, sse, neon
 - opencl
-- fastest burstminer there is
+- fastest PoC miner there is
 
 ### Documentation/Wiki
 

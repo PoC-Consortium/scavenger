@@ -23,7 +23,7 @@ extern crate log;
 extern crate core_affinity;
 extern crate log4rs;
 
-mod burstmath;
+mod pocmath;
 mod config;
 mod cpu_worker;
 mod logger;
@@ -108,7 +108,7 @@ cfg_if! {
 }
 
 fn main() {
-    let arg = App::new("Scavenger - a Burst miner")
+    let arg = App::new("Scavenger - a PoC miner")
         .version(crate_version!())
         .author(crate_authors!())
         .about(crate_description!())

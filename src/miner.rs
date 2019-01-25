@@ -1,7 +1,7 @@
 #[cfg(feature = "opencl")]
 extern crate ocl_core as core;
 
-use burstmath;
+use pocmath;
 use chan;
 use config::Cfg;
 use core_affinity;
@@ -471,10 +471,10 @@ impl Miner {
                                 state.base_target = mining_info.base_target;
 
                                 let gensig =
-                                    burstmath::decode_gensig(&mining_info.generation_signature);
+                                    pocmath::decode_gensig(&mining_info.generation_signature);
                                 state.generation_signature = mining_info.generation_signature;
 
-                                let scoop = burstmath::calculate_scoop(mining_info.height, &gensig);
+                                let scoop = pocmath::calculate_scoop(mining_info.height, &gensig);
                                 info!(
                                     "{: <80}",
                                     format!(

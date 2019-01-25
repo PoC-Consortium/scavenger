@@ -157,7 +157,7 @@ void mshabal_close_neon(mshabal_context *sc, unsigned ub0, unsigned ub1, unsigne
                            void *dst3);
 
 /*
- * optimised Shabal Routine for Burstcoin Mining
+ * optimised Shabal Routine for PoC Mining
  */
 void mshabal_deadline_fast_neon(mshabal_context_fast *sc, void *u1, void *u2, void *dst0,
                                     void *dst1, void *dst2, void *dst3);
