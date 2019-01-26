@@ -174,7 +174,13 @@ void mshabal_close_avx512f(mshabal512_context *sc, unsigned ub0, unsigned ub1, u
                            void *dst12, void *dst13, void *dst14, void *dst15);
 
 /*
- * optimised Shabal Routine for PoC Mining
+ * optimised Shabal routine for PoC plotting and hashing
+ */
+void mshabal_hash_fast_avx512f(mshabal512_context_fast *sc, void *message, void *termination,
+                               void *dst, unsigned len);
+
+/*
+ * optimised Shabal routine for PoC mining
  */
 void mshabal_deadline_fast_avx512f(mshabal512_context_fast *sc, void *message, void *termination, void *dst0,
                                     void *dst1, void *dst2, void *dst3, void *dst4, void *dst5,

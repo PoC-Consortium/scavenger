@@ -1,13 +1,12 @@
 #include "shabal_neon.h"
-
 #include "SSE2NEON.h"
 #include <string.h>
 #include "common.h"
 #include "mshabal_128_neon.h"
 #include "sph_shabal.h"
 
-mshabal_context global_128;
-mshabal_context_fast global_128_fast;
+mshabal128_context global_128;
+mshabal128_context_fast global_128_fast;
 
 void init_shabal_neon() {
     mshabal_init_neon(&global_128, 256);
@@ -24,7 +23,7 @@ void find_best_deadline_neon(char *scoops, uint64_t nonce_count, char *gensig,
     write_term(term);
 
     // local copy of global fast context
-    mshabal_context_fast x;
+    mshabal128_context_fast x;
     memcpy(&x, &global_128_fast, sizeof(global_128_fast));
 
     // prepare shabal inputs

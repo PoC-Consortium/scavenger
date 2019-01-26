@@ -5,8 +5,8 @@
 #include "mshabal_128_sse2.h"
 #include "sph_shabal.h"
 
-mshabal_context global_128;
-mshabal_context_fast global_128_fast;
+mshabal128_context global_128;
+mshabal128_context_fast global_128_fast;
 
 void init_shabal_sse2() {
     mshabal_init_sse2(&global_128, 256);
@@ -23,7 +23,7 @@ void find_best_deadline_sse2(char *scoops, uint64_t nonce_count, char *gensig,
     write_term(term);
 
     // local copy of global fast context
-    mshabal_context_fast x;
+    mshabal128_context_fast x;
     memcpy(&x, &global_128_fast, sizeof(global_128_fast));
 
     // prepare shabal inputs

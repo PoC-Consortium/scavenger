@@ -540,7 +540,91 @@ void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n, void* ds
     shabal_close(cc, ub, n, dst, 8);
 }
 
-/* see sph_shabal.h */
+// Shabal routines optimized for plotting and hashing
+void sph_shabal_hash_fast(void *message, void *termination, void* dst, unsigned num) {
+    sph_u32
+        A00 = A_init_256[0], A01 = A_init_256[1], A02 = A_init_256[2], A03 = A_init_256[3],
+        A04 = A_init_256[4], A05 = A_init_256[5], A06 = A_init_256[6], A07 = A_init_256[7],
+        A08 = A_init_256[8], A09 = A_init_256[9], A0A = A_init_256[10], A0B = A_init_256[11];
+    sph_u32
+        B0 = B_init_256[0], B1 = B_init_256[1], B2 = B_init_256[2], B3 = B_init_256[3],
+        B4 = B_init_256[4], B5 = B_init_256[5], B6 = B_init_256[6], B7 = B_init_256[7],
+        B8 = B_init_256[8], B9 = B_init_256[9], BA = B_init_256[10], BB = B_init_256[11],
+        BC = B_init_256[12], BD = B_init_256[13], BE = B_init_256[14], BF = B_init_256[15];
+    sph_u32
+        C0 = C_init_256[0], C1 = C_init_256[1], C2 = C_init_256[2], C3 = C_init_256[3],
+        C4 = C_init_256[4], C5 = C_init_256[5], C6 = C_init_256[6], C7 = C_init_256[7],
+        C8 = C_init_256[8], C9 = C_init_256[9], CA = C_init_256[10], CB = C_init_256[11],
+        CC = C_init_256[12], CD = C_init_256[13], CE = C_init_256[14], CF = C_init_256[15];
+    sph_u32 M0, M1, M2, M3, M4, M5, M6, M7, M8, M9, MA, MB, MC, MD, ME, MF;
+    sph_u32 Wlow = 1, Whigh = 0;
+         
+    while (num-- > 0) {
+	    M0 = ((unsigned int *)message)[0];
+	    M1 = ((unsigned int *)message)[1];
+	    M2 = ((unsigned int *)message)[2];
+	    M3 = ((unsigned int *)message)[3];
+	    M4 = ((unsigned int *)message)[4];
+	    M5 = ((unsigned int *)message)[5];
+	    M6 = ((unsigned int *)message)[6];
+	    M7 = ((unsigned int *)message)[7];
+	    M8 = ((unsigned int *)message)[8];
+	    M9 = ((unsigned int *)message)[9];
+	    MA = ((unsigned int *)message)[10];
+	    MB = ((unsigned int *)message)[11];
+	    MC = ((unsigned int *)message)[12];
+	    MD = ((unsigned int *)message)[13];
+	    ME = ((unsigned int *)message)[14];
+    	MF = ((unsigned int *)message)[15];
+
+        INPUT_BLOCK_ADD;
+        XOR_W;
+        APPLY_P;
+        INPUT_BLOCK_SUB;
+        SWAP_BC;
+        INCR_W;
+
+        message = (unsigned int *)message + 16;
+    }
+
+	    M0 = ((unsigned int *)termination)[0];
+	    M1 = ((unsigned int *)termination)[1];
+	    M2 = ((unsigned int *)termination)[2];
+	    M3 = ((unsigned int *)termination)[3];
+	    M4 = ((unsigned int *)termination)[4];
+	    M5 = ((unsigned int *)termination)[5];
+	    M6 = ((unsigned int *)termination)[6];
+	    M7 = ((unsigned int *)termination)[7];
+	    M8 = ((unsigned int *)termination)[8];
+	    M9 = ((unsigned int *)termination)[9];
+	    MA = ((unsigned int *)termination)[10];
+	    MB = ((unsigned int *)termination)[11];
+	    MC = ((unsigned int *)termination)[12];
+	    MD = ((unsigned int *)termination)[13];
+	    ME = ((unsigned int *)termination)[14];
+    	MF = ((unsigned int *)termination)[15];
+
+    INPUT_BLOCK_ADD;
+    XOR_W;
+    APPLY_P;
+
+    for (int i = 0; i < 3; i++) {
+        SWAP_BC;
+        XOR_W;
+        APPLY_P;
+    }
+
+    sph_enc32le_aligned((sph_u32 *)dst, B8);
+    sph_enc32le_aligned((sph_u32 *)dst + 1, B9);
+    sph_enc32le_aligned((sph_u32 *)dst + 2, BA);
+    sph_enc32le_aligned((sph_u32 *)dst + 3, BB);
+    sph_enc32le_aligned((sph_u32 *)dst + 4, BC);
+    sph_enc32le_aligned((sph_u32 *)dst + 5, BD);
+    sph_enc32le_aligned((sph_u32 *)dst + 6, BE);
+    sph_enc32le_aligned((sph_u32 *)dst + 7, BF);    
+}
+
+// Shabal routines optimized for mining
 void sph_shabal_deadline_fast(void *scoop_data, void *gen_sig, void *dst) {
     sph_u32
         A00 = A_init_256[0], A01 = A_init_256[1], A02 = A_init_256[2], A03 = A_init_256[3],
@@ -604,6 +688,6 @@ void sph_shabal_deadline_fast(void *scoop_data, void *gen_sig, void *dst) {
         APPLY_P;
     }
 
-    sph_enc32le_aligned((sph_u32*)dst, B8);
-    sph_enc32le_aligned((sph_u32*)dst + 1, B9);    
+    sph_enc32le_aligned((sph_u32 *)dst, B8);
+    sph_enc32le_aligned((sph_u32 *)dst + 1, B9);    
 }

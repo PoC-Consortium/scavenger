@@ -118,7 +118,12 @@ void sph_shabal256_close(void* cc, void* dst);
 void sph_shabal256_addbits_and_close(void* cc, unsigned ub, unsigned n, void* dst);
 
 /*
- * optimised Shabal Routine for PoC Mining
+ * optimised Shabal routine for PoC plotting and hashing
+ */
+void sph_shabal_hash_fast(void *message, void *termination, void* dst, unsigned num);
+
+/*
+ * optimised Shabal routine for PoC mining
  */
 void sph_shabal_deadline_fast(void *scoop_data, void *gen_sig, void *dst);
 

@@ -3,7 +3,7 @@
  * compiles and runs on x86 architectures, in 32-bit or 64-bit mode,
  * which possess a AVX2-compatible SIMD unit.
  *
- * 
+ *
  * (c) 2010 SAPHIR project. This software is provided 'as-is', without
  * any epxress or implied warranty. In no event will the authors be held
  * liable for any damages arising from the use of this software.
@@ -36,10 +36,10 @@ typedef mshabal_u32 u32;
 #define ROTL32(x, n) T32(((x) << (n)) | ((x) >> (32 - (n))))
 
 static void mshabal_compress_avx2(mshabal256_context *sc, const unsigned char *buf0,
-                                     const unsigned char *buf1, const unsigned char *buf2,
-                                     const unsigned char *buf3, const unsigned char *buf4,
-                                     const unsigned char *buf5, const unsigned char *buf6,
-                                     const unsigned char *buf7, size_t num) {
+                                const unsigned char *buf1, const unsigned char *buf2,
+                                const unsigned char *buf3, const unsigned char *buf4,
+                                const unsigned char *buf5, const unsigned char *buf6,
+                                const unsigned char *buf7, size_t num) {
     union {
         u32 words[16 * MSHABAL256_VECTOR_SIZE];
         __m256i data[16];
@@ -278,13 +278,13 @@ void mshabal_init_avx2(mshabal256_context *sc, unsigned out_size) {
         sc->buf7[4 * u + 1] = (out_size + u + 16) >> 8;
     }
     mshabal_compress_avx2(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, sc->buf4, sc->buf5,
-                             sc->buf6, sc->buf7, 1);
+                     sc->buf6, sc->buf7, 1);
     sc->ptr = 0;
     sc->out_size = out_size;
 }
 
-void mshabal_avx2(mshabal256_context* sc, const void* data0, const void* data1, const void* data2, const void* data3,
-                     const void* data4, const void* data5, const void* data6, const void* data7, size_t len) {
+void mshabal_avx2(mshabal256_context *sc, const void *data0, const void *data1, const void *data2, const void *data3,
+                    const void *data4, const void *data5, const void *data6, const void *data7, size_t len) {
     size_t ptr, num;
 
     if (data0 == NULL) {
@@ -351,7 +351,7 @@ void mshabal_avx2(mshabal256_context* sc, const void* data0, const void* data1, 
             memcpy(sc->buf6 + ptr, data6, clen);
             memcpy(sc->buf7 + ptr, data7, clen);
             mshabal_compress_avx2(sc, sc->buf0, sc->buf1, sc->buf2, sc->buf3, sc->buf4, sc->buf5,
-                                     sc->buf6, sc->buf7, 1);
+                                sc->buf6, sc->buf7, 1);
             data0 = (const unsigned char *)data0 + clen;
             data1 = (const unsigned char *)data1 + clen;
             data2 = (const unsigned char *)data2 + clen;
@@ -366,10 +366,7 @@ void mshabal_avx2(mshabal256_context* sc, const void* data0, const void* data1, 
 
     num = len >> 6;
     if (num != 0) {
-        mshabal_compress_avx2(sc, (const unsigned char *)data0, (const unsigned char *)data1,
-                                 (const unsigned char *)data2, (const unsigned char *)data3,
-                                 (const unsigned char *)data4, (const unsigned char *)data5,
-                                 (const unsigned char *)data6, (const unsigned char *)data7, num);
+        mshabal_compress_avx2(sc, data0, data1, data2, data3, data4, data5, data6, data7, num);
         data0 = (const unsigned char *)data0 + (num << 6);
         data1 = (const unsigned char *)data1 + (num << 6);
         data2 = (const unsigned char *)data2 + (num << 6);
@@ -391,7 +388,7 @@ void mshabal_avx2(mshabal256_context* sc, const void* data0, const void* data1, 
     sc->ptr = len;
 }
 
-void mshabal256_close_avx2(mshabal256_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
+void mshabal_close_avx2(mshabal256_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
                       unsigned ub3, unsigned ub4, unsigned ub5, unsigned ub6, unsigned ub7,
                       unsigned n, void *dst0, void *dst1, void *dst2, void *dst3, void *dst4,
                       void *dst5, void *dst6, void *dst7) {
@@ -482,9 +479,9 @@ void mshabal256_close_avx2(mshabal256_context *sc, unsigned ub0, unsigned ub1, u
     }
 }
 
-// Shabal routine optimized for mining
-void mshabal_deadline_fast_avx2(mshabal256_context_fast* sc, void* message, void* termination, void* dst0, void* dst1, void* dst2, 
-                                          void* dst3, void* dst4, void* dst5, void* dst6, void* dst7) {
+// Shabal routines optimized for plotting and hashing
+void mshabal_hash_fast_avx2(mshabal256_context_fast *sc, void *message, void *termination,
+                                    void *dst, unsigned num) {
     union input {
         u32 words[16 * MSHABAL256_VECTOR_SIZE];
         __m256i data[16];
@@ -501,7 +498,303 @@ void mshabal_deadline_fast_avx2(mshabal256_context_fast* sc, void* message, void
     }
     one = _mm256_set1_epi32(C32(0xFFFFFFFF));
 
-    // round 1/5
+    // round 1
+#define M(i) _mm256_loadu_si256((__m256i *)message + i)
+
+    while (num-- > 0) {
+        for (j = 0; j < 16; j++) B[j] = _mm256_add_epi32(B[j], M(j));
+
+        A[0] = _mm256_xor_si256(A[0], _mm256_set1_epi32(sc->Wlow));
+        A[1] = _mm256_xor_si256(A[1], _mm256_set1_epi32(sc->Whigh));
+
+        for (j = 0; j < 16; j++)
+            B[j] = _mm256_or_si256(_mm256_slli_epi32(B[j], 17), _mm256_srli_epi32(B[j], 15));
+
+#define PP256(xa0, xa1, xb0, xb1, xb2, xb3, xc, xm)                                   \
+    do {                                                                              \
+        __m256i tt;                                                                   \
+        tt = _mm256_or_si256(_mm256_slli_epi32(xa1, 15), _mm256_srli_epi32(xa1, 17)); \
+        tt = _mm256_add_epi32(_mm256_slli_epi32(tt, 2), tt);                          \
+        tt = _mm256_xor_si256(_mm256_xor_si256(xa0, tt), xc);                         \
+        tt = _mm256_add_epi32(_mm256_slli_epi32(tt, 1), tt);                          \
+        tt = _mm256_xor_si256(_mm256_xor_si256(tt, xb1),                              \
+                              _mm256_xor_si256(_mm256_andnot_si256(xb3, xb2), xm));   \
+        xa0 = tt;                                                                     \
+        tt = xb0;                                                                     \
+        tt = _mm256_or_si256(_mm256_slli_epi32(tt, 1), _mm256_srli_epi32(tt, 31));    \
+        xb0 = _mm256_xor_si256(tt, _mm256_xor_si256(xa0, one));                       \
+    } while (0)
+
+        PP256(A[0x0], A[0xB], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
+        PP256(A[0x1], A[0x0], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
+        PP256(A[0x2], A[0x1], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
+        PP256(A[0x3], A[0x2], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
+        PP256(A[0x4], A[0x3], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
+        PP256(A[0x5], A[0x4], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
+        PP256(A[0x6], A[0x5], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
+        PP256(A[0x7], A[0x6], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
+        PP256(A[0x8], A[0x7], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
+        PP256(A[0x9], A[0x8], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
+        PP256(A[0xA], A[0x9], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
+        PP256(A[0xB], A[0xA], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
+        PP256(A[0x0], A[0xB], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
+        PP256(A[0x1], A[0x0], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
+        PP256(A[0x2], A[0x1], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
+        PP256(A[0x3], A[0x2], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
+
+        PP256(A[0x4], A[0x3], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
+        PP256(A[0x5], A[0x4], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
+        PP256(A[0x6], A[0x5], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
+        PP256(A[0x7], A[0x6], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
+        PP256(A[0x8], A[0x7], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
+        PP256(A[0x9], A[0x8], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
+        PP256(A[0xA], A[0x9], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
+        PP256(A[0xB], A[0xA], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
+        PP256(A[0x0], A[0xB], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
+        PP256(A[0x1], A[0x0], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
+        PP256(A[0x2], A[0x1], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
+        PP256(A[0x3], A[0x2], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
+        PP256(A[0x4], A[0x3], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
+        PP256(A[0x5], A[0x4], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
+        PP256(A[0x6], A[0x5], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
+        PP256(A[0x7], A[0x6], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
+
+        PP256(A[0x8], A[0x7], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M(0x0));
+        PP256(A[0x9], A[0x8], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M(0x1));
+        PP256(A[0xA], A[0x9], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M(0x2));
+        PP256(A[0xB], A[0xA], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M(0x3));
+        PP256(A[0x0], A[0xB], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M(0x4));
+        PP256(A[0x1], A[0x0], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M(0x5));
+        PP256(A[0x2], A[0x1], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M(0x6));
+        PP256(A[0x3], A[0x2], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M(0x7));
+        PP256(A[0x4], A[0x3], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M(0x8));
+        PP256(A[0x5], A[0x4], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M(0x9));
+        PP256(A[0x6], A[0x5], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M(0xA));
+        PP256(A[0x7], A[0x6], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M(0xB));
+        PP256(A[0x8], A[0x7], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M(0xC));
+        PP256(A[0x9], A[0x8], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M(0xD));
+        PP256(A[0xA], A[0x9], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M(0xE));
+        PP256(A[0xB], A[0xA], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M(0xF));
+
+        A[0xB] = _mm256_add_epi32(A[0xB], C[0x6]);
+        A[0xA] = _mm256_add_epi32(A[0xA], C[0x5]);
+        A[0x9] = _mm256_add_epi32(A[0x9], C[0x4]);
+        A[0x8] = _mm256_add_epi32(A[0x8], C[0x3]);
+        A[0x7] = _mm256_add_epi32(A[0x7], C[0x2]);
+        A[0x6] = _mm256_add_epi32(A[0x6], C[0x1]);
+        A[0x5] = _mm256_add_epi32(A[0x5], C[0x0]);
+        A[0x4] = _mm256_add_epi32(A[0x4], C[0xF]);
+        A[0x3] = _mm256_add_epi32(A[0x3], C[0xE]);
+        A[0x2] = _mm256_add_epi32(A[0x2], C[0xD]);
+        A[0x1] = _mm256_add_epi32(A[0x1], C[0xC]);
+        A[0x0] = _mm256_add_epi32(A[0x0], C[0xB]);
+        A[0xB] = _mm256_add_epi32(A[0xB], C[0xA]);
+        A[0xA] = _mm256_add_epi32(A[0xA], C[0x9]);
+        A[0x9] = _mm256_add_epi32(A[0x9], C[0x8]);
+        A[0x8] = _mm256_add_epi32(A[0x8], C[0x7]);
+        A[0x7] = _mm256_add_epi32(A[0x7], C[0x6]);
+        A[0x6] = _mm256_add_epi32(A[0x6], C[0x5]);
+        A[0x5] = _mm256_add_epi32(A[0x5], C[0x4]);
+        A[0x4] = _mm256_add_epi32(A[0x4], C[0x3]);
+        A[0x3] = _mm256_add_epi32(A[0x3], C[0x2]);
+        A[0x2] = _mm256_add_epi32(A[0x2], C[0x1]);
+        A[0x1] = _mm256_add_epi32(A[0x1], C[0x0]);
+        A[0x0] = _mm256_add_epi32(A[0x0], C[0xF]);
+        A[0xB] = _mm256_add_epi32(A[0xB], C[0xE]);
+        A[0xA] = _mm256_add_epi32(A[0xA], C[0xD]);
+        A[0x9] = _mm256_add_epi32(A[0x9], C[0xC]);
+        A[0x8] = _mm256_add_epi32(A[0x8], C[0xB]);
+        A[0x7] = _mm256_add_epi32(A[0x7], C[0xA]);
+        A[0x6] = _mm256_add_epi32(A[0x6], C[0x9]);
+        A[0x5] = _mm256_add_epi32(A[0x5], C[0x8]);
+        A[0x4] = _mm256_add_epi32(A[0x4], C[0x7]);
+        A[0x3] = _mm256_add_epi32(A[0x3], C[0x6]);
+        A[0x2] = _mm256_add_epi32(A[0x2], C[0x5]);
+        A[0x1] = _mm256_add_epi32(A[0x1], C[0x4]);
+        A[0x0] = _mm256_add_epi32(A[0x0], C[0x3]);
+
+#define SWAP_AND_SUB256(xb, xc, xm)    \
+    do {                               \
+        __m256i tmp;                   \
+        tmp = xb;                      \
+        xb = _mm256_sub_epi32(xc, xm); \
+        xc = tmp;                      \
+    } while (0)
+
+        SWAP_AND_SUB256(B[0x0], C[0x0], M(0x0));
+        SWAP_AND_SUB256(B[0x1], C[0x1], M(0x1));
+        SWAP_AND_SUB256(B[0x2], C[0x2], M(0x2));
+        SWAP_AND_SUB256(B[0x3], C[0x3], M(0x3));
+        SWAP_AND_SUB256(B[0x4], C[0x4], M(0x4));
+        SWAP_AND_SUB256(B[0x5], C[0x5], M(0x5));
+        SWAP_AND_SUB256(B[0x6], C[0x6], M(0x6));
+        SWAP_AND_SUB256(B[0x7], C[0x7], M(0x7));
+        SWAP_AND_SUB256(B[0x8], C[0x8], M(0x8));
+        SWAP_AND_SUB256(B[0x9], C[0x9], M(0x9));
+        SWAP_AND_SUB256(B[0xA], C[0xA], M(0xA));
+        SWAP_AND_SUB256(B[0xB], C[0xB], M(0xB));
+        SWAP_AND_SUB256(B[0xC], C[0xC], M(0xC));
+        SWAP_AND_SUB256(B[0xD], C[0xD], M(0xD));
+        SWAP_AND_SUB256(B[0xE], C[0xE], M(0xE));
+        SWAP_AND_SUB256(B[0xF], C[0xF], M(0xF));
+
+        // move data pointer
+        message = (__m256i *)message + 16;
+
+        if (++sc->Wlow == 0) sc->Whigh++;
+    }
+    
+    // round 2-5
+#define M2(i) _mm256_load_si256((__m256i *)termination + i)
+
+    for (int k = 0; k < 4; k++) {
+        for (j = 0; j < 16; j++) B[j] = _mm256_add_epi32(B[j], M2(j));
+
+        A[0] = _mm256_xor_si256(A[0], _mm256_set1_epi32(sc->Wlow));
+        A[1] = _mm256_xor_si256(A[1], _mm256_set1_epi32(sc->Whigh));
+
+        for (j = 0; j < 16; j++)
+            B[j] = _mm256_or_si256(_mm256_slli_epi32(B[j], 17), _mm256_srli_epi32(B[j], 15));
+
+        PP256(A[0x0], A[0xB], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M2(0x0));
+        PP256(A[0x1], A[0x0], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M2(0x1));
+        PP256(A[0x2], A[0x1], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M2(0x2));
+        PP256(A[0x3], A[0x2], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M2(0x3));
+        PP256(A[0x4], A[0x3], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M2(0x4));
+        PP256(A[0x5], A[0x4], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M2(0x5));
+        PP256(A[0x6], A[0x5], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M2(0x6));
+        PP256(A[0x7], A[0x6], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M2(0x7));
+        PP256(A[0x8], A[0x7], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M2(0x8));
+        PP256(A[0x9], A[0x8], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M2(0x9));
+        PP256(A[0xA], A[0x9], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M2(0xA));
+        PP256(A[0xB], A[0xA], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M2(0xB));
+        PP256(A[0x0], A[0xB], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M2(0xC));
+        PP256(A[0x1], A[0x0], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M2(0xD));
+        PP256(A[0x2], A[0x1], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M2(0xE));
+        PP256(A[0x3], A[0x2], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M2(0xF));
+
+        PP256(A[0x4], A[0x3], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M2(0x0));
+        PP256(A[0x5], A[0x4], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M2(0x1));
+        PP256(A[0x6], A[0x5], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M2(0x2));
+        PP256(A[0x7], A[0x6], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M2(0x3));
+        PP256(A[0x8], A[0x7], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M2(0x4));
+        PP256(A[0x9], A[0x8], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M2(0x5));
+        PP256(A[0xA], A[0x9], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M2(0x6));
+        PP256(A[0xB], A[0xA], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M2(0x7));
+        PP256(A[0x0], A[0xB], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M2(0x8));
+        PP256(A[0x1], A[0x0], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M2(0x9));
+        PP256(A[0x2], A[0x1], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M2(0xA));
+        PP256(A[0x3], A[0x2], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M2(0xB));
+        PP256(A[0x4], A[0x3], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M2(0xC));
+        PP256(A[0x5], A[0x4], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M2(0xD));
+        PP256(A[0x6], A[0x5], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M2(0xE));
+        PP256(A[0x7], A[0x6], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M2(0xF));
+
+        PP256(A[0x8], A[0x7], B[0x0], B[0xD], B[0x9], B[0x6], C[0x8], M2(0x0));
+        PP256(A[0x9], A[0x8], B[0x1], B[0xE], B[0xA], B[0x7], C[0x7], M2(0x1));
+        PP256(A[0xA], A[0x9], B[0x2], B[0xF], B[0xB], B[0x8], C[0x6], M2(0x2));
+        PP256(A[0xB], A[0xA], B[0x3], B[0x0], B[0xC], B[0x9], C[0x5], M2(0x3));
+        PP256(A[0x0], A[0xB], B[0x4], B[0x1], B[0xD], B[0xA], C[0x4], M2(0x4));
+        PP256(A[0x1], A[0x0], B[0x5], B[0x2], B[0xE], B[0xB], C[0x3], M2(0x5));
+        PP256(A[0x2], A[0x1], B[0x6], B[0x3], B[0xF], B[0xC], C[0x2], M2(0x6));
+        PP256(A[0x3], A[0x2], B[0x7], B[0x4], B[0x0], B[0xD], C[0x1], M2(0x7));
+        PP256(A[0x4], A[0x3], B[0x8], B[0x5], B[0x1], B[0xE], C[0x0], M2(0x8));
+        PP256(A[0x5], A[0x4], B[0x9], B[0x6], B[0x2], B[0xF], C[0xF], M2(0x9));
+        PP256(A[0x6], A[0x5], B[0xA], B[0x7], B[0x3], B[0x0], C[0xE], M2(0xA));
+        PP256(A[0x7], A[0x6], B[0xB], B[0x8], B[0x4], B[0x1], C[0xD], M2(0xB));
+        PP256(A[0x8], A[0x7], B[0xC], B[0x9], B[0x5], B[0x2], C[0xC], M2(0xC));
+        PP256(A[0x9], A[0x8], B[0xD], B[0xA], B[0x6], B[0x3], C[0xB], M2(0xD));
+        PP256(A[0xA], A[0x9], B[0xE], B[0xB], B[0x7], B[0x4], C[0xA], M2(0xE));
+        PP256(A[0xB], A[0xA], B[0xF], B[0xC], B[0x8], B[0x5], C[0x9], M2(0xF));
+
+        A[0xB] = _mm256_add_epi32(A[0xB], C[0x6]);
+        A[0xA] = _mm256_add_epi32(A[0xA], C[0x5]);
+        A[0x9] = _mm256_add_epi32(A[0x9], C[0x4]);
+        A[0x8] = _mm256_add_epi32(A[0x8], C[0x3]);
+        A[0x7] = _mm256_add_epi32(A[0x7], C[0x2]);
+        A[0x6] = _mm256_add_epi32(A[0x6], C[0x1]);
+        A[0x5] = _mm256_add_epi32(A[0x5], C[0x0]);
+        A[0x4] = _mm256_add_epi32(A[0x4], C[0xF]);
+        A[0x3] = _mm256_add_epi32(A[0x3], C[0xE]);
+        A[0x2] = _mm256_add_epi32(A[0x2], C[0xD]);
+        A[0x1] = _mm256_add_epi32(A[0x1], C[0xC]);
+        A[0x0] = _mm256_add_epi32(A[0x0], C[0xB]);
+        A[0xB] = _mm256_add_epi32(A[0xB], C[0xA]);
+        A[0xA] = _mm256_add_epi32(A[0xA], C[0x9]);
+        A[0x9] = _mm256_add_epi32(A[0x9], C[0x8]);
+        A[0x8] = _mm256_add_epi32(A[0x8], C[0x7]);
+        A[0x7] = _mm256_add_epi32(A[0x7], C[0x6]);
+        A[0x6] = _mm256_add_epi32(A[0x6], C[0x5]);
+        A[0x5] = _mm256_add_epi32(A[0x5], C[0x4]);
+        A[0x4] = _mm256_add_epi32(A[0x4], C[0x3]);
+        A[0x3] = _mm256_add_epi32(A[0x3], C[0x2]);
+        A[0x2] = _mm256_add_epi32(A[0x2], C[0x1]);
+        A[0x1] = _mm256_add_epi32(A[0x1], C[0x0]);
+        A[0x0] = _mm256_add_epi32(A[0x0], C[0xF]);
+        A[0xB] = _mm256_add_epi32(A[0xB], C[0xE]);
+        A[0xA] = _mm256_add_epi32(A[0xA], C[0xD]);
+        A[0x9] = _mm256_add_epi32(A[0x9], C[0xC]);
+        A[0x8] = _mm256_add_epi32(A[0x8], C[0xB]);
+        A[0x7] = _mm256_add_epi32(A[0x7], C[0xA]);
+        A[0x6] = _mm256_add_epi32(A[0x6], C[0x9]);
+        A[0x5] = _mm256_add_epi32(A[0x5], C[0x8]);
+        A[0x4] = _mm256_add_epi32(A[0x4], C[0x7]);
+        A[0x3] = _mm256_add_epi32(A[0x3], C[0x6]);
+        A[0x2] = _mm256_add_epi32(A[0x2], C[0x5]);
+        A[0x1] = _mm256_add_epi32(A[0x1], C[0x4]);
+        A[0x0] = _mm256_add_epi32(A[0x0], C[0x3]);
+
+        SWAP_AND_SUB256(B[0x0], C[0x0], M2(0x0));
+        SWAP_AND_SUB256(B[0x1], C[0x1], M2(0x1));
+        SWAP_AND_SUB256(B[0x2], C[0x2], M2(0x2));
+        SWAP_AND_SUB256(B[0x3], C[0x3], M2(0x3));
+        SWAP_AND_SUB256(B[0x4], C[0x4], M2(0x4));
+        SWAP_AND_SUB256(B[0x5], C[0x5], M2(0x5));
+        SWAP_AND_SUB256(B[0x6], C[0x6], M2(0x6));
+        SWAP_AND_SUB256(B[0x7], C[0x7], M2(0x7));
+        SWAP_AND_SUB256(B[0x8], C[0x8], M2(0x8));
+        SWAP_AND_SUB256(B[0x9], C[0x9], M2(0x9));
+        SWAP_AND_SUB256(B[0xA], C[0xA], M2(0xA));
+        SWAP_AND_SUB256(B[0xB], C[0xB], M2(0xB));
+        SWAP_AND_SUB256(B[0xC], C[0xC], M2(0xC));
+        SWAP_AND_SUB256(B[0xD], C[0xD], M2(0xD));
+        SWAP_AND_SUB256(B[0xE], C[0xE], M2(0xE));
+        SWAP_AND_SUB256(B[0xF], C[0xF], M2(0xF));
+
+        if (++sc->Wlow == 0) sc->Whigh++;
+
+        if (sc->Wlow-- == 0) sc->Whigh--;
+    }
+
+    // download SIMD aligned hashes
+    for (j = 0; j < 8; j++) {
+        _mm256_storeu_si256((__m256i *)dst + j, C[j+8]);
+    }
+
+    // reset Wlow & Whigh
+    sc->Wlow = 1;
+    sc->Whigh = 0;
+}
+
+// Shabal routine optimized for mining
+void mshabal_deadline_fast_avx2(mshabal256_context_fast *sc, void *message, void *termination, void *dst0, void *dst1, void *dst2, 
+                                          void *dst3, void *dst4, void *dst5, void *dst6, void *dst7) {
+    union input {
+        u32 words[16 * MSHABAL256_VECTOR_SIZE];
+        __m256i data[16];
+    };
+    size_t j;
+    __m256i A[12], B[16], C[16];
+    __m256i one;
+
+    for (j = 0; j < 12; j++) A[j] = _mm256_loadu_si256((__m256i *)sc->state + j);
+    for (j = 0; j < 16; j++) {
+        B[j] = _mm256_loadu_si256((__m256i *)sc->state + j + 12);
+        C[j] = _mm256_loadu_si256((__m256i *)sc->state + j + 28);
+    }
+    one = _mm256_set1_epi32(C32(0xFFFFFFFF));
+
+    // round 1
 #define M(i) _mm256_loadu_si256((__m256i *)message + i)
 
     for (j = 0; j < 16; j++) B[j] = _mm256_add_epi32(B[j], M(j));
@@ -766,8 +1059,8 @@ void mshabal_deadline_fast_avx2(mshabal256_context_fast* sc, void* message, void
 
     // download SIMD aligned deadlines
     u32 simd_dst[16];
-    _mm256_storeu_si256((__m256i*)&simd_dst[0], C[8]);
-    _mm256_storeu_si256((__m256i*)&simd_dst[8], C[9]);
+    _mm256_storeu_si256((__m256i *)&simd_dst[0], C[8]);
+    _mm256_storeu_si256((__m256i *)&simd_dst[8], C[9]);
    
     // unpack SIMD data
     unsigned z;

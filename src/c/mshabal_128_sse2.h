@@ -97,14 +97,14 @@ typedef struct {
     mshabal_u32 state[(12 + 16 + 16) * MSHABAL128_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
-} mshabal_context;
+} mshabal128_context;
 
 #pragma pack(1)
 typedef struct {
     mshabal_u32 state[(12 + 16 + 16) * MSHABAL128_VECTOR_SIZE];
     mshabal_u32 Whigh, Wlow;
     unsigned out_size;
-} mshabal_context_fast;
+} mshabal128_context_fast;
 #pragma pack()
 
 /*
@@ -112,7 +112,7 @@ typedef struct {
  * of 32, between 32 and 512 (inclusive). The output size is expressed
  * in bits.
  */
-void mshabal_init_sse2(mshabal_context *sc, unsigned out_size);
+void mshabal_init_sse2(mshabal128_context *sc, unsigned out_size);
 
 /*
  * Process some more data bytes; four chunks of data, pointed to by
@@ -126,7 +126,7 @@ void mshabal_init_sse2(mshabal_context *sc, unsigned out_size);
  * corresponding instance is deactivated (the final value obtained from
  * that instance is undefined).
  */
-void mshabal_sse2(mshabal_context *sc, const void *data0, const void *data1, const void *data2,
+void mshabal_sse2(mshabal128_context *sc, const void *data0, const void *data1, const void *data2,
                      const void *data3, size_t len);
 
 /*
@@ -151,15 +151,22 @@ void mshabal_sse2(mshabal_context *sc, const void *data0, const void *data1, con
  * release it, or reinitialize it with mshabal_init(). The mshabal_close()
  * function does NOT imply a hidden call to mshabal_init().
  */
-void mshabal_close_sse2(mshabal_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
+void mshabal_close_sse2(mshabal128_context *sc, unsigned ub0, unsigned ub1, unsigned ub2,
                            unsigned ub3, unsigned n, void *dst0, void *dst1, void *dst2,
                            void *dst3);
 
 /*
- * optimised Shabal Routine for PoC Mining
+ * optimised Shabal routine for PoC plotting and hashing
  */
-void mshabal_deadline_fast_sse2(mshabal_context_fast *sc, void *message, void *termination, void *dst0,
+void mshabal_hash_fast_sse2(mshabal128_context_fast *sc, void *message, void *termination,
+                               void *dst, unsigned num);
+
+/*
+ * optimised Shabal routine for PoC mining
+ */
+void mshabal_deadline_fast_sse2(mshabal128_context_fast *sc, void *message, void *termination, void *dst0,
                                     void *dst1, void *dst2, void *dst3);
+
 #ifdef __cplusplus
 }
 #endif

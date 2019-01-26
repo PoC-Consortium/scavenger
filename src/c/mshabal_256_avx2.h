@@ -161,12 +161,17 @@ void mshabal_close_avx2(mshabal256_context *sc, unsigned ub0, unsigned ub1, unsi
                            void *dst5, void *dst6, void *dst7);
 
 /*
- * optimised Shabal Routine for PoC Mining
+ * optimised Shabal routine for PoC plotting and hashing
+ */
+void mshabal256_openclose_fast(mshabal256_context_fast *sc, void *message, void *termination,
+                               void *dst, unsigned len);
+
+/*
+ * optimised Shabal routine for PoC mining
  */
 void mshabal_deadline_fast_avx2(mshabal256_context_fast *sc, void *message, void *termination, void *dst0,
                                     void *dst1, void *dst2, void *dst3, void *dst4, void *dst5,
                                     void *dst6, void *dst7);
-
 #ifdef __cplusplus
 }
 #endif
