@@ -1,6 +1,4 @@
-extern crate log;
-extern crate log4rs;
-use config::Cfg;
+use crate::config::Cfg;
 
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;

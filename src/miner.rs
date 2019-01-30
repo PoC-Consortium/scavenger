@@ -1,11 +1,14 @@
+use crate::config::Cfg;
+use crate::cpu_worker::create_cpu_worker_task;
 #[cfg(feature = "opencl")]
-extern crate ocl_core as core;
-
-use pocmath;
-use chan;
-use config::Cfg;
+use crate::ocl::GpuContext;
+use crate::plot::{Plot, SCOOP_SIZE};
+use crate::pocmath;
+use crate::reader::Reader;
+use crate::requests::RequestHandler;
+use crate::utils::get_device_id;
+use crossbeam_channel;
 use core_affinity;
-use cpu_worker::create_cpu_worker_task;
 use futures::sync::mpsc;
 #[cfg(feature = "opencl")]
 use gpu_worker::create_gpu_worker_task;
@@ -13,11 +16,6 @@ use gpu_worker::create_gpu_worker_task;
 use gpu_worker_async::create_gpu_worker_task_async;
 #[cfg(feature = "opencl")]
 use ocl::GpuBuffer;
-#[cfg(feature = "opencl")]
-use ocl::GpuContext;
-use plot::{Plot, SCOOP_SIZE};
-use reader::Reader;
-use requests::RequestHandler;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -34,7 +32,6 @@ use stopwatch::Stopwatch;
 use tokio::prelude::*;
 use tokio::timer::Interval;
 use tokio_core::reactor::Core;
-use utils::get_device_id;
 #[cfg(windows)]
 use utils::set_thread_ideal_processor;
 
@@ -285,8 +282,8 @@ impl Miner {
         #[cfg(feature = "opencl")]
         let buffer_count = cpu_buffer_count + gpu_buffer_count;
         let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
-        let (tx_empty_buffers, rx_empty_buffers) = chan::bounded(buffer_count as usize);
-        let (tx_read_replies_cpu, rx_read_replies_cpu) = chan::bounded(cpu_buffer_count);
+        let (tx_empty_buffers, rx_empty_buffers) = crossbeam_channel::bounded(buffer_count as usize);
+        let (tx_read_replies_cpu, rx_read_replies_cpu) = crossbeam_channel::bounded(cpu_buffer_count);
 
         #[cfg(feature = "opencl")]
         let mut tx_read_replies_gpu = Vec::new();
@@ -297,7 +294,7 @@ impl Miner {
         #[cfg(feature = "opencl")]
         {
             for _ in 0..gpu_threads {
-                let (tx, rx) = chan::unbounded();
+                let (tx, rx) = crossbeam_channel::unbounded();
                 tx_read_replies_gpu.push(tx);
                 rx_read_replies_gpu.push(rx);
             }

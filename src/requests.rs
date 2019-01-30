@@ -1,13 +1,8 @@
-extern crate bytes;
-extern crate reqwest;
-extern crate serde_json;
-extern crate url;
-
 use bytes::Buf;
 use futures::future::Future;
 use futures::stream;
 use futures::stream::Stream;
-use reqwest::async::{ClientBuilder, Decoder};
+use reqwest::r#async::{Chunk, ClientBuilder, Decoder, Request};
 use serde::de::{self, DeserializeOwned};
 use std::collections::HashMap;
 use std::fmt;
@@ -274,7 +269,7 @@ fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64) {
     );
 }
 
-fn parse_json_result<T: DeserializeOwned>(body: reqwest::async::Chunk) -> Result<T, PoolError> {
+fn parse_json_result<T: DeserializeOwned>(body: Chunk) -> Result<T, PoolError> {
     match serde_json::from_slice(body.bytes()) {
         Ok(x) => Ok(x),
         _ => match serde_json::from_slice::<PoolErrorWrapper>(body.bytes()) {
@@ -296,7 +291,7 @@ fn do_req<T: DeserializeOwned>(
     headers: reqwest::header::HeaderMap,
     timeout: Duration,
 ) -> impl Future<Item = T, Error = FetchError> {
-    let mut req = reqwest::async::Request::new(method, url);
+    let mut req = Request::new(method, url);
     req.headers_mut().extend(headers);
 
     ClientBuilder::new()

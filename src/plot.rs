@@ -1,3 +1,4 @@
+use crate::utils::get_sector_size;
 use rand::prelude::*;
 use std::cmp::{max, min};
 use std::error::Error;
@@ -6,7 +7,6 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use utils::get_sector_size;
 
 const SCOOPS_IN_NONCE: u64 = 4096;
 const SHABAL256_HASH_SIZE: u64 = 32;

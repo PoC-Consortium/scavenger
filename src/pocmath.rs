@@ -1,5 +1,5 @@
+use crate::shabals;
 use hex;
-use shabals;
 use std::mem::transmute;
 
 pub fn decode_gensig(gensig: &str) -> [u8; 32] {

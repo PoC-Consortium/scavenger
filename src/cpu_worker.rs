@@ -1,9 +1,9 @@
-use chan;
+use crate::miner::{Buffer, NonceData};
+use crate::reader::ReadReply;
+use crossbeam_channel::{Receiver, Sender};
 use futures::sync::mpsc;
 use futures::{Future, Sink};
 use libc::{c_void, uint64_t};
-use miner::{Buffer, NonceData};
-use reader::ReadReply;
 use std::u64;
 
 extern "C" {
@@ -71,8 +71,8 @@ cfg_if! {
 pub fn create_cpu_worker_task(
     benchmark: bool,
     thread_pool: rayon::ThreadPool,
-    rx_read_replies: chan::Receiver<ReadReply>,
-    tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
+    rx_read_replies: Receiver<ReadReply>,
+    tx_empty_buffers: Sender<Box<Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
 ) -> impl FnOnce() {
     move || {
@@ -91,7 +91,7 @@ pub fn create_cpu_worker_task(
 
 pub fn hash(
     read_reply: ReadReply,
-    tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
+    tx_empty_buffers: Sender<Box<Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
     benchmark: bool,
 ) -> impl FnOnce() {

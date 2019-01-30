@@ -1,15 +1,13 @@
-extern crate pbr;
-extern crate rayon;
-
-use self::pbr::{ProgressBar, Units};
-use chan;
+use crate::miner::Buffer;
+#[cfg(feature = "opencl")]
+use crate::miner::CpuBuffer;
+use crate::plot::Plot;
+use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel;
 use core_affinity;
 use filetime::FileTime;
-use miner::Buffer;
-#[cfg(feature = "opencl")]
-use miner::CpuBuffer;
-use plot::Plot;
-use reader::rayon::prelude::*;
+use pbr::{ProgressBar, Units};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::Stdout;
 use std::sync::RwLock;
@@ -38,11 +36,11 @@ pub struct Reader {
     drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
     pub total_size: u64,
     pool: rayon::ThreadPool,
-    rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
-    tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
-    tx_read_replies_cpu: chan::Sender<ReadReply>,
-    tx_read_replies_gpu: Option<Vec<chan::Sender<ReadReply>>>,
-    interupts: Vec<chan::Sender<()>>,
+    rx_empty_buffers: Receiver<Box<Buffer + Send>>,
+    tx_empty_buffers: Sender<Box<Buffer + Send>>,
+    tx_read_replies_cpu: Sender<ReadReply>,
+    tx_read_replies_gpu: Option<Vec<Sender<ReadReply>>>,
+    interupts: Vec<Sender<()>>,
     show_progress: bool,
     show_drive_stats: bool,
 }
@@ -52,10 +50,10 @@ impl Reader {
         drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
         total_size: u64,
         num_threads: usize,
-        rx_empty_buffers: chan::Receiver<Box<Buffer + Send>>,
-        tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
-        tx_read_replies_cpu: chan::Sender<ReadReply>,
-        tx_read_replies_gpu: Option<Vec<chan::Sender<ReadReply>>>,
+        rx_empty_buffers: Receiver<Box<Buffer + Send>>,
+        tx_empty_buffers: Sender<Box<Buffer + Send>>,
+        tx_read_replies_cpu: Sender<ReadReply>,
+        tx_read_replies_gpu: Option<Vec<Sender<ReadReply>>>,
         show_progress: bool,
         show_drive_stats: bool,
         thread_pinning: bool,
@@ -204,8 +202,8 @@ impl Reader {
         scoop: u32,
         gensig: Arc<[u8; 32]>,
         show_drive_stats: bool,
-    ) -> (chan::Sender<()>, impl FnOnce()) {
-        let (tx_interupt, rx_interupt) = chan::unbounded();
+    ) -> (Sender<()>, impl FnOnce()) {
+        let (tx_interupt, rx_interupt) = crossbeam_channel::unbounded();
         let rx_empty_buffers = self.rx_empty_buffers.clone();
         let tx_empty_buffers = self.tx_empty_buffers.clone();
         let tx_read_replies_cpu = self.tx_read_replies_cpu.clone();

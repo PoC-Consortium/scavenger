@@ -1,5 +1,3 @@
-extern crate serde_yaml;
-
 use std::collections::HashMap;
 use std::fs;
 use std::u32;

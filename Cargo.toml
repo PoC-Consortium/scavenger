@@ -11,6 +11,7 @@ repository = "https://github.com/PoC-Consortium/scavenger"
 documentation = "https://github.com/PoC-Consortium/scavenger"
 keywords = ["poc", "miner", "rust","cryptocurrency"]
 readme = "README.md"
+edition = "2018"
 
 [features]
 simd = []
