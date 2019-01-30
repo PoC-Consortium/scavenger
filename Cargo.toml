@@ -26,8 +26,6 @@ filetime = "0.2"
 futures = "0.1"
 hex = "0.3"
 hostname = "0.1.5"
-hyper = "0.12"
-hyper-rustls = "0.15    "
 libc = "0.2"
 log = "0.4"
 log4rs = { version = "0.8", features = ["rolling_file_appender", "compound_policy", "size_trigger", "fixed_window_roller"] }
@@ -46,6 +44,8 @@ tokio-core = "0.1"
 url = "1.7"
 page_size = "0.4.1"
 aligned_alloc = "0.1"
+reqwest = "0.9.9"
+bytes = "0.4.11"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["fileapi"] }

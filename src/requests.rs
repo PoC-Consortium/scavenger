@@ -1,42 +1,42 @@
-extern crate hostname;
-extern crate hyper;
-extern crate hyper_rustls;
+extern crate bytes;
+extern crate reqwest;
 extern crate serde_json;
 extern crate url;
 
-use futures::future;
-use hyper::client::HttpConnector;
-use hyper::rt::{Future, Stream};
-use hyper::{Client, Request};
+use bytes::Buf;
+use futures::future::Future;
+use futures::stream;
+use futures::stream::Stream;
+use reqwest::async::{ClientBuilder, Decoder};
 use serde::de::{self, DeserializeOwned};
 use std::collections::HashMap;
 use std::fmt;
-use std::io;
+use std::iter::Iterator;
+use std::mem;
 use std::time::Duration;
 use std::u64;
-use tokio_core::reactor::{Handle, Timeout};
+use tokio_core::reactor::Handle;
 use url::form_urlencoded::byte_serialize;
+use url::Url;
 
 #[derive(Clone)]
 pub struct RequestHandler {
     account_id_to_secret_phrase: HashMap<u64, String>,
     base_uri: String,
-    client: Client<hyper_rustls::HttpsConnector<HttpConnector>>,
     timeout: Duration,
     handle: Handle,
-    ua: String,
     total_size_gb: usize,
     send_proxy_details: bool,
+    headers: reqwest::header::HeaderMap,
 }
 
 pub enum FetchError {
-    Http(hyper::Error),
+    Http(reqwest::Error),
     Pool(PoolError),
-    Timeout(io::Error),
 }
 
-impl From<hyper::Error> for FetchError {
-    fn from(err: hyper::Error) -> FetchError {
+impl From<reqwest::Error> for FetchError {
+    fn from(err: reqwest::Error) -> FetchError {
         FetchError::Http(err)
     }
 }
@@ -44,12 +44,6 @@ impl From<hyper::Error> for FetchError {
 impl From<PoolError> for FetchError {
     fn from(err: PoolError) -> FetchError {
         FetchError::Pool(err)
-    }
-}
-
-impl From<io::Error> for FetchError {
-    fn from(err: io::Error) -> FetchError {
-        FetchError::Timeout(err)
     }
 }
 
@@ -132,35 +126,60 @@ impl RequestHandler {
         for secret_phrase in secret_phrases.values_mut() {
             *secret_phrase = byte_serialize(secret_phrase.as_bytes()).collect();
         }
-        let https = hyper_rustls::HttpsConnector::new(4);
-        let client: Client<_, hyper::Body> = Client::builder().build(https);
+
+        let ua = "Scavenger/".to_owned() + crate_version!();
+
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("User-Agent", ua.to_owned().parse().unwrap());
+        headers.insert("X-Capacity", total_size_gb.to_string().parse().unwrap());
+        headers.insert("X-Miner", ua.to_owned().parse().unwrap());
+        headers.insert(
+            "X-Minername",
+            hostname::get_hostname()
+                .unwrap_or_else(|| "".to_owned())
+                .parse()
+                .unwrap(),
+        );
+        headers.insert(
+            "X-Plotfile",
+            ("ScavengerProxy/".to_owned()
+                + &*hostname::get_hostname().unwrap_or_else(|| "".to_owned()))
+                .parse()
+                .unwrap(),
+        );
 
         RequestHandler {
             account_id_to_secret_phrase: secret_phrases,
             base_uri,
-            client,
             timeout: Duration::from_millis(timeout),
             handle,
-            ua: "Scavenger/".to_owned() + crate_version!(),
             total_size_gb,
             send_proxy_details,
+            headers,
         }
     }
 
-    pub fn get_mining_info(&self) -> Box<Future<Item = MiningInfo, Error = FetchError>> {
-        Box::new(self.do_req(self.get_req("/burst?requestType=getMiningInfo")))
+    pub fn uri_for(&self, path: &str) -> Url {
+        Url::parse((self.base_uri.clone() + path).as_str()).expect("invalid url")
+    }
+
+    pub fn get_mining_info(&self) -> impl Future<Item = MiningInfo, Error = FetchError> {
+        do_req(
+            self.uri_for("/burst?requestType=getMiningInfo"),
+            reqwest::Method::GET,
+            self.headers.clone(),
+            self.timeout,
+        )
     }
 
     pub fn submit_nonce(
         &self,
-        handle: &Handle,
         account_id: u64,
         nonce: u64,
         height: u64,
         d_unadjusted: u64,
         d: u64,
-        retried: i32,
-    ) {
+    ) -> impl Future<Item = (), Error = ()> {
         let empty = "".to_owned();
         let secret_phrase_encoded = self
             .account_id_to_secret_phrase
@@ -176,131 +195,92 @@ impl RequestHandler {
             path += &format!("&deadline={}", d_unadjusted);
         }
 
-        let req = self.post_req(&path);
-
-        let rh = self.clone();
-        let inner_handle = handle.clone();
-        handle.spawn(self.do_req(req).then(
-            move |result: Result<SubmitNonceResonse, FetchError>| {
-                match result {
-                    Ok(result) => {
-                        if d != result.deadline {
-                            error!(
-                                "submit: deadlines mismatch, height={}, account={}, nonce={}, \
-                                 deadline_miner={}, deadline_pool={}",
-                                height, account_id, nonce, d, result.deadline
-                            );
-                        } else {
-                            info!("deadline accepted: account={}, nonce={}, deadline={}", account_id, nonce, d);
+        let url = self.uri_for(&path);
+        let timeout = self.timeout;
+        let headers = self.headers.clone();
+        stream::iter_ok(1..=3)
+            .and_then(move |retry| {
+                do_req(url.clone(), reqwest::Method::POST, headers.clone(), timeout).then(
+                    move |res: Result<SubmitNonceResonse, FetchError>| match res {
+                        Ok(res) => {
+                            if d != res.deadline {
+                                log_deadline_mismatch(height, account_id, nonce, d, res.deadline);
+                            } else {
+                                log_submission_accepted(account_id, nonce, d);
+                            }
+                            Ok(())
                         }
-                    }
-                    Err(FetchError::Pool(e)) => {
-                        error!(
-                            "submission not accepted: height={}, account={}, nonce={}, \
-                             deadline={}\n\tcode: {}\n\tmessage: {}",
-                            height, account_id, nonce, d, e.code, e.message,
-                        );
-                    }
-                    Err(_) => {
-                        warn!(
-                            "{: <80}",
-                            format!("submission failed:, attempt={}, account={}, nonce={}, deadline={}", retried+1, account_id, nonce, d)
-                        );
-                        if retried < 3 {
-                            rh.submit_nonce(
-                                &inner_handle,
-                                account_id,
-                                nonce,
-                                height,
-                                d_unadjusted,
-                                d,
-                                retried + 1,
+                        Err(FetchError::Pool(e)) => {
+                            log_submission_not_accepted(
+                                height, account_id, nonce, d, e.code, e.message,
                             );
-                        } else {
-                            error!(
-                                "{: <80}",
-                                format!("submission retries exhausted: account={}, nonce={}, deadline={}", account_id, nonce, d)
-                            );
+                            Err(())
                         }
-                    }
-                };
-                future::ok(())
-            },
-        ));
-    }
-
-    fn uri_for(&self, path: &str) -> hyper::Uri {
-        (self.base_uri.clone() + path)
-            .parse()
-            .expect("Failed to parse Server URL, please check format!")
-    }
-
-    fn post_req(&self, path: &str) -> Request<hyper::Body> {
-        if self.send_proxy_details {
-            Request::post(self.uri_for(path))
-                .header("User-Agent", self.ua.to_owned())
-                .header("X-Capacity", self.total_size_gb)
-                .header("X-Miner", self.ua.to_owned())
-                .header(
-                    "X-Minername",
-                    hostname::get_hostname().unwrap_or_else(|| "".to_owned()),
+                        Err(_) => {
+                            log_submission_failed(retry, account_id, nonce, d);
+                            Err(())
+                        }
+                    },
                 )
-                .header(
-                    "X-Plotfile",
-                    "ScavengerProxy/".to_owned()
-                        + &*hostname::get_hostname().unwrap_or_else(|| "".to_owned()),
-                )
-                .body(hyper::Body::empty())
-                .unwrap()
-        } else {
-            Request::post(self.uri_for(path))
-                .header("User-Agent", self.ua.to_owned())
-                .body(hyper::Body::empty())
-                .unwrap()
-        }
-    }
-
-    fn get_req(&self, path: &str) -> Request<hyper::Body> {
-        Request::get(self.uri_for(path))
-            .header("User-Agent", self.ua.to_owned())
-            .body(hyper::Body::empty())
-            .unwrap()
-    }
-
-    fn do_req<T: DeserializeOwned>(
-        &self,
-        req: Request<hyper::Body>,
-    ) -> impl Future<Item = T, Error = FetchError> {
-        let req = self
-            .client
-            .request(req)
-            .and_then(|res| res.into_body().concat2())
-            .from_err::<FetchError>()
-            .and_then(|body| {
-                let res = parse_json_result(&body)?;
-                Ok(res)
             })
-            .from_err();
-
-        let timeout = Timeout::new(self.timeout, &self.handle).unwrap();
-        let timeout = timeout
-            .then(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "timeout")))
-            .from_err();
-
-        req.select(timeout).then(|res| match res {
-            Err((x, _)) => Err(x),
-            Ok((x, _)) => Ok(x),
-        })
+            .for_each(|_| Ok(()))
+            .or_else(|_| Ok(()))
     }
 }
 
-fn parse_json_result<T: DeserializeOwned>(c: &hyper::Chunk) -> Result<T, PoolError> {
-    match serde_json::from_slice(c) {
+fn log_deadline_mismatch(
+    height: u64,
+    account_id: u64,
+    nonce: u64,
+    deadline: u64,
+    deadline_pool: u64,
+) {
+    error!(
+        "submit: deadlines mismatch, height={}, account={}, nonce={}, \
+         deadline_miner={}, deadline_pool={}",
+        height, account_id, nonce, deadline, deadline_pool
+    );
+}
+
+fn log_submission_failed(retry: u8, account_id: u64, nonce: u64, deadline: u64) {
+    warn!(
+        "{: <80}",
+        format!(
+            "submission failed:, attempt={}, account={}, nonce={}, deadline={}",
+            retry, account_id, nonce, deadline
+        )
+    );
+}
+
+fn log_submission_not_accepted(
+    height: u64,
+    account_id: u64,
+    nonce: u64,
+    deadline: u64,
+    err_code: i32,
+    msg: String,
+) {
+    error!(
+        "submission not accepted: height={}, account={}, nonce={}, \
+         deadline={}\n\tcode: {}\n\tmessage: {}",
+        height, account_id, nonce, deadline, err_code, msg,
+    );
+}
+
+fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64) {
+    info!(
+        "deadline accepted: account={}, nonce={}, deadline={}",
+        account_id, nonce, deadline
+    );
+}
+
+fn parse_json_result<T: DeserializeOwned>(body: reqwest::async::Chunk) -> Result<T, PoolError> {
+    match serde_json::from_slice(body.bytes()) {
         Ok(x) => Ok(x),
-        _ => match serde_json::from_slice::<PoolErrorWrapper>(c) {
+        _ => match serde_json::from_slice::<PoolErrorWrapper>(body.bytes()) {
             Ok(x) => Err(x.error),
             _ => {
-                let v = c.to_vec();
+                let v = body.to_vec();
                 Err(PoolError {
                     code: 0,
                     message: String::from_utf8_lossy(&v).to_string(),
@@ -308,4 +288,29 @@ fn parse_json_result<T: DeserializeOwned>(c: &hyper::Chunk) -> Result<T, PoolErr
             }
         },
     }
+}
+
+fn do_req<T: DeserializeOwned>(
+    url: Url,
+    method: reqwest::Method,
+    headers: reqwest::header::HeaderMap,
+    timeout: Duration,
+) -> impl Future<Item = T, Error = FetchError> {
+    let mut req = reqwest::async::Request::new(method, url);
+    req.headers_mut().extend(headers);
+
+    ClientBuilder::new()
+        .timeout(timeout)
+        .build()
+        .unwrap()
+        .execute(req)
+        .and_then(|mut res| {
+            let body = mem::replace(res.body_mut(), Decoder::empty());
+            body.concat2()
+        })
+        .from_err::<FetchError>()
+        .and_then(|body| match parse_json_result(body) {
+            Ok(x) => Ok(x),
+            Err(e) => Err(e.into()),
+        })
 }

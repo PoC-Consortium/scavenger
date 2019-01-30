@@ -3,7 +3,6 @@ extern crate serde_derive;
 extern crate crossbeam_channel as chan;
 extern crate futures;
 extern crate hex;
-extern crate hyper;
 extern crate libc;
 extern crate serde;
 extern crate serde_json;
@@ -20,8 +19,10 @@ extern crate clap;
 extern crate rand;
 #[macro_use]
 extern crate log;
+extern crate bytes;
 extern crate core_affinity;
 extern crate log4rs;
+extern crate reqwest;
 
 mod pocmath;
 mod config;

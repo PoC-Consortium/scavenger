@@ -515,7 +515,6 @@ impl Miner {
         let target_deadline = self.target_deadline;
         let account_id_to_target_deadline = self.account_id_to_target_deadline;
         let request_handler = self.request_handler.clone();
-        let inner_handle = handle.clone();
         let state = self.state.clone();
         let reader_task_count = self.reader_task_count;
         handle.spawn(
@@ -538,13 +537,11 @@ impl Miner {
                                 .account_id_to_best_deadline
                                 .insert(nonce_data.account_id, deadline);
                             request_handler.submit_nonce(
-                                &inner_handle,
                                 nonce_data.account_id,
                                 nonce_data.nonce,
                                 nonce_data.height,
                                 nonce_data.deadline,
                                 deadline,
-                                0,
                             );
                         }
 
