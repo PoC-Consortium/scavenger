@@ -45,7 +45,7 @@ tokio-core = "0.1"
 url = "1.7"
 page_size = "0.4.1"
 aligned_alloc = "0.1"
-reqwest = { version = "0.9.9", features = ["rustls-tls"] }
+reqwest = { version = "0.9.9", default-features = false, features = ["rustls-tls"] }
 bytes = "0.4.11"
 
 [target.'cfg(windows)'.dependencies]
