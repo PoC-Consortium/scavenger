@@ -551,6 +551,7 @@ impl Miner {
         let request_handler = self.request_handler.clone();
         let state = self.state.clone();
         let reader_task_count = self.reader_task_count;
+        let inner_handle = handle.clone();
         handle.spawn(
             self.rx_nonce_data
                 .for_each(move |nonce_data| {
@@ -573,12 +574,14 @@ impl Miner {
                             state
                                 .account_id_to_best_deadline
                                 .insert(nonce_data.account_id, deadline);
-                            request_handler.submit_nonce(
-                                nonce_data.account_id,
-                                nonce_data.nonce,
-                                nonce_data.height,
-                                nonce_data.deadline,
-                                deadline,
+                            inner_handle.spawn(
+                                request_handler.submit_nonce(
+                                    nonce_data.account_id,
+                                    nonce_data.nonce,
+                                    nonce_data.height,
+                                    nonce_data.deadline,
+                                    deadline,
+                                )
                             );
                         }
 
