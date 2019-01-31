@@ -1,4 +1,4 @@
-FROM liuchong/rustup:nightly-musl as builder
+FROM liuchong/rustup:stable-musl as builder
 WORKDIR /app
 COPY . .
 RUN cargo build --release --features=simd
