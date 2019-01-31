@@ -1,6 +1,6 @@
 use bytes::Buf;
 use futures::future::Future;
-use futures::stream;
+use futures::{stream, future};
 use futures::stream::Stream;
 use reqwest::header::HeaderName;
 use reqwest::r#async::{Chunk, ClientBuilder, Decoder, Request};
@@ -216,23 +216,23 @@ impl RequestHandler {
                             } else {
                                 log_submission_accepted(account_id, nonce, d);
                             }
-                            Ok(())
+                            Ok(true)
                         }
                         Err(FetchError::Pool(e)) => {
                             log_submission_not_accepted(
                                 height, account_id, nonce, d, e.code, e.message,
                             );
-                            Err(())
+                            Ok(false)
                         }
                         Err(_) => {
                             log_submission_failed(retry, account_id, nonce, d);
-                            Err(())
+                            Ok(false)
                         }
                     },
                 )
             })
+            .take_while(|success| future::ok(!success))
             .for_each(|_| Ok(()))
-            .or_else(|_| Ok(()))
     }
 }
 
