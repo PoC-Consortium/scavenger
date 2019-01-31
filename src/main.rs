@@ -27,8 +27,8 @@ mod gpu_worker_async;
 mod ocl;
 
 use clap::{App, Arg};
-use config::load_cfg;
-use miner::Miner;
+use crate::config::load_cfg;
+use crate::miner::Miner;
 use std::process;
 
 cfg_if! {
