@@ -2,9 +2,11 @@ use crate::miner::Buffer;
 #[cfg(feature = "opencl")]
 use crate::miner::CpuBuffer;
 use crate::plot::Plot;
-use crossbeam_channel::{Receiver, Sender};
-use crossbeam_channel;
+#[cfg(windows)]
+use crate::utils::set_thread_ideal_processor;
 use core_affinity;
+use crossbeam_channel;
+use crossbeam_channel::{Receiver, Sender};
 use filetime::FileTime;
 use pbr::{ProgressBar, Units};
 use rayon::prelude::*;
@@ -13,8 +15,6 @@ use std::io::Stdout;
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
-#[cfg(windows)]
-use utils::set_thread_ideal_processor;
 
 pub struct BufferInfo {
     pub len: usize,

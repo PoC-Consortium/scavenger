@@ -67,6 +67,9 @@ pub struct Cfg {
     #[serde(default = "default_send_proxy_details")]
     pub send_proxy_details: bool,
 
+    #[serde(default = "default_additional_headers")]
+    pub additional_headers: HashMap<String, String>,
+
     #[serde(default = "default_console_log_level")]
     pub console_log_level: String,
 
@@ -173,6 +176,10 @@ fn default_timeout() -> u64 {
 
 fn default_send_proxy_details() -> bool {
     false
+}
+
+fn default_additional_headers() -> HashMap<String, String> {
+    HashMap::new()
 }
 
 fn default_console_log_level() -> String {

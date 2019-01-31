@@ -1,21 +1,25 @@
 use crate::config::Cfg;
 use crate::cpu_worker::create_cpu_worker_task;
 #[cfg(feature = "opencl")]
+use crate::gpu_worker::create_gpu_worker_task;
+#[cfg(feature = "opencl")]
+use crate::gpu_worker_async::create_gpu_worker_task_async;
+#[cfg(feature = "opencl")]
+use crate::ocl::GpuBuffer;
+#[cfg(feature = "opencl")]
 use crate::ocl::GpuContext;
 use crate::plot::{Plot, SCOOP_SIZE};
 use crate::pocmath;
 use crate::reader::Reader;
 use crate::requests::RequestHandler;
 use crate::utils::get_device_id;
-use crossbeam_channel;
+#[cfg(windows)]
+use crate::utils::set_thread_ideal_processor;
 use core_affinity;
+use crossbeam_channel;
 use futures::sync::mpsc;
 #[cfg(feature = "opencl")]
-use gpu_worker::create_gpu_worker_task;
-#[cfg(feature = "opencl")]
-use gpu_worker_async::create_gpu_worker_task_async;
-#[cfg(feature = "opencl")]
-use ocl::GpuBuffer;
+use ocl_core::Mem;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -32,8 +36,7 @@ use stopwatch::Stopwatch;
 use tokio::prelude::*;
 use tokio::timer::Interval;
 use tokio_core::reactor::Core;
-#[cfg(windows)]
-use utils::set_thread_ideal_processor;
+use url::Url;
 
 pub struct Miner {
     reader: Reader,
@@ -52,10 +55,13 @@ pub struct State {
     generation_signature: String,
     height: u64,
     account_id_to_best_deadline: HashMap<u64, u64>,
+    server_target_deadline: u64,
     base_target: u64,
     sw: Stopwatch,
     scanning: bool,
     processed_reader_tasks: usize,
+    first: bool,
+    outage: bool,
 }
 
 pub struct NonceData {
@@ -73,7 +79,7 @@ pub trait Buffer {
     #[cfg(feature = "opencl")]
     fn get_gpu_buffers(&self) -> Option<&GpuBuffer>;
     #[cfg(feature = "opencl")]
-    fn get_gpu_data(&self) -> Option<core::Mem>;
+    fn get_gpu_data(&self) -> Option<Mem>;
     fn unmap(&self);
     fn get_id(&self) -> usize;
 }
@@ -107,7 +113,7 @@ impl Buffer for CpuBuffer {
         None
     }
     #[cfg(feature = "opencl")]
-    fn get_gpu_data(&self) -> Option<core::Mem> {
+    fn get_gpu_data(&self) -> Option<Mem> {
         None
     }
     fn unmap(&self) {}
@@ -282,8 +288,10 @@ impl Miner {
         #[cfg(feature = "opencl")]
         let buffer_count = cpu_buffer_count + gpu_buffer_count;
         let buffer_size_cpu = cfg.cpu_nonces_per_cache * SCOOP_SIZE as usize;
-        let (tx_empty_buffers, rx_empty_buffers) = crossbeam_channel::bounded(buffer_count as usize);
-        let (tx_read_replies_cpu, rx_read_replies_cpu) = crossbeam_channel::bounded(cpu_buffer_count);
+        let (tx_empty_buffers, rx_empty_buffers) =
+            crossbeam_channel::bounded(buffer_count as usize);
+        let (tx_read_replies_cpu, rx_read_replies_cpu) =
+            crossbeam_channel::bounded(cpu_buffer_count);
 
         #[cfg(feature = "opencl")]
         let mut tx_read_replies_gpu = Vec::new();
@@ -392,6 +400,7 @@ impl Miner {
         let tx_read_replies_gpu = Some(tx_read_replies_gpu);
         #[cfg(not(feature = "opencl"))]
         let tx_read_replies_gpu = None;
+        let base_url = Url::parse(&cfg.url).expect("invalid mining server url");
 
         let core = Core::new().unwrap();
         Miner {
@@ -413,21 +422,25 @@ impl Miner {
             target_deadline: cfg.target_deadline,
             account_id_to_target_deadline: cfg.account_id_to_target_deadline,
             request_handler: RequestHandler::new(
-                cfg.url,
+                base_url,
                 cfg.account_id_to_secret_phrase,
                 cfg.timeout,
                 core.handle(),
                 (total_size * 4 / 1024 / 1024) as usize,
                 cfg.send_proxy_details,
+                cfg.additional_headers,
             ),
             state: Arc::new(Mutex::new(State {
                 generation_signature: "".to_owned(),
                 height: 0,
                 account_id_to_best_deadline: HashMap::new(),
+                server_target_deadline: u64::MAX,
                 base_target: 1,
                 processed_reader_tasks: 0,
                 sw: Stopwatch::new(),
                 scanning: false,
+                first: true,
+                outage: false,
             })),
             get_mining_info_interval: cfg.get_mining_info_interval,
             core,
@@ -459,6 +472,11 @@ impl Miner {
                     match mining_info {
                         Ok(mining_info) => {
                             let mut state = state.lock().unwrap();
+                            state.first = false;
+                            if state.outage {
+                                error!("{: <80}", "outage resolved.");
+                                state.outage = false;
+                            }
                             if mining_info.generation_signature != state.generation_signature {
                                 for best_deadlines in state.account_id_to_best_deadline.values_mut()
                                 {
@@ -466,6 +484,7 @@ impl Miner {
                                 }
                                 state.height = mining_info.height;
                                 state.base_target = mining_info.base_target;
+                                state.server_target_deadline = mining_info.target_deadline;
 
                                 let gensig =
                                     pocmath::decode_gensig(&mining_info.generation_signature);
@@ -501,7 +520,25 @@ impl Miner {
                                 state.sw.restart();
                             }
                         }
-                        _ => warn!("{: <80}", "error getting mining info"),
+                        _ => {
+                            let mut state = state.lock().unwrap();
+                            if state.first {
+                                error!(
+                                    "{: <80}",
+                                    "error getting mining info, please check server config"
+                                );
+                                state.first = false;
+                                state.outage = true;
+                            } else {
+                                if !state.outage {
+                                    error!(
+                                        "{: <80}",
+                                        "error getting mining info => connection outage..."
+                                    );
+                                }
+                                state.outage = true;
+                            }
+                        }
                     }
                     future::ok(())
                 })
@@ -526,9 +563,12 @@ impl Miner {
                             .unwrap_or(&u64::MAX);
                         if best_deadline > deadline
                             && deadline
-                                < *(account_id_to_target_deadline
-                                    .get(&nonce_data.account_id)
-                                    .unwrap_or(&target_deadline))
+                                < min(
+                                    state.server_target_deadline,
+                                    *(account_id_to_target_deadline
+                                        .get(&nonce_data.account_id)
+                                        .unwrap_or(&target_deadline)),
+                                )
                         {
                             state
                                 .account_id_to_best_deadline

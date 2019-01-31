@@ -2,6 +2,7 @@ use bytes::Buf;
 use futures::future::Future;
 use futures::stream;
 use futures::stream::Stream;
+use reqwest::header::HeaderName;
 use reqwest::r#async::{Chunk, ClientBuilder, Decoder, Request};
 use serde::de::{self, DeserializeOwned};
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ use url::Url;
 #[derive(Clone)]
 pub struct RequestHandler {
     account_id_to_secret_phrase: HashMap<u64, String>,
-    base_uri: String,
+    base_uri: Url,
     timeout: Duration,
     handle: Handle,
     total_size_gb: usize,
@@ -111,12 +112,13 @@ where
 
 impl RequestHandler {
     pub fn new(
-        base_uri: String,
+        base_uri: Url,
         mut secret_phrases: HashMap<u64, String>,
         timeout: u64,
         handle: Handle,
         total_size_gb: usize,
         send_proxy_details: bool,
+        additional_headers: HashMap<String, String>,
     ) -> RequestHandler {
         for secret_phrase in secret_phrases.values_mut() {
             *secret_phrase = byte_serialize(secret_phrase.as_bytes()).collect();
@@ -126,22 +128,29 @@ impl RequestHandler {
 
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert("User-Agent", ua.to_owned().parse().unwrap());
-        headers.insert("X-Capacity", total_size_gb.to_string().parse().unwrap());
-        headers.insert("X-Miner", ua.to_owned().parse().unwrap());
-        headers.insert(
-            "X-Minername",
-            hostname::get_hostname()
-                .unwrap_or_else(|| "".to_owned())
-                .parse()
-                .unwrap(),
-        );
-        headers.insert(
-            "X-Plotfile",
-            ("ScavengerProxy/".to_owned()
-                + &*hostname::get_hostname().unwrap_or_else(|| "".to_owned()))
-                .parse()
-                .unwrap(),
-        );
+        if send_proxy_details {
+            headers.insert("X-Capacity", total_size_gb.to_string().parse().unwrap());
+            headers.insert("X-Miner", ua.to_owned().parse().unwrap());
+            headers.insert(
+                "X-Minername",
+                hostname::get_hostname()
+                    .unwrap_or_else(|| "".to_owned())
+                    .parse()
+                    .unwrap(),
+            );
+            headers.insert(
+                "X-Plotfile",
+                ("ScavengerProxy/".to_owned()
+                    + &*hostname::get_hostname().unwrap_or_else(|| "".to_owned()))
+                    .parse()
+                    .unwrap(),
+            );
+        }
+
+        for (key, value) in additional_headers {
+            let header_name = HeaderName::from_bytes(&key.into_bytes()).unwrap();
+            headers.insert(header_name, value.parse().unwrap());
+        }
 
         RequestHandler {
             account_id_to_secret_phrase: secret_phrases,
@@ -154,13 +163,17 @@ impl RequestHandler {
         }
     }
 
-    pub fn uri_for(&self, path: &str) -> Url {
-        Url::parse((self.base_uri.clone() + path).as_str()).expect("invalid url")
+    pub fn uri_for(&self, path: &str, query: &str) -> Url {
+        let mut url = self.base_uri.clone();
+        url.set_path(path);
+        url.set_query(Some(query));
+        info!("URL {}", url.to_string());
+        url
     }
 
     pub fn get_mining_info(&self) -> impl Future<Item = MiningInfo, Error = FetchError> {
         do_req(
-            self.uri_for("/burst?requestType=getMiningInfo"),
+            self.uri_for("burst", "requestType=getMiningInfo"),
             reqwest::Method::GET,
             self.headers.clone(),
             self.timeout,
@@ -181,16 +194,16 @@ impl RequestHandler {
             .get(&account_id)
             .unwrap_or(&empty);
 
-        let mut path = format!(
-            "/burst?requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
+        let mut query = format!(
+            "requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
             account_id, nonce, secret_phrase_encoded, height
         );
         // if pool mining also send the deadline (usefull for proxies)
         if secret_phrase_encoded == "" {
-            path += &format!("&deadline={}", d_unadjusted);
+            query += &format!("&deadline={}", d_unadjusted);
         }
 
-        let url = self.uri_for(&path);
+        let url = self.uri_for("burst", &query);
         let timeout = self.timeout;
         let headers = self.headers.clone();
         stream::iter_ok(1..=3)
@@ -238,13 +251,23 @@ fn log_deadline_mismatch(
 }
 
 fn log_submission_failed(retry: u8, account_id: u64, nonce: u64, deadline: u64) {
-    warn!(
-        "{: <80}",
-        format!(
-            "submission failed:, attempt={}, account={}, nonce={}, deadline={}",
-            retry, account_id, nonce, deadline
-        )
-    );
+    if retry < 3 {
+        warn!(
+            "{: <80}",
+            format!(
+                "submission failed:, attempt={}, account={}, nonce={}, deadline={}",
+                retry, account_id, nonce, deadline
+            )
+        );
+    } else {
+        error!(
+            "{: <80}",
+            format!(
+                "submission retries exhausted: account={}, nonce={}, deadline={}",
+                account_id, nonce, deadline
+            )
+        );
+    }
 }
 
 fn log_submission_not_accepted(

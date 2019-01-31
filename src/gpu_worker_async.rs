@@ -1,17 +1,17 @@
-use chan;
+use crate::miner::{Buffer, NonceData};
+use crate::ocl::GpuContext;
+use crate::ocl::{gpu_hash, gpu_transfer, gpu_transfer_and_hash};
+use crate::reader::{BufferInfo, ReadReply};
+use crossbeam_channel::{Receiver, Sender};
 use futures::sync::mpsc;
 use futures::{Future, Sink};
-use miner::{Buffer, NonceData};
-use ocl::GpuContext;
-use ocl::{gpu_hash, gpu_transfer, gpu_transfer_and_hash};
-use reader::{BufferInfo, ReadReply};
 use std::sync::Arc;
 use std::u64;
 
 pub fn create_gpu_worker_task_async(
     benchmark: bool,
-    rx_read_replies: chan::Receiver<ReadReply>,
-    tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
+    rx_read_replies: Receiver<ReadReply>,
+    tx_empty_buffers: Sender<Box<Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
     context_mu: Arc<GpuContext>,
     num_drives: usize,
@@ -30,10 +30,10 @@ pub fn create_gpu_worker_task_async(
             gpu_signal: 0,
         };
         let mut drive_count = 0;
-        let (tx_sink, rx_sink) = chan::bounded(1);
+        let (tx_sink, rx_sink) = crossbeam_channel::bounded(1);
         let mut active_height = 0;
         for read_reply in rx_read_replies {
-            let mut buffer = read_reply.buffer;
+            let buffer = read_reply.buffer;
             // handle empty buffers (read errors) && benchmark
             if read_reply.info.len == 0 || benchmark {
                 // forward 'drive finished signal'

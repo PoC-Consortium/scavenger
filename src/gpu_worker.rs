@@ -1,23 +1,23 @@
-use chan;
+use crate::miner::{Buffer, NonceData};
+use crate::ocl::GpuContext;
+use crate::ocl::{gpu_hash, gpu_transfer};
+use crate::reader::ReadReply;
+use crossbeam_channel::{Receiver, Sender};
 use futures::sync::mpsc;
 use futures::{Future, Sink};
-use miner::{Buffer, NonceData};
-use ocl::GpuContext;
-use ocl::{gpu_hash, gpu_transfer};
-use reader::ReadReply;
 use std::sync::Arc;
 use std::u64;
 
 pub fn create_gpu_worker_task(
     benchmark: bool,
-    rx_read_replies: chan::Receiver<ReadReply>,
-    tx_empty_buffers: chan::Sender<Box<Buffer + Send>>,
+    rx_read_replies: Receiver<ReadReply>,
+    tx_empty_buffers: Sender<Box<Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
     context_mu: Arc<GpuContext>,
 ) -> impl FnOnce() {
     move || {
         for read_reply in rx_read_replies {
-            let mut buffer = read_reply.buffer;
+            let buffer = read_reply.buffer;
             // handle empty buffers (read errors) && benchmark
             if read_reply.info.len == 0 || benchmark {
                 // forward 'drive finished signal'
@@ -80,11 +80,11 @@ pub fn create_gpu_worker_task(
 
 #[cfg(test)]
 mod tests {
-    extern crate ocl_core as core;
     use self::core::Event;
+    use crate::ocl::gpu_hash;
+    use crate::ocl::GpuContext;
     use hex;
-    use ocl::gpu_hash;
-    use ocl::GpuContext;
+    use ocl_core as core;
     use std::sync::Arc;
     use std::u64;
 

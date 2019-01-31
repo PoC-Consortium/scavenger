@@ -1,10 +1,10 @@
-extern crate ocl_core as core;
 use self::core::{
     ArgVal, ContextProperties, DeviceInfo, Event, KernelWorkGroupInfo, PlatformInfo, Status,
 };
+use ocl_core as core;
 
-use config::Cfg;
-use miner::Buffer;
+use crate::config::Cfg;
+use crate::miner::Buffer;
 use std::cmp::{max, min};
 use std::ffi::CString;
 use std::process;

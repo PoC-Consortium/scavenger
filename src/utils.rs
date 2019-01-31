@@ -76,8 +76,8 @@ cfg_if! {
         }
     } else {
         extern crate winapi;
-        use utils::winapi::um::processthreadsapi::SetThreadIdealProcessor;
-        use utils::winapi::um::processthreadsapi::GetCurrentThread;
+        use crate::utils::winapi::um::processthreadsapi::SetThreadIdealProcessor;
+        use crate::utils::winapi::um::processthreadsapi::GetCurrentThread;
         use std::os::windows::ffi::OsStrExt;
         use std::ffi::OsStr;
         use std::iter::once;

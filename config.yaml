@@ -8,7 +8,8 @@ plot_dirs:
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
 
-url: 'http://dummypool.megash.it'            # dummypool with constant scoop number for benchmarking
+url: 'http://50-50-pool.burst.cryptoguru.org:8124'  # cryptoguru 50-50 pool
+#url: 'http://dummypool.megash.it'                  # dummypool with constant scoop number for benchmarking
 
 hdd_reader_thread_count: 0            # default 0 (=auto: number of disks)
 hdd_use_direct_io: true               # default true
@@ -27,14 +28,16 @@ gpu_nonces_per_cache: 262144          # default 262144
 gpu_mem_mapping: false                # default false
 gpu_async: false                      # default false
 
-target_deadline: 31536000             # default u32::MAX
+target_deadline: 18446744073709551615 # default u32::MAX
 account_id_to_target_deadline:        # target dls for multi-id (optional)
- 10282355196851764065: 600000
+ 10282355196851764065: 18446744073709551615
  1796535821016683299: 55555555
 
 get_mining_info_interval: 3000        # default 3000ms
 timeout: 5000                         # default 5000ms
 send_proxy_details: true              # default false
+#additional_headers:                  # add/overwrite html header
+#  "AccountKey" : "1234567890"
 
 console_log_level: 'info'             # default Info, options (off, error, warn, info, debug, trace)
 logfile_log_level: 'warn'             # default Warn, options (off, error, warn, info, debug, trace)
