@@ -167,7 +167,6 @@ impl RequestHandler {
         let mut url = self.base_uri.clone();
         url.set_path(path);
         url.set_query(Some(query));
-        info!("URL {}", url.to_string());
         url
     }
 
