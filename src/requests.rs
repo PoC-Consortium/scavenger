@@ -165,7 +165,7 @@ impl RequestHandler {
 
     pub fn uri_for(&self, path: &str, query: &str) -> Url {
         let mut url = self.base_uri.clone();
-        url.set_path(path);
+        url.path_segments_mut().map_err(|_| "cannot be base").unwrap().pop_if_empty().push(path);
         url.set_query(Some(query));
         url
     }
@@ -221,7 +221,7 @@ impl RequestHandler {
                             log_submission_not_accepted(
                                 height, account_id, nonce, d, e.code, e.message,
                             );
-                            Ok(false)
+                            Ok(true)
                         }
                         Err(_) => {
                             log_submission_failed(retry, account_id, nonce, d);
