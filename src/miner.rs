@@ -21,7 +21,7 @@ use futures::sync::mpsc;
 #[cfg(feature = "opencl")]
 use ocl_core::Mem;
 use std::cell::RefCell;
-use std::cmp::min;
+use std::cmp::{min,max};
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
@@ -425,6 +425,8 @@ impl Miner {
                 base_url,
                 cfg.account_id_to_secret_phrase,
                 cfg.timeout,
+                // ensure timeout < polling intervall
+                min(cfg.timeout,max(1000, cfg.get_mining_info_interval)-200), 
                 core.handle(),
                 (total_size * 4 / 1024 / 1024) as usize,
                 cfg.send_proxy_details,
@@ -442,7 +444,8 @@ impl Miner {
                 first: true,
                 outage: false,
             })),
-            get_mining_info_interval: cfg.get_mining_info_interval,
+            // floor at 1s to protect servers
+            get_mining_info_interval: max(1000, cfg.get_mining_info_interval),
             core,
             wakeup_after: cfg.hdd_wakeup_after * 1000, // ms -> s
         }
