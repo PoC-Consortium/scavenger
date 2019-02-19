@@ -1,7 +1,7 @@
 use bytes::Buf;
 use futures::future::Future;
-use futures::{stream, future};
 use futures::stream::Stream;
+use futures::{future, stream};
 use reqwest::header::HeaderName;
 use reqwest::r#async::{Chunk, ClientBuilder, Decoder, Request};
 use serde::de::{self, DeserializeOwned};
@@ -168,7 +168,11 @@ impl RequestHandler {
 
     pub fn uri_for(&self, path: &str, query: &str) -> Url {
         let mut url = self.base_uri.clone();
-        url.path_segments_mut().map_err(|_| "cannot be base").unwrap().pop_if_empty().push(path);
+        url.path_segments_mut()
+            .map_err(|_| "cannot be base")
+            .unwrap()
+            .pop_if_empty()
+            .push(path);
         url.set_query(Some(query));
         url
     }
@@ -222,7 +226,7 @@ impl RequestHandler {
                         }
                         Err(FetchError::Pool(e)) => {
                             log_submission_not_accepted(
-                                height, account_id, nonce, d, e.code, e.message,
+                                height, account_id, nonce, d, e.code, &e.message,
                             );
                             Ok(true)
                         }
@@ -278,7 +282,7 @@ fn log_submission_not_accepted(
     nonce: u64,
     deadline: u64,
     err_code: i32,
-    msg: String,
+    msg: &str,
 ) {
     error!(
         "submission not accepted: height={}, account={}, nonce={}, \
@@ -294,7 +298,7 @@ fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64) {
     );
 }
 
-fn parse_json_result<T: DeserializeOwned>(body: Chunk) -> Result<T, PoolError> {
+fn parse_json_result<T: DeserializeOwned>(body: &Chunk) -> Result<T, PoolError> {
     match serde_json::from_slice(body.bytes()) {
         Ok(x) => Ok(x),
         _ => match serde_json::from_slice::<PoolErrorWrapper>(body.bytes()) {
@@ -329,7 +333,7 @@ fn do_req<T: DeserializeOwned>(
             body.concat2()
         })
         .from_err::<FetchError>()
-        .and_then(|body| match parse_json_result(body) {
+        .and_then(|body| match parse_json_result(&body) {
             Ok(x) => Ok(x),
             Err(e) => Err(e.into()),
         })

@@ -26,9 +26,9 @@ mod gpu_worker_async;
 #[cfg(feature = "opencl")]
 mod ocl;
 
-use clap::{App, Arg};
 use crate::config::load_cfg;
 use crate::miner::Miner;
+use clap::{App, Arg};
 use std::process;
 
 cfg_if! {

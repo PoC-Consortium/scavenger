@@ -21,7 +21,7 @@ use futures::sync::mpsc;
 #[cfg(feature = "opencl")]
 use ocl_core::Mem;
 use std::cell::RefCell;
-use std::cmp::{min,max};
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
@@ -426,7 +426,7 @@ impl Miner {
                 cfg.account_id_to_secret_phrase,
                 cfg.timeout,
                 // ensure timeout < polling intervall
-                min(cfg.timeout,max(1000, cfg.get_mining_info_interval)-200), 
+                min(cfg.timeout, max(1000, cfg.get_mining_info_interval) - 200),
                 core.handle(),
                 (total_size * 4 / 1024 / 1024) as usize,
                 cfg.send_proxy_details,
@@ -577,15 +577,13 @@ impl Miner {
                             state
                                 .account_id_to_best_deadline
                                 .insert(nonce_data.account_id, deadline);
-                            inner_handle.spawn(
-                                request_handler.submit_nonce(
-                                    nonce_data.account_id,
-                                    nonce_data.nonce,
-                                    nonce_data.height,
-                                    nonce_data.deadline,
-                                    deadline,
-                                )
-                            );
+                            inner_handle.spawn(request_handler.submit_nonce(
+                                nonce_data.account_id,
+                                nonce_data.nonce,
+                                nonce_data.height,
+                                nonce_data.deadline,
+                                deadline,
+                            ));
                         }
 
                         if nonce_data.reader_task_processed {
