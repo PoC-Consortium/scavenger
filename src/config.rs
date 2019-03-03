@@ -315,6 +315,8 @@ mod tests {
     fn test_load_cfg() {
         let cfg = load_cfg("config.yaml");
         assert_eq!(cfg.timeout, 5000);
-        assert_eq!(cfg.plot_dirs, vec!["test_data"]);
+        let mut pb = PathBuf::new();
+        pb.push("test_data");
+        assert_eq!(cfg.plot_dirs, vec![pb]);
     }
 }
