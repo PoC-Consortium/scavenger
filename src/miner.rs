@@ -33,7 +33,6 @@ use std::u64;
 use stopwatch::Stopwatch;
 use tokio::prelude::*;
 use tokio::timer::Interval;
-use url::Url;
 use tokio::runtime::TaskExecutor;
 
 pub struct Miner {
@@ -398,7 +397,6 @@ impl Miner {
         let tx_read_replies_gpu = Some(tx_read_replies_gpu);
         #[cfg(not(feature = "opencl"))]
         let tx_read_replies_gpu = None;
-        let base_url = Url::parse(&cfg.url).expect("invalid mining server url");
 
         Miner {
             reader_task_count: drive_id_to_plots.len(),
@@ -419,7 +417,7 @@ impl Miner {
             target_deadline: cfg.target_deadline,
             account_id_to_target_deadline: cfg.account_id_to_target_deadline,
             request_handler: RequestHandler::new(
-                base_url,
+                cfg.url,
                 cfg.account_id_to_secret_phrase,
                 cfg.timeout,
                 // ensure timeout < polling intervall

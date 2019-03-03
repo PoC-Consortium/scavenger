@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::u32;
+use url::Url;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cfg {
@@ -8,7 +9,9 @@ pub struct Cfg {
     pub account_id_to_secret_phrase: HashMap<u64, String>,
 
     pub plot_dirs: Vec<String>,
-    pub url: String,
+
+    #[serde(with = "url_serde")]
+    pub url: Url,
 
     #[serde(default = "default_hdd_reader_thread_count")]
     pub hdd_reader_thread_count: usize,
