@@ -292,7 +292,7 @@ impl Miner {
                     cfg.gpu_platform,
                     cfg.gpu_device,
                     cfg.gpu_nonces_per_cache,
-                    if cfg.benchmark_only.to_uppercase() == "I/O" {
+                    if cfg.benchmark_io() {
                         false
                     } else {
                         cfg.gpu_mem_mapping
@@ -341,7 +341,7 @@ impl Miner {
             if cfg.gpu_async {
                 thread::spawn({
                     create_gpu_worker_task_async(
-                        cfg.benchmark_only.to_uppercase() == "I/O",
+                        cfg.benchmark_io(),
                         rx_read_replies_gpu[i].clone(),
                         tx_empty_buffers.clone(),
                         tx_nonce_data.clone(),
@@ -353,7 +353,7 @@ impl Miner {
                 #[cfg(feature = "opencl")]
                 thread::spawn({
                     create_gpu_worker_task(
-                        cfg.benchmark_only.to_uppercase() == "I/O",
+                        cfg.benchmark_io(),
                         rx_read_replies_gpu[i].clone(),
                         tx_empty_buffers.clone(),
                         tx_nonce_data.clone(),
