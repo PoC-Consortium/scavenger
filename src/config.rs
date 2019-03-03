@@ -1,6 +1,7 @@
-use serde::de::{self, Deserialize, Deserializer};
+use serde::de::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 use std::u32;
 use url::Url;
 
@@ -16,7 +17,7 @@ pub struct Cfg {
     #[serde(default = "default_secret_phrase")]
     pub account_id_to_secret_phrase: HashMap<u64, String>,
 
-    pub plot_dirs: Vec<String>,
+    pub plot_dirs: Vec<PathBuf>,
 
     #[serde(with = "url_serde")]
     pub url: Url,
@@ -261,6 +262,23 @@ pub fn validate_cfg(mut cfg: Cfg) -> Cfg {
         );
         cfg.cpu_threads = cores;
     };
+
+    cfg.plot_dirs = cfg
+        .plot_dirs
+        .iter()
+        .cloned()
+        .filter(|plot_dir| {
+            if !plot_dir.exists() {
+                warn!("path {} does not exist", plot_dir.to_str().unwrap());
+                false
+            } else if !plot_dir.is_dir() {
+                warn!("path {} is not a directory", plot_dir.to_str().unwrap());
+                false
+            } else {
+                true
+            }
+        })
+        .collect();
 
     cfg
 }

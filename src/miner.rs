@@ -24,7 +24,7 @@ use ocl_core::Mem;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fs::read_dir;
-use std::path::Path;
+use std::path::PathBuf;
 use std::process;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -120,28 +120,17 @@ impl Buffer for CpuBuffer {
 }
 
 fn scan_plots(
-    plot_dirs: &[String],
+    plot_dirs: &[PathBuf],
     use_direct_io: bool,
     dummy: bool,
 ) -> (HashMap<String, Arc<Vec<Mutex<Plot>>>>, u64) {
     let mut drive_id_to_plots: HashMap<String, Vec<Mutex<Plot>>> = HashMap::new();
     let mut global_capacity: u64 = 0;
 
-    for plot_dir_str in plot_dirs {
-        let dir = Path::new(plot_dir_str);
-
-        if !dir.exists() {
-            warn!("path {} does not exist", plot_dir_str);
-            continue;
-        }
-        if !dir.is_dir() {
-            warn!("path {} is not a directory", plot_dir_str);
-            continue;
-        }
-
+    for plot_dir in plot_dirs {
         let mut num_plots = 0;
         let mut local_capacity: u64 = 0;
-        for file in read_dir(dir).unwrap() {
+        for file in read_dir(plot_dir).unwrap() {
             let file = &file.unwrap().path();
 
             if let Ok(p) = Plot::new(file, use_direct_io, dummy) {
@@ -158,14 +147,14 @@ fn scan_plots(
 
         info!(
             "path={}, files={}, size={:.4} TiB",
-            plot_dir_str,
+            plot_dir.to_str().unwrap(),
             num_plots,
             local_capacity as f64 / 4.0 / 1024.0 / 1024.0
         );
 
         global_capacity += local_capacity;
         if num_plots == 0 {
-            warn!("no plots in {}", plot_dir_str);
+            warn!("no plots in {}", plot_dir.to_str().unwrap());
         }
     }
 
