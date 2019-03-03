@@ -11,7 +11,6 @@ use std::iter::Iterator;
 use std::mem;
 use std::time::Duration;
 use std::u64;
-use tokio_core::reactor::Handle;
 use url::form_urlencoded::byte_serialize;
 use url::Url;
 
@@ -21,7 +20,6 @@ pub struct RequestHandler {
     base_uri: Url,
     timeout: Duration,
     timeout2: Duration,
-    handle: Handle,
     total_size_gb: usize,
     send_proxy_details: bool,
     headers: reqwest::header::HeaderMap,
@@ -117,7 +115,6 @@ impl RequestHandler {
         mut secret_phrases: HashMap<u64, String>,
         timeout: u64,
         timeout2: u64,
-        handle: Handle,
         total_size_gb: usize,
         send_proxy_details: bool,
         additional_headers: HashMap<String, String>,
@@ -159,7 +156,6 @@ impl RequestHandler {
             base_uri,
             timeout: Duration::from_millis(timeout),
             timeout2: Duration::from_millis(timeout2),
-            handle,
             total_size_gb,
             send_proxy_details,
             headers,

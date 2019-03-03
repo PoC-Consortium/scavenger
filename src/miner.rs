@@ -20,13 +20,11 @@ use crossbeam_channel;
 use futures::sync::mpsc;
 #[cfg(feature = "opencl")]
 use ocl_core::Mem;
-use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
 use std::process;
-use std::rc::Rc;
 use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -35,8 +33,8 @@ use std::u64;
 use stopwatch::Stopwatch;
 use tokio::prelude::*;
 use tokio::timer::Interval;
-use tokio_core::reactor::Core;
 use url::Url;
+use tokio::runtime::TaskExecutor;
 
 pub struct Miner {
     reader: Reader,
@@ -47,7 +45,7 @@ pub struct Miner {
     state: Arc<Mutex<State>>,
     reader_task_count: usize,
     get_mining_info_interval: u64,
-    core: Core,
+    executor: TaskExecutor,
     wakeup_after: i64,
 }
 
@@ -182,7 +180,7 @@ fn scan_plots(
 }
 
 impl Miner {
-    pub fn new(cfg: Cfg) -> Miner {
+    pub fn new(cfg: Cfg, executor: TaskExecutor) -> Miner {
         let (drive_id_to_plots, total_size) = scan_plots(
             &cfg.plot_dirs,
             cfg.hdd_use_direct_io,
@@ -402,7 +400,6 @@ impl Miner {
         let tx_read_replies_gpu = None;
         let base_url = Url::parse(&cfg.url).expect("invalid mining server url");
 
-        let core = Core::new().unwrap();
         Miner {
             reader_task_count: drive_id_to_plots.len(),
             reader: Reader::new(
@@ -427,7 +424,6 @@ impl Miner {
                 cfg.timeout,
                 // ensure timeout < polling intervall
                 min(cfg.timeout, max(1000, cfg.get_mining_info_interval) - 200),
-                core.handle(),
                 (total_size * 4 / 1024 / 1024) as usize,
                 cfg.send_proxy_details,
                 cfg.additional_headers,
@@ -446,24 +442,24 @@ impl Miner {
             })),
             // floor at 1s to protect servers
             get_mining_info_interval: max(1000, cfg.get_mining_info_interval),
-            core,
+            executor,
             wakeup_after: cfg.hdd_wakeup_after * 1000, // ms -> s
         }
     }
 
-    pub fn run(mut self) {
-        let handle = self.core.handle();
+    pub fn run(self) {
         let request_handler = self.request_handler.clone();
         let total_size = self.reader.total_size;
 
-        // you left me no choice!!! at least not one that I could have worked out in two weeks...
-        let reader = Rc::new(RefCell::new(self.reader));
+        // TODO: this doesn't need to be arc mutex if we manage to separate
+        // reader from miner so that we can simply move it
+        let reader = Arc::new(Mutex::new(self.reader));
 
         let state = self.state.clone();
         // there might be a way to solve this without two nested moves
         let get_mining_info_interval = self.get_mining_info_interval;
         let wakeup_after = self.wakeup_after;
-        handle.spawn(
+        self.executor.clone().spawn(
             Interval::new(
                 Instant::now(),
                 Duration::from_millis(get_mining_info_interval),
@@ -508,7 +504,7 @@ impl Miner {
 
                                 drop(state);
 
-                                reader.borrow_mut().start_reading(
+                                reader.lock().unwrap().start_reading(
                                     mining_info.height,
                                     mining_info.base_target,
                                     scoop,
@@ -519,7 +515,7 @@ impl Miner {
                                 && state.sw.elapsed_ms() > wakeup_after
                             {
                                 info!("HDD, wakeup!");
-                                reader.borrow_mut().wakeup();
+                                reader.lock().unwrap().wakeup();
                                 state.sw.restart();
                             }
                         }
@@ -554,8 +550,8 @@ impl Miner {
         let request_handler = self.request_handler.clone();
         let state = self.state.clone();
         let reader_task_count = self.reader_task_count;
-        let inner_handle = handle.clone();
-        handle.spawn(
+        let inner_executor = self.executor.clone();
+        self.executor.clone().spawn(
             self.rx_nonce_data
                 .for_each(move |nonce_data| {
                     let mut state = state.lock().unwrap();
@@ -577,7 +573,7 @@ impl Miner {
                             state
                                 .account_id_to_best_deadline
                                 .insert(nonce_data.account_id, deadline);
-                            inner_handle.spawn(request_handler.submit_nonce(
+                            inner_executor.spawn(request_handler.submit_nonce(
                                 nonce_data.account_id,
                                 nonce_data.nonce,
                                 nonce_data.height,
@@ -609,8 +605,6 @@ impl Miner {
                 })
                 .map_err(|e| panic!("interval errored: err={:?}", e)),
         );
-
-        self.core.run(future::empty::<(), ()>()).unwrap();
     }
 }
 
