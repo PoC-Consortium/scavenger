@@ -17,6 +17,7 @@ use crate::utils::get_device_id;
 use crate::utils::set_thread_ideal_processor;
 use core_affinity;
 use crossbeam_channel;
+use filetime::FileTime;
 use futures::sync::mpsc;
 #[cfg(feature = "opencl")]
 use ocl_core::Mem;
@@ -25,15 +26,14 @@ use std::collections::HashMap;
 use std::fs::read_dir;
 use std::path::Path;
 use std::process;
-use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use std::u64;
 use stopwatch::Stopwatch;
 use tokio::prelude::*;
-use tokio::timer::Interval;
 use tokio::runtime::TaskExecutor;
+use tokio::timer::Interval;
 
 pub struct Miner {
     reader: Reader,
@@ -123,8 +123,8 @@ fn scan_plots(
     plot_dirs: &[String],
     use_direct_io: bool,
     dummy: bool,
-) -> (HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>, u64) {
-    let mut drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>> = HashMap::new();
+) -> (HashMap<String, Arc<Vec<Mutex<Plot>>>>, u64) {
+    let mut drive_id_to_plots: HashMap<String, Vec<Mutex<Plot>>> = HashMap::new();
     let mut global_capacity: u64 = 0;
 
     for plot_dir_str in plot_dirs {
@@ -148,10 +148,10 @@ fn scan_plots(
                 let drive_id = get_device_id(&file.to_str().unwrap().to_string());
                 let plots = drive_id_to_plots
                     .entry(drive_id)
-                    .or_insert_with(|| Arc::new(Mutex::new(Vec::new())));
+                    .or_insert_with(|| Vec::new());
 
-                local_capacity += p.nonces as u64;
-                plots.lock().unwrap().push(RwLock::new(p));
+                local_capacity += p.meta.nonces as u64;
+                plots.push(Mutex::new(p));
                 num_plots += 1;
             }
         }
@@ -168,6 +168,18 @@ fn scan_plots(
             warn!("no plots in {}", plot_dir_str);
         }
     }
+
+    // sort plots by filetime and get them into an arc
+    let drive_id_to_plots: HashMap<String, Arc<Vec<Mutex<Plot>>>> = drive_id_to_plots
+        .drain()
+        .map(|(drive_id, mut plots)| {
+            plots.sort_by_key(|p| {
+                let m = p.lock().unwrap().fh.metadata().unwrap();
+                -FileTime::from_last_modification_time(&m).unix_seconds()
+            });
+            (drive_id, Arc::new(plots))
+        })
+        .collect();
 
     info!(
         "plot files loaded: total drives={}, total capacity={:.4} TiB",

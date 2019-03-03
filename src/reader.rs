@@ -1,18 +1,16 @@
 use crate::miner::Buffer;
 #[cfg(feature = "opencl")]
 use crate::miner::CpuBuffer;
-use crate::plot::Plot;
+use crate::plot::{Meta, Plot};
 #[cfg(windows)]
 use crate::utils::set_thread_ideal_processor;
 use core_affinity;
 use crossbeam_channel;
 use crossbeam_channel::{Receiver, Sender};
-use filetime::FileTime;
 use pbr::{ProgressBar, Units};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::Stdout;
-use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 use stopwatch::Stopwatch;
 
@@ -33,7 +31,7 @@ pub struct ReadReply {
 
 #[allow(dead_code)]
 pub struct Reader {
-    drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
+    drive_id_to_plots: HashMap<String, Arc<Vec<Mutex<Plot>>>>,
     pub total_size: u64,
     pool: rayon::ThreadPool,
     rx_empty_buffers: Receiver<Box<Buffer + Send>>,
@@ -47,7 +45,7 @@ pub struct Reader {
 
 impl Reader {
     pub fn new(
-        drive_id_to_plots: HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>,
+        drive_id_to_plots: HashMap<String, Arc<Vec<Mutex<Plot>>>>,
         total_size: u64,
         num_threads: usize,
         rx_empty_buffers: Receiver<Box<Buffer + Send>>,
@@ -59,14 +57,6 @@ impl Reader {
         thread_pinning: bool,
         benchmark: bool,
     ) -> Reader {
-        for plots in drive_id_to_plots.values() {
-            let mut plots = plots.lock().unwrap();
-            plots.sort_by_key(|p| {
-                let m = p.read().unwrap().fh.metadata().unwrap();
-                -FileTime::from_last_modification_time(&m).unix_seconds()
-            });
-        }
-
         if !benchmark {
             check_overlap(&drive_id_to_plots);
         }
@@ -179,13 +169,12 @@ impl Reader {
         for plots in self.drive_id_to_plots.values() {
             let plots = plots.clone();
             self.pool.spawn(move || {
-                let plots = plots.lock().unwrap();
-                let mut p = plots[0].write().unwrap();
+                let mut p = plots[0].lock().unwrap();
 
                 if let Err(e) = p.seek_random() {
                     error!(
                         "wakeup: error during wakeup {}: {} -> skip one round",
-                        p.name, e
+                        p.meta.name, e
                     );
                 }
             });
@@ -196,7 +185,7 @@ impl Reader {
         &self,
         pb: Option<Arc<Mutex<pbr::ProgressBar<Stdout>>>>,
         drive: String,
-        plots: Arc<Mutex<Vec<RwLock<Plot>>>>,
+        plots: Arc<Vec<Mutex<Plot>>>,
         height: u64,
         base_target: u64,
         scoop: u32,
@@ -214,14 +203,13 @@ impl Reader {
             let mut sw = Stopwatch::new();
             let mut elapsed = 0i64;
             let mut nonces_processed = 0u64;
-            let plots = plots.lock().unwrap();
             let plot_count = plots.len();
             'outer: for (i_p, p) in plots.iter().enumerate() {
-                let mut p = p.write().unwrap();
+                let mut p = p.lock().unwrap();
                 if let Err(e) = p.prepare(scoop) {
                     error!(
                         "reader: error preparing {} for reading: {} -> skip one round",
-                        p.name, e
+                        p.meta.name, e
                     );
                     continue 'outer;
                 }
@@ -237,7 +225,7 @@ impl Reader {
                         Err(e) => {
                             error!(
                                 "reader: error reading chunk from {}: {} -> skip one round",
-                                p.name, e
+                                p.meta.name, e
                             );
                             (0, 0, true)
                         }
@@ -299,7 +287,7 @@ impl Reader {
                                 gensig: gensig.clone(),
                                 start_nonce,
                                 finished,
-                                account_id: p.account_id,
+                                account_id: p.meta.account_id,
                                 gpu_signal: 0,
                             },
                         })
@@ -363,42 +351,25 @@ impl Reader {
 
 // Don't waste your time striving for perfection; instead, strive for excellence - doing your best.
 // let my_best = perfection;
-pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Mutex<Vec<RwLock<Plot>>>>>) -> bool {
-    let mut result = false;
-    for (i, drive_a) in drive_id_to_plots.values().enumerate() {
-        for (j, drive_b) in drive_id_to_plots.values().skip(i).enumerate() {
-            if i == j + i {
-                let drive = drive_a.lock().unwrap();
-                let dupes = drive.par_iter().enumerate().filter(|(x, j)| {
-                    drive
-                        .par_iter()
-                        .skip(x + 1)
-                        .filter(|l| {
-                            let plot_a = l.write().unwrap();
-                            let plot_b = j.write().unwrap();
-                            plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b)
-                        })
-                        .count()
-                        > 0
-                });
-                result |= dupes.count() > 0;
-            } else {
-                let drive_a = drive_a.lock().unwrap();
-                let drive_b = drive_b.lock().unwrap();
-                let dupes = drive_a.par_iter().filter(|j| {
-                    drive_b
-                        .par_iter()
-                        .filter(|l| {
-                            let plot_a = l.write().unwrap();
-                            let plot_b = j.write().unwrap();
-                            plot_a.account_id == plot_b.account_id && plot_a.overlaps_with(&plot_b)
-                        })
-                        .count()
-                        > 0
-                });
-                result |= dupes.count() > 0;
-            }
-        }
-    }
-    result
+pub fn check_overlap(drive_id_to_plots: &HashMap<String, Arc<Vec<Mutex<Plot>>>>) -> bool {
+    let plots: Vec<Meta> = drive_id_to_plots
+        .values()
+        .map(|a| a.iter())
+        .flatten()
+        .map(|plot| plot.lock().unwrap().meta.clone())
+        .collect();
+    plots
+        .par_iter()
+        .enumerate()
+        .filter(|(i, plot_a)| {
+            plots[i + 1..]
+                .par_iter()
+                .filter(|plot_b| {
+                    plot_a.account_id == plot_b.account_id && plot_b.overlaps_with(&plot_a)
+                })
+                .count()
+                > 0
+        })
+        .count()
+        > 0
 }

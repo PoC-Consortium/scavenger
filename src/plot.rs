@@ -13,15 +13,40 @@ const SHABAL256_HASH_SIZE: u64 = 32;
 pub const SCOOP_SIZE: u64 = SHABAL256_HASH_SIZE * 2;
 const NONCE_SIZE: u64 = SCOOP_SIZE * SCOOPS_IN_NONCE;
 
-pub struct Plot {
+#[derive(Clone)]
+pub struct Meta {
     pub account_id: u64,
-    start_nonce: u64,
+    pub start_nonce: u64,
     pub nonces: u64,
-    pub fh: File,
+    pub name: String,
+}
+
+impl Meta {
+    pub fn overlaps_with(&self, other: &Meta) -> bool {
+        if self.start_nonce < other.start_nonce + other.nonces
+            && other.start_nonce < self.start_nonce + self.nonces
+        {
+            let overlap = min(
+                other.start_nonce + other.nonces,
+                self.start_nonce + self.nonces,
+            ) - max(self.start_nonce, other.start_nonce);
+            warn!(
+                "overlap: {} and {} share {} nonces!",
+                self.name, other.name, overlap
+            );
+            true
+        } else {
+            false
+        }
+    }
+}
+
+pub struct Plot {
+    pub meta: Meta,
     pub path: String,
+    pub fh: File,
     read_offset: u64,
     use_direct_io: bool,
-    pub name: String,
     sector_size: u64,
     dummy: bool,
 }
@@ -114,22 +139,24 @@ impl Plot {
 
         let file_path = path.clone().into_os_string().into_string().unwrap();
         Ok(Plot {
-            account_id,
-            start_nonce,
-            nonces,
+            meta: Meta {
+                account_id,
+                start_nonce,
+                nonces,
+                name: plot_file_name,
+            },
             fh,
             path: file_path,
             read_offset: 0,
             use_direct_io,
             sector_size,
-            name: plot_file_name,
             dummy,
         })
     }
 
     pub fn prepare(&mut self, scoop: u32) -> io::Result<u64> {
         self.read_offset = 0;
-        let nonces = self.nonces;
+        let nonces = self.meta.nonces;
         let mut seek_addr = u64::from(scoop) * nonces as u64 * SCOOP_SIZE;
 
         // reopening file handles
@@ -149,26 +176,26 @@ impl Plot {
     pub fn read(&mut self, bs: &mut Vec<u8>, scoop: u32) -> Result<(usize, u64, bool), io::Error> {
         let read_offset = self.read_offset;
         let buffer_cap = bs.capacity();
-        let start_nonce = self.start_nonce + self.read_offset / 64;
+        let start_nonce = self.meta.start_nonce + self.read_offset / 64;
 
-        let (bytes_to_read, finished) = if read_offset as usize + buffer_cap
-            >= (SCOOP_SIZE * self.nonces) as usize
-        {
-            let mut bytes_to_read = (SCOOP_SIZE * self.nonces) as usize - self.read_offset as usize;
-            if self.use_direct_io {
-                let r = bytes_to_read % self.sector_size as usize;
-                if r != 0 {
-                    bytes_to_read -= r;
+        let (bytes_to_read, finished) =
+            if read_offset as usize + buffer_cap >= (SCOOP_SIZE * self.meta.nonces) as usize {
+                let mut bytes_to_read =
+                    (SCOOP_SIZE * self.meta.nonces) as usize - self.read_offset as usize;
+                if self.use_direct_io {
+                    let r = bytes_to_read % self.sector_size as usize;
+                    if r != 0 {
+                        bytes_to_read -= r;
+                    }
                 }
-            }
 
-            (bytes_to_read, true)
-        } else {
-            (buffer_cap as usize, false)
-        };
+                (bytes_to_read, true)
+            } else {
+                (buffer_cap as usize, false)
+            };
 
         let offset = self.read_offset;
-        let nonces = self.nonces;
+        let nonces = self.meta.nonces;
         let seek_addr =
             SeekFrom::Start(offset as u64 + u64::from(scoop) * nonces as u64 * SCOOP_SIZE);
         if !self.dummy {
@@ -191,7 +218,7 @@ impl Plot {
         let mut rng = thread_rng();
         let rand_scoop = rng.gen_range(0, SCOOPS_IN_NONCE);
 
-        let mut seek_addr = rand_scoop as u64 * self.nonces as u64 * SCOOP_SIZE;
+        let mut seek_addr = rand_scoop as u64 * self.meta.nonces as u64 * SCOOP_SIZE;
         if self.use_direct_io {
             self.round_seek_addr(&mut seek_addr);
         }
@@ -207,24 +234,6 @@ impl Plot {
             offset
         } else {
             0
-        }
-    }
-
-    pub fn overlaps_with(&self, plot: &Plot) -> bool {
-        if self.start_nonce < plot.start_nonce + plot.nonces
-            && plot.start_nonce < self.start_nonce + self.nonces
-        {
-            let overlap = min(
-                plot.start_nonce + plot.nonces,
-                self.start_nonce + self.nonces,
-            ) - max(self.start_nonce, plot.start_nonce);
-            warn!(
-                "overlap: {} and {} share {} nonces!",
-                self.name, plot.name, overlap
-            );
-            true
-        } else {
-            false
         }
     }
 }

@@ -29,9 +29,9 @@ mod ocl;
 use crate::config::load_cfg;
 use crate::miner::Miner;
 use clap::{App, Arg};
+use futures::Future;
 use std::process;
 use tokio::runtime::Builder;
-use futures::Future;
 
 cfg_if! {
     if #[cfg(feature = "simd")] {
@@ -138,10 +138,7 @@ fn main() {
     #[cfg(feature = "opencl")]
     ocl::gpu_info(&cfg_loaded);
 
-    let rt = Builder::new()
-        .core_threads(1)
-        .build()
-        .unwrap();
+    let rt = Builder::new().core_threads(1).build().unwrap();
     let m = Miner::new(cfg_loaded, rt.executor());
     m.run();
     rt.shutdown_on_idle().wait().unwrap();
