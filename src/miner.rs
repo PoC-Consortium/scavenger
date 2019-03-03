@@ -598,10 +598,3 @@ impl Miner {
         );
     }
 }
-
-#[cfg(test)]
-mod test {
-
-    #[test]
-    fn test_new_miner() {}
-}
