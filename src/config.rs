@@ -230,6 +230,21 @@ pub fn load_cfg(config: &str) -> Cfg {
             "nonces_per_cache should be devisable by 64 when using direct io"
         );
     }
+    validate_cfg(cfg)
+}
+
+pub fn validate_cfg(mut cfg: Cfg) -> Cfg {
+    let cores = num_cpus::get();
+    if cfg.cpu_threads == 0 {
+        cfg.cpu_threads = cores;
+    } else if cfg.cpu_threads > cores {
+        warn!(
+            "cpu_threads exceeds number of cores ({}), using ({}) threads",
+            cores, cores
+        );
+        cfg.cpu_threads = cores;
+    };
+
     cfg
 }
 

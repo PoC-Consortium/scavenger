@@ -193,12 +193,7 @@ impl Miner {
             Vec::new()
         };
 
-        let cpu_threads = if cfg.cpu_threads == 0 {
-            num_cpus::get()
-        } else {
-            min(cfg.cpu_threads, num_cpus::get())
-        };
-
+        let cpu_threads = cfg.cpu_threads;
         let cpu_worker_task_count = cfg.cpu_worker_task_count;
 
         let cpu_buffer_count = cpu_worker_task_count
