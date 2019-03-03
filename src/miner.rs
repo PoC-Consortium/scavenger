@@ -192,11 +192,8 @@ fn scan_plots(
 
 impl Miner {
     pub fn new(cfg: Cfg, executor: TaskExecutor) -> Miner {
-        let (drive_id_to_plots, total_size) = scan_plots(
-            &cfg.plot_dirs,
-            cfg.hdd_use_direct_io,
-            cfg.benchmark_only.to_uppercase() == "XPU",
-        );
+        let (drive_id_to_plots, total_size) =
+            scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io, cfg.benchmark_cpu());
 
         let thread_pinning = cfg.cpu_thread_pinning;
         let core_ids = if thread_pinning {
@@ -352,7 +349,7 @@ impl Miner {
 
         thread::spawn({
             create_cpu_worker_task(
-                cfg.benchmark_only.to_uppercase() == "I/O",
+                cfg.benchmark_io(),
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(cpu_threads)
                     .start_handler(move |id| {
@@ -418,7 +415,7 @@ impl Miner {
                 cfg.show_progress,
                 cfg.show_drive_stats,
                 cfg.cpu_thread_pinning,
-                cfg.benchmark_only.to_uppercase() == "XPU",
+                cfg.benchmark_cpu(),
             ),
             rx_nonce_data,
             target_deadline: cfg.target_deadline,

@@ -1,7 +1,15 @@
+use serde::de::{self, Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fs;
 use std::u32;
 use url::Url;
+
+#[derive(Debug, Serialize)]
+pub enum Benchmark {
+    IO,
+    XCPU,
+    Disabled,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cfg {
@@ -97,8 +105,21 @@ pub struct Cfg {
     #[serde(default = "default_show_drive_stats")]
     pub show_drive_stats: bool,
 
-    #[serde(default = "default_benchmark_only")]
-    pub benchmark_only: String,
+    pub benchmark_only: Option<Benchmark>,
+}
+
+impl<'de> Deserialize<'de> for Benchmark {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(match s.as_str().to_lowercase().as_ref() {
+            "i/o" => Benchmark::IO,
+            "xcpu" => Benchmark::XCPU,
+            _ => Benchmark::Disabled,
+        })
+    }
 }
 
 fn default_secret_phrase() -> HashMap<u64, String> {
@@ -217,10 +238,6 @@ fn default_show_drive_stats() -> bool {
     false
 }
 
-fn default_benchmark_only() -> String {
-    "disabled".to_owned()
-}
-
 pub fn load_cfg(config: &str) -> Cfg {
     let cfg_str = fs::read_to_string(config).expect("failed to open config");
     let cfg: Cfg = serde_yaml::from_str(&cfg_str).expect("failed to parse config");
@@ -246,6 +263,30 @@ pub fn validate_cfg(mut cfg: Cfg) -> Cfg {
     };
 
     cfg
+}
+
+impl Cfg {
+    pub fn benchmark_cpu(&self) -> bool {
+        if let Some(benchmark) = &self.benchmark_only {
+            match benchmark {
+                Benchmark::XCPU => true,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn benchmark_io(&self) -> bool {
+        if let Some(benchmark) = &self.benchmark_only {
+            match benchmark {
+                Benchmark::IO => true,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]
