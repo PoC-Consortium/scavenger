@@ -231,7 +231,7 @@ impl Reader {
                                         gensig: gensig.clone(),
                                         start_nonce,
                                         finished,
-                                        account_id: p.account_id,
+                                        account_id: p.meta.account_id,
                                         gpu_signal: 0,
                                     },
                                 })
@@ -248,7 +248,7 @@ impl Reader {
                                         gensig: gensig.clone(),
                                         start_nonce,
                                         finished,
-                                        account_id: p.account_id,
+                                        account_id: p.meta.account_id,
                                         gpu_signal: 0,
                                     },
                                 })
