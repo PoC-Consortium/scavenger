@@ -1,3 +1,28 @@
+use core_affinity;
+use rayon;
+
+pub fn new_thread_pool(num_threads: usize, thread_pinning: bool) -> rayon::ThreadPool {
+    let core_ids = if thread_pinning {
+        core_affinity::get_core_ids().unwrap()
+    } else {
+        Vec::new()
+    };
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .start_handler(move |id| {
+            if thread_pinning {
+                #[cfg(not(windows))]
+                let core_id = core_ids[id % core_ids.len()];
+                #[cfg(not(windows))]
+                core_affinity::set_for_current(core_id);
+                #[cfg(windows)]
+                set_thread_ideal_processor(id % core_ids.len());
+            }
+        })
+        .build()
+        .unwrap()
+}
+
 cfg_if! {
     if #[cfg(unix)] {
         use std::process::Command;

@@ -12,10 +12,7 @@ use crate::plot::{Plot, SCOOP_SIZE};
 use crate::pocmath;
 use crate::reader::Reader;
 use crate::requests::RequestHandler;
-use crate::utils::get_device_id;
-#[cfg(windows)]
-use crate::utils::set_thread_ideal_processor;
-use core_affinity;
+use crate::utils::{get_device_id, new_thread_pool};
 use crossbeam_channel;
 use filetime::FileTime;
 use futures::sync::mpsc;
@@ -184,13 +181,6 @@ impl Miner {
         let (drive_id_to_plots, total_size) =
             scan_plots(&cfg.plot_dirs, cfg.hdd_use_direct_io, cfg.benchmark_cpu());
 
-        let thread_pinning = cfg.cpu_thread_pinning;
-        let core_ids = if thread_pinning {
-            core_affinity::get_core_ids().unwrap()
-        } else {
-            Vec::new()
-        };
-
         let cpu_threads = cfg.cpu_threads;
         let cpu_worker_task_count = cfg.cpu_worker_task_count;
 
@@ -339,20 +329,7 @@ impl Miner {
         thread::spawn({
             create_cpu_worker_task(
                 cfg.benchmark_io(),
-                rayon::ThreadPoolBuilder::new()
-                    .num_threads(cpu_threads)
-                    .start_handler(move |id| {
-                        if thread_pinning {
-                            #[cfg(not(windows))]
-                            let core_id = core_ids[id % core_ids.len()];
-                            #[cfg(not(windows))]
-                            core_affinity::set_for_current(core_id);
-                            #[cfg(windows)]
-                            set_thread_ideal_processor(id % core_ids.len());
-                        }
-                    })
-                    .build()
-                    .unwrap(),
+                new_thread_pool(cpu_threads, cfg.cpu_thread_pinning),
                 rx_read_replies_cpu.clone(),
                 tx_empty_buffers.clone(),
                 tx_nonce_data.clone(),

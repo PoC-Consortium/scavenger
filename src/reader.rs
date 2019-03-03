@@ -2,9 +2,7 @@ use crate::miner::Buffer;
 #[cfg(feature = "opencl")]
 use crate::miner::CpuBuffer;
 use crate::plot::{Meta, Plot};
-#[cfg(windows)]
-use crate::utils::set_thread_ideal_processor;
-use core_affinity;
+use crate::utils::new_thread_pool;
 use crossbeam_channel;
 use crossbeam_channel::{Receiver, Sender};
 use pbr::{ProgressBar, Units};
@@ -61,29 +59,10 @@ impl Reader {
             check_overlap(&drive_id_to_plots);
         }
 
-        let core_ids = if thread_pinning {
-            core_affinity::get_core_ids().unwrap()
-        } else {
-            Vec::new()
-        };
-
         Reader {
             drive_id_to_plots,
             total_size,
-            pool: rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .start_handler(move |id| {
-                    if thread_pinning {
-                        #[cfg(not(windows))]
-                        let core_id = core_ids[id % core_ids.len()];
-                        #[cfg(not(windows))]
-                        core_affinity::set_for_current(core_id);
-                        #[cfg(windows)]
-                        set_thread_ideal_processor(id % core_ids.len());
-                    }
-                })
-                .build()
-                .unwrap(),
+            pool: new_thread_pool(num_threads, thread_pinning),
             rx_empty_buffers,
             tx_empty_buffers,
             tx_read_replies_cpu,
