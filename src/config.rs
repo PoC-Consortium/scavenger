@@ -8,7 +8,7 @@ use url::Url;
 #[derive(Debug, Serialize)]
 pub enum Benchmark {
     IO,
-    XCPU,
+    XPU,
     Disabled,
 }
 
@@ -117,7 +117,7 @@ impl<'de> Deserialize<'de> for Benchmark {
         let s = String::deserialize(deserializer)?;
         Ok(match s.as_str().to_lowercase().as_ref() {
             "i/o" => Benchmark::IO,
-            "xcpu" => Benchmark::XCPU,
+            "xpu" => Benchmark::XPU,
             _ => Benchmark::Disabled,
         })
     }
@@ -287,7 +287,7 @@ impl Cfg {
     pub fn benchmark_cpu(&self) -> bool {
         if let Some(benchmark) = &self.benchmark_only {
             match benchmark {
-                Benchmark::XCPU => true,
+                Benchmark::XPU => true,
                 _ => false,
             }
         } else {
