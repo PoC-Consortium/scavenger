@@ -134,7 +134,7 @@ fn scan_plots(
                 let drive_id = get_device_id(&file.to_str().unwrap().to_string());
                 let plots = drive_id_to_plots
                     .entry(drive_id)
-                    .or_insert_with(|| Vec::new());
+                    .or_insert_with(Vec::new());
 
                 local_capacity += p.meta.nonces as u64;
                 plots.push(Mutex::new(p));
