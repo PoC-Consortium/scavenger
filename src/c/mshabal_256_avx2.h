@@ -163,7 +163,7 @@ void mshabal_close_avx2(mshabal256_context *sc, unsigned ub0, unsigned ub1, unsi
 /*
  * optimised Shabal routine for PoC plotting and hashing
  */
-void mshabal256_openclose_fast(mshabal256_context_fast *sc, void *message, void *termination,
+void mshabal_hash_fast_avx2(mshabal256_context_fast *sc, void *message, void *termination,
                                void *dst, unsigned len);
 
 /*
