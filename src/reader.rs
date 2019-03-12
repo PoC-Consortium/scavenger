@@ -206,6 +206,7 @@ impl Reader {
                                 "reader: error reading chunk from {}: {} -> skip one round",
                                 p.meta.name, e
                             );
+                            buffer.unmap();
                             (0, 0, true)
                         }
                     };
