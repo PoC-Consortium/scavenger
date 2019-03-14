@@ -1,4 +1,5 @@
 #![warn(unused_extern_crates)]
+#![feature(stdsimd)]
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
