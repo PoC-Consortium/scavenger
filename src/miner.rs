@@ -9,7 +9,7 @@ use crate::ocl::GpuBuffer;
 #[cfg(feature = "opencl")]
 use crate::ocl::GpuContext;
 use crate::plot::{Plot, SCOOP_SIZE};
-use crate::pocmath;
+use crate::poc_hashing;
 use crate::reader::Reader;
 use crate::requests::RequestHandler;
 use crate::utils::{get_device_id, new_thread_pool};
@@ -132,9 +132,7 @@ fn scan_plots(
 
             if let Ok(p) = Plot::new(file, use_direct_io, dummy) {
                 let drive_id = get_device_id(&file.to_str().unwrap().to_string());
-                let plots = drive_id_to_plots
-                    .entry(drive_id)
-                    .or_insert(Vec::new());
+                let plots = drive_id_to_plots.entry(drive_id).or_insert(Vec::new());
 
                 local_capacity += p.meta.nonces as u64;
                 plots.push(Mutex::new(p));
@@ -454,10 +452,11 @@ impl Miner {
                                 state.server_target_deadline = mining_info.target_deadline;
 
                                 let gensig =
-                                    pocmath::decode_gensig(&mining_info.generation_signature);
+                                    poc_hashing::decode_gensig(&mining_info.generation_signature);
                                 state.generation_signature = mining_info.generation_signature;
 
-                                let scoop = pocmath::calculate_scoop(mining_info.height, &gensig);
+                                let scoop =
+                                    poc_hashing::calculate_scoop(mining_info.height, &gensig);
                                 info!(
                                     "{: <80}",
                                     format!(

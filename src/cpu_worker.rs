@@ -1,20 +1,12 @@
 use crate::miner::{Buffer, NonceData};
+use crate::poc_hashing::find_best_deadline_rust;
 use crate::reader::ReadReply;
 use crossbeam_channel::{Receiver, Sender};
 use futures::sync::mpsc;
 use futures::{Future, Sink};
+#[cfg(any(feature = "simd", feature = "neon"))]
 use libc::{c_void, uint64_t};
 use std::u64;
-
-extern "C" {
-    pub fn find_best_deadline_sph(
-        scoops: *mut c_void,
-        nonce_count: uint64_t,
-        gensig: *const c_void,
-        best_deadline: *mut uint64_t,
-        best_offset: *mut uint64_t,
-    ) -> ();
-}
 
 cfg_if! {
     if #[cfg(feature = "simd")] {
@@ -125,8 +117,10 @@ pub fn hash(
         if read_reply.info.len == 1 && read_reply.info.gpu_signal > 0 {
             return;
         }
-
+        
+        #[allow(unused_assignments)]
         let mut deadline: u64 = u64::MAX;
+        #[allow(unused_assignments)]
         let mut offset: u64 = 0;
 
         let bs = buffer.get_buffer_for_writing();
@@ -167,13 +161,13 @@ pub fn hash(
                     &mut offset,
                 );
             } else {
-                find_best_deadline_sph(
-                    bs.as_ptr() as *mut c_void,
+                let result = find_best_deadline_rust(
+                    &bs,
                     (read_reply.info.len as u64) / 64,
-                    read_reply.info.gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
+                    &*read_reply.info.gensig,
                 );
+                deadline = result.0;
+                offset = result.1;
             }
         }
         #[cfg(feature = "neon")]
@@ -191,24 +185,25 @@ pub fn hash(
                     &mut offset,
                 );
             } else {
-                find_best_deadline_sph(
-                    bs.as_ptr() as *mut c_void,
+                let result = find_best_deadline_rust(
+                    &bs,
                     (read_reply.info.len as u64) / 64,
-                    read_reply.info.gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
+                    &*read_reply.info.gensig,
                 );
+                deadline = result.0;
+                offset = result.1;
             }
         }
+
         #[cfg(not(any(feature = "simd", feature = "neon")))]
-        unsafe {
-            find_best_deadline_sph(
-                bs.as_ptr() as *mut c_void,
+        {
+            let result = find_best_deadline_rust(
+                &bs,
                 (read_reply.info.len as u64) / 64,
-                read_reply.info.gensig.as_ptr() as *const c_void,
-                &mut deadline,
-                &mut offset,
+                &*read_reply.info.gensig,
             );
+            deadline = result.0;
+            offset = result.1;
         }
 
         tx_nonce_data
@@ -231,19 +226,9 @@ pub fn hash(
 
 #[cfg(test)]
 mod tests {
+    use crate::poc_hashing::find_best_deadline_rust;
     use hex;
-    use libc::{c_void, uint64_t};
     use std::u64;
-
-    extern "C" {
-        pub fn find_best_deadline_sph(
-            scoops: *mut c_void,
-            nonce_count: uint64_t,
-            gensig: *const c_void,
-            best_deadline: *mut uint64_t,
-            best_offset: *mut uint64_t,
-        ) -> ();
-    }
 
     cfg_if! {
         if #[cfg(feature = "simd")] {
@@ -304,11 +289,14 @@ mod tests {
 
     #[test]
     fn test_deadline_hashing() {
-        let mut deadline: u64 = u64::MAX;
-        let mut offset: u64 = 0;
+        let mut deadline: u64;
         let gensig =
             hex::decode("4a6f686e6e7946464d206861742064656e206772f6df74656e2050656e697321")
                 .unwrap();
+        
+        let mut gensig_array = [0u8; 32];
+        gensig_array.copy_from_slice(&gensig[..]); 
+
         let winner: [u8; 64] = [0; 64];
         let loser: [u8; 64] = [5; 64];
         let mut data: [u8; 64 * 32] = [5; 64 * 32];
@@ -316,18 +304,10 @@ mod tests {
         for i in 0..32 {
             data[i * 64..i * 64 + 64].clone_from_slice(&winner);
 
-            unsafe {
-                find_best_deadline_sph(
-                    data.as_ptr() as *mut c_void,
-                    (i + 1) as u64,
-                    gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
-                );
-            }
+            let result = find_best_deadline_rust(&data, (i + 1) as u64, &gensig_array);
+            deadline = result.0;
+
             assert_eq!(3084580316385335914u64, deadline);
-            deadline = u64::MAX;
-            offset = 0;
             data[i * 64..i * 64 + 64].clone_from_slice(&loser);
         }
     }

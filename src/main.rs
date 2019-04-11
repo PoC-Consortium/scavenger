@@ -13,10 +13,10 @@ mod cpu_worker;
 mod logger;
 mod miner;
 mod plot;
-mod pocmath;
+mod poc_hashing;
 mod reader;
 mod requests;
-mod shabals;
+mod shabal256;
 mod utils;
 
 #[cfg(feature = "opencl")]
