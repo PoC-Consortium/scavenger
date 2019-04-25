@@ -1,6 +1,9 @@
+# PLEASE ONLY ENTER YOUR PASSPHRASE BELOW IF YOU ARE GOING TO MINE SOLO!
+# YOU DO NOT NEED TO ENTER YOUR PASSPHRASE FOR POOL MINING.
+# NEVER POST YOUR CONFIG.YAML INCLUDING YOUR PASSPHRASE TO ANY BOARD OR CHAT!
 account_id_to_secret_phrase:                   # define accounts and passphrases for solo mining 
-  10282355196851764065: 'glad suffer red during single glow shut slam hill death lust although'  
-  1796535821016683299: 'stand rude those door invite reflection anywhere lace safe hidden fur horrible'  
+  10282355196851764065: 'glad suffer red during single glow shut slam hill death lust although'          # Bold's example wallet
+  1796535821016683299: 'stand rude those door invite reflection anywhere lace safe hidden fur horrible'  # Johnny's example wallet
 
 plot_dirs:
    - 'test_data'
