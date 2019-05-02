@@ -207,7 +207,8 @@ impl RequestHandler {
 
         let url = self.uri_for("burst", &query);
         let timeout = self.timeout;
-        let headers = self.headers.clone();
+        let mut headers = self.headers.clone();
+        headers.insert("X-Deadline",d.to_string().parse().unwrap());
         stream::iter_ok(1..=3)
             .and_then(move |retry| {
                 do_req(url.clone(), reqwest::Method::POST, headers.clone(), timeout).then(
