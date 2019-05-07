@@ -11,7 +11,7 @@ use crate::ocl::GpuContext;
 use crate::plot::{Plot, SCOOP_SIZE};
 use crate::poc_hashing;
 use crate::reader::Reader;
-use crate::requests::RequestHandler;
+use crate::requests::{MiningInfo, RequestHandler};
 use crate::utils::{get_device_id, new_thread_pool};
 use crossbeam_channel;
 use filetime::FileTime;
@@ -47,6 +47,7 @@ pub struct Miner {
 
 pub struct State {
     generation_signature: String,
+    generation_signature_bytes: [u8; 32],
     height: u64,
     account_id_to_best_deadline: HashMap<u64, u64>,
     server_target_deadline: u64,
@@ -54,8 +55,51 @@ pub struct State {
     sw: Stopwatch,
     scanning: bool,
     processed_reader_tasks: usize,
+    scoop: u32,
     first: bool,
     outage: bool,
+}
+
+impl State {
+    fn new() -> Self {
+        Self {
+            generation_signature: "".to_owned(),
+            height: 0,
+            scoop: 0,
+            account_id_to_best_deadline: HashMap::new(),
+            server_target_deadline: u64::MAX,
+            base_target: 1,
+            processed_reader_tasks: 0,
+            sw: Stopwatch::new(),
+            generation_signature_bytes: [0; 32],
+            scanning: false,
+            first: true,
+            outage: false,
+        }
+    }
+
+    fn update_mining_info(&mut self, mining_info: &MiningInfo) {
+        for best_deadlines in self.account_id_to_best_deadline.values_mut() {
+            *best_deadlines = u64::MAX;
+        }
+        self.height = mining_info.height;
+        self.base_target = mining_info.base_target;
+        self.server_target_deadline = mining_info.target_deadline;
+
+        self.generation_signature_bytes = poc_hashing::decode_gensig(&mining_info.generation_signature);
+        self.generation_signature = mining_info.generation_signature.clone();
+
+        let scoop = poc_hashing::calculate_scoop(mining_info.height, &self.generation_signature_bytes);
+        info!(
+            "{: <80}",
+            format!("new block: height={}, scoop={}", mining_info.height, scoop)
+        );
+        self.scoop = scoop;
+
+        self.sw.restart();
+        self.processed_reader_tasks = 0;
+        self.scanning = true;
+    }
 }
 
 pub struct NonceData {
@@ -394,18 +438,7 @@ impl Miner {
                 cfg.send_proxy_details,
                 cfg.additional_headers,
             ),
-            state: Arc::new(Mutex::new(State {
-                generation_signature: "".to_owned(),
-                height: 0,
-                account_id_to_best_deadline: HashMap::new(),
-                server_target_deadline: u64::MAX,
-                base_target: 1,
-                processed_reader_tasks: 0,
-                sw: Stopwatch::new(),
-                scanning: false,
-                first: true,
-                outage: false,
-            })),
+            state: Arc::new(Mutex::new(State::new())),
             // floor at 1s to protect servers
             get_mining_info_interval: max(1000, cfg.get_mining_info_interval),
             executor,
@@ -443,40 +476,15 @@ impl Miner {
                                 state.outage = false;
                             }
                             if mining_info.generation_signature != state.generation_signature {
-                                for best_deadlines in state.account_id_to_best_deadline.values_mut()
-                                {
-                                    *best_deadlines = u64::MAX;
-                                }
-                                state.height = mining_info.height;
-                                state.base_target = mining_info.base_target;
-                                state.server_target_deadline = mining_info.target_deadline;
-
-                                let gensig =
-                                    poc_hashing::decode_gensig(&mining_info.generation_signature);
-                                state.generation_signature = mining_info.generation_signature;
-
-                                let scoop =
-                                    poc_hashing::calculate_scoop(mining_info.height, &gensig);
-                                info!(
-                                    "{: <80}",
-                                    format!(
-                                        "new block: height={}, scoop={}",
-                                        mining_info.height, scoop
-                                    )
-                                );
-
-                                state.sw.restart();
-                                state.processed_reader_tasks = 0;
-                                state.scanning = true;
-
-                                drop(state);
+                                state.update_mining_info(&mining_info);
 
                                 reader.lock().unwrap().start_reading(
                                     mining_info.height,
                                     mining_info.base_target,
-                                    scoop,
-                                    &Arc::new(gensig),
+                                    state.scoop,
+                                    &Arc::new(state.generation_signature_bytes),
                                 );
+                                drop(state);
                             } else if !state.scanning
                                 && wakeup_after != 0
                                 && state.sw.elapsed_ms() > wakeup_after
