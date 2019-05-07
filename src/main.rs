@@ -10,6 +10,7 @@ extern crate log;
 
 mod config;
 mod cpu_worker;
+mod interval;
 mod logger;
 mod miner;
 mod plot;

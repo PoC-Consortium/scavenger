@@ -30,7 +30,6 @@ use std::u64;
 use stopwatch::Stopwatch;
 use tokio::prelude::*;
 use tokio::runtime::TaskExecutor;
-use tokio::timer::Interval;
 
 pub struct Miner {
     reader: Reader,
