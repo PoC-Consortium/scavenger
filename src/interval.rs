@@ -16,15 +16,6 @@ use tokio::clock;
 use tokio::timer::Delay;
 use tokio::timer::Error;
 
-/// State of the interval stream.
-#[derive(Debug)]
-enum State {
-    /// Delay the next item.
-    Delaying,
-    /// Await the next item.
-    Awaiting,
-}
-
 /// A stream representing notifications at fixed interval
 #[derive(Debug)]
 pub struct Interval {
@@ -33,8 +24,6 @@ pub struct Interval {
 
     /// The duration between values yielded by `Interval`.
     duration: Duration,
-
-    state: State,
 }
 
 impl Interval {
@@ -71,11 +60,7 @@ impl Interval {
     }
 
     pub(crate) fn new_with_delay(delay: Delay, duration: Duration) -> Interval {
-        Interval {
-            delay,
-            duration,
-            state: State::Delaying,
-        }
+        Interval { delay, duration }
     }
 }
 
@@ -84,24 +69,13 @@ impl Stream for Interval {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        // Get the `now` by looking at the `delay` deadline
-        let now = self.delay.deadline();
-
-        match self.state {
-            State::Delaying => {
-                // The next interval value is `duration` after the one that just
-                // yielded.
-                self.delay.reset(Instant::now() + self.duration);
-
-                self.state = State::Awaiting;
-            }
-            State::Awaiting => {
-                self.state = State::Delaying;
-            }
-        }
-
         // Wait for the delay to be done
         let _ = try_ready!(self.delay.poll());
+
+        self.delay.reset(Instant::now() + self.duration);
+
+        // Get the `now` by looking at the `delay` deadline
+        let now = self.delay.deadline();
 
         // Return the current instant
         Ok(Some(now).into())
