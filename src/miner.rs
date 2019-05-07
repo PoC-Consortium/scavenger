@@ -26,7 +26,7 @@ use std::path::PathBuf;
 use std::process;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::u64;
 use stopwatch::Stopwatch;
 use tokio::prelude::*;
@@ -459,8 +459,7 @@ impl Miner {
         let get_mining_info_interval = self.get_mining_info_interval;
         let wakeup_after = self.wakeup_after;
         self.executor.clone().spawn(
-            Interval::new(
-                Instant::now(),
+            Interval::new_interval(
                 Duration::from_millis(get_mining_info_interval),
             )
             .for_each(move |_| {
