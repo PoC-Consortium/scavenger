@@ -19,7 +19,6 @@ pub struct RequestHandler {
     account_id_to_secret_phrase: HashMap<u64, String>,
     base_uri: Url,
     timeout: Duration,
-    timeout2: Duration,
     total_size_gb: usize,
     send_proxy_details: bool,
     headers: reqwest::header::HeaderMap,
@@ -114,7 +113,6 @@ impl RequestHandler {
         base_uri: Url,
         mut secret_phrases: HashMap<u64, String>,
         timeout: u64,
-        timeout2: u64,
         total_size_gb: usize,
         send_proxy_details: bool,
         additional_headers: HashMap<String, String>,
@@ -155,7 +153,6 @@ impl RequestHandler {
             account_id_to_secret_phrase: secret_phrases,
             base_uri,
             timeout: Duration::from_millis(timeout),
-            timeout2: Duration::from_millis(timeout2),
             total_size_gb,
             send_proxy_details,
             headers,
@@ -178,7 +175,7 @@ impl RequestHandler {
             self.uri_for("burst", "requestType=getMiningInfo"),
             reqwest::Method::GET,
             self.headers.clone(),
-            self.timeout2,
+            self.timeout,
         )
     }
 

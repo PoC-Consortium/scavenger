@@ -432,8 +432,6 @@ impl Miner {
                 cfg.url,
                 cfg.account_id_to_secret_phrase,
                 cfg.timeout,
-                // ensure timeout < polling intervall
-                min(cfg.timeout, max(1000, cfg.get_mining_info_interval) - 200),
                 (total_size * 4 / 1024 / 1024) as usize,
                 cfg.send_proxy_details,
                 cfg.additional_headers,
