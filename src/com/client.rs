@@ -141,6 +141,8 @@ impl Client {
         // If we don't have a secret phrase then we most likely talk to a pool or a proxy.
         // Both can make use of the deadline, e.g. a proxy won't validate deadlines but still
         // needs to rank the deadlines.
+        // The best thing is that legacy proxies use the unadjusted deadlines so...
+        // yay another parameter!
         let deadline = if secret_phrase.is_none() {
             Some(submission_data.deadline_unadjusted)
         } else {
