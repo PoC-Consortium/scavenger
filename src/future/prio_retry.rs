@@ -60,11 +60,11 @@ where
     }
 }
 
-/// Error returned by `Chunks`.
+/// Error returned by `PrioRetry`.
 #[derive(Debug)]
 pub struct Error<T>(Kind<T>);
 
-/// Chunks error variants
+/// PrioRetry error variants
 #[derive(Debug)]
 enum Kind<T> {
     /// Inner value returned an error
