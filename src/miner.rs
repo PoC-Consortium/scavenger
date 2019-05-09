@@ -1,10 +1,10 @@
 use crate::config::Cfg;
 use crate::cpu_worker::create_cpu_worker_task;
+use crate::future::interval::Interval;
 #[cfg(feature = "opencl")]
 use crate::gpu_worker::create_gpu_worker_task;
 #[cfg(feature = "opencl")]
 use crate::gpu_worker_async::create_gpu_worker_task_async;
-use crate::interval::Interval;
 #[cfg(feature = "opencl")]
 use crate::ocl::GpuBuffer;
 #[cfg(feature = "opencl")]
