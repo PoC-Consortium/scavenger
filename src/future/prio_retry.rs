@@ -39,7 +39,7 @@ impl<Item> DelayedItem<Item> {
 pub struct PrioRetry<S>
 where
     S: Stream,
-    S::Item: PartialEq + Clone,
+    S::Item: Ord + Clone,
 {
     delay_duration: Duration,
     delayed_item: Option<DelayedItem<S::Item>>,
@@ -49,7 +49,7 @@ where
 impl<S> PrioRetry<S>
 where
     S: Stream,
-    S::Item: PartialEq + Clone,
+    S::Item: Ord + Clone,
 {
     pub fn new(stream: S, delay_duration: Duration) -> Self {
         Self {
@@ -77,7 +77,7 @@ enum Kind<T> {
 impl<S> Stream for PrioRetry<S>
 where
     S: Stream,
-    S::Item: PartialEq + Clone,
+    S::Item: Ord + Clone,
 {
     type Item = S::Item;
     type Error = Error<S::Error>;
@@ -89,12 +89,12 @@ where
                 // check if we currently have a delay item
                 if let Some(ref mut delayed_item) = self.delayed_item {
                     // if the current item was requeued, then we will yield it with a backoff
-                    if delayed_item.value == new_item {
-                        delayed_item.exp_backoff(self.delay_duration);
-                    } else {
+                    if delayed_item.value < new_item {
                         // we have new item, this one will be yielded instantly
                         self.delayed_item = Some(DelayedItem::new(new_item.clone()));
                         return Ok(Async::Ready(Some(new_item)));
+                    } else {
+                        delayed_item.exp_backoff(self.delay_duration);
                     }
                 } else {
                     // we have new item, this one will be yielded instantly
