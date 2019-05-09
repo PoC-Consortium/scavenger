@@ -8,6 +8,7 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 
+mod com;
 mod config;
 mod cpu_worker;
 mod interval;
