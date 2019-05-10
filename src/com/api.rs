@@ -22,7 +22,7 @@ pub struct GetMiningInfoRequest<'a> {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SubmitNonceResonse {
+pub struct SubmitNonceResponse {
     pub deadline: u64,
 }
 
@@ -57,8 +57,8 @@ struct PoolErrorWrapper {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolError {
-    code: i32,
-    message: String,
+    pub code: i32,
+    pub message: String,
 }
 
 #[derive(Debug)]

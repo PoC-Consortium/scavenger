@@ -3,6 +3,7 @@ use futures::stream::Stream;
 use futures::Future;
 use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::r#async::{Client as InnerClient, ClientBuilder, Decoder};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
@@ -12,7 +13,7 @@ use url::Url;
 
 /// A client for communicating with Pool/Proxy/Wallet.
 #[derive(Clone, Debug)]
-struct Client {
+pub struct Client {
     inner: InnerClient,
     account_id_to_secret_phrase: Arc<HashMap<u64, String>>,
     base_uri: Url,
@@ -21,13 +22,44 @@ struct Client {
 }
 
 /// Parameters ussed for nonce submission.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SubmissionParameters {
-    account_id: u64,
-    nonce: u64,
-    height: u64,
-    deadline_unadjusted: u64,
-    deadline: u64,
+    pub account_id: u64,
+    pub nonce: u64,
+    pub height: u64,
+    pub deadline_unadjusted: u64,
+    pub deadline: u64,
+    pub gen_sig: [u8; 32],
+}
+
+/// Usefull for deciding which submission parameters are the newest and best.
+/// We always cache the currently best submission parameters and on fail
+/// resend them with an exponential backoff. In the meantime if we get better
+/// parameters the old ones need to be replaced.
+impl Ord for SubmissionParameters {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.height < other.height {
+            Ordering::Less
+        } else if self.height > other.height {
+            Ordering::Greater
+        } else if self.gen_sig == other.gen_sig {
+            // on the same chain, best deadline wins
+            if self.deadline < other.deadline {
+                Ordering::Greater
+            } else {
+                Ordering::Less
+            }
+        } else {
+            // switched to a new chain
+            Ordering::Greater
+        }
+    }
+}
+
+impl PartialOrd for SubmissionParameters {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 /// Whether to send additional data for Proxies.
@@ -133,7 +165,7 @@ impl Client {
     pub fn submit_nonce(
         &self,
         submission_data: &SubmissionParameters,
-    ) -> impl Future<Item = SubmitNonceResonse, Error = FetchError> {
+    ) -> impl Future<Item = SubmitNonceResponse, Error = FetchError> {
         let secret_phrase = self
             .account_id_to_secret_phrase
             .get(&submission_data.account_id);

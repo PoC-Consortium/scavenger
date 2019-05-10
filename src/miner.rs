@@ -12,7 +12,8 @@ use crate::ocl::GpuContext;
 use crate::plot::{Plot, SCOOP_SIZE};
 use crate::poc_hashing;
 use crate::reader::Reader;
-use crate::requests::{MiningInfo, RequestHandler};
+use crate::requests::RequestHandler;
+use crate::com::api::MiningInfoResponse as MiningInfo;
 use crate::utils::{get_device_id, new_thread_pool};
 use crossbeam_channel;
 use filetime::FileTime;
@@ -86,10 +87,12 @@ impl State {
         self.base_target = mining_info.base_target;
         self.server_target_deadline = mining_info.target_deadline;
 
-        self.generation_signature_bytes = poc_hashing::decode_gensig(&mining_info.generation_signature);
+        self.generation_signature_bytes =
+            poc_hashing::decode_gensig(&mining_info.generation_signature);
         self.generation_signature = mining_info.generation_signature.clone();
 
-        let scoop = poc_hashing::calculate_scoop(mining_info.height, &self.generation_signature_bytes);
+        let scoop =
+            poc_hashing::calculate_scoop(mining_info.height, &self.generation_signature_bytes);
         info!(
             "{: <80}",
             format!("new block: height={}, scoop={}", mining_info.height, scoop)
@@ -435,6 +438,7 @@ impl Miner {
                 (total_size * 4 / 1024 / 1024) as usize,
                 cfg.send_proxy_details,
                 cfg.additional_headers,
+                executor.clone()
             ),
             state: Arc::new(Mutex::new(State::new())),
             // floor at 1s to protect servers
@@ -457,64 +461,62 @@ impl Miner {
         let get_mining_info_interval = self.get_mining_info_interval;
         let wakeup_after = self.wakeup_after;
         self.executor.clone().spawn(
-            Interval::new_interval(
-                Duration::from_millis(get_mining_info_interval),
-            )
-            .for_each(move |_| {
-                let state = state.clone();
-                let reader = reader.clone();
-                request_handler.get_mining_info().then(move |mining_info| {
-                    match mining_info {
-                        Ok(mining_info) => {
-                            let mut state = state.lock().unwrap();
-                            state.first = false;
-                            if state.outage {
-                                error!("{: <80}", "outage resolved.");
-                                state.outage = false;
-                            }
-                            if mining_info.generation_signature != state.generation_signature {
-                                state.update_mining_info(&mining_info);
-
-                                reader.lock().unwrap().start_reading(
-                                    mining_info.height,
-                                    mining_info.base_target,
-                                    state.scoop,
-                                    &Arc::new(state.generation_signature_bytes),
-                                );
-                                drop(state);
-                            } else if !state.scanning
-                                && wakeup_after != 0
-                                && state.sw.elapsed_ms() > wakeup_after
-                            {
-                                info!("HDD, wakeup!");
-                                reader.lock().unwrap().wakeup();
-                                state.sw.restart();
-                            }
-                        }
-                        _ => {
-                            let mut state = state.lock().unwrap();
-                            if state.first {
-                                error!(
-                                    "{: <80}",
-                                    "error getting mining info, please check server config"
-                                );
+            Interval::new_interval(Duration::from_millis(get_mining_info_interval))
+                .for_each(move |_| {
+                    let state = state.clone();
+                    let reader = reader.clone();
+                    request_handler.get_mining_info().then(move |mining_info| {
+                        match mining_info {
+                            Ok(mining_info) => {
+                                let mut state = state.lock().unwrap();
                                 state.first = false;
-                                state.outage = true;
-                            } else {
-                                if !state.outage {
+                                if state.outage {
+                                    error!("{: <80}", "outage resolved.");
+                                    state.outage = false;
+                                }
+                                if mining_info.generation_signature != state.generation_signature {
+                                    state.update_mining_info(&mining_info);
+
+                                    reader.lock().unwrap().start_reading(
+                                        mining_info.height,
+                                        mining_info.base_target,
+                                        state.scoop,
+                                        &Arc::new(state.generation_signature_bytes),
+                                    );
+                                    drop(state);
+                                } else if !state.scanning
+                                    && wakeup_after != 0
+                                    && state.sw.elapsed_ms() > wakeup_after
+                                {
+                                    info!("HDD, wakeup!");
+                                    reader.lock().unwrap().wakeup();
+                                    state.sw.restart();
+                                }
+                            }
+                            _ => {
+                                let mut state = state.lock().unwrap();
+                                if state.first {
                                     error!(
                                         "{: <80}",
-                                        "error getting mining info => connection outage..."
+                                        "error getting mining info, please check server config"
                                     );
+                                    state.first = false;
+                                    state.outage = true;
+                                } else {
+                                    if !state.outage {
+                                        error!(
+                                            "{: <80}",
+                                            "error getting mining info => connection outage..."
+                                        );
+                                    }
+                                    state.outage = true;
                                 }
-                                state.outage = true;
                             }
                         }
-                    }
-                    future::ok(())
+                        future::ok(())
+                    })
                 })
-            })
-            .map_err(|e| panic!("interval errored: err={:?}", e)),
+                .map_err(|e| panic!("interval errored: err={:?}", e)),
         );
 
         let target_deadline = self.target_deadline;
@@ -522,7 +524,6 @@ impl Miner {
         let request_handler = self.request_handler.clone();
         let state = self.state.clone();
         let reader_task_count = self.reader_task_count;
-        let inner_executor = self.executor.clone();
         self.executor.clone().spawn(
             self.rx_nonce_data
                 .for_each(move |nonce_data| {
@@ -545,13 +546,14 @@ impl Miner {
                             state
                                 .account_id_to_best_deadline
                                 .insert(nonce_data.account_id, deadline);
-                            inner_executor.spawn(request_handler.submit_nonce(
+                            request_handler.submit_nonce(
                                 nonce_data.account_id,
                                 nonce_data.nonce,
                                 nonce_data.height,
                                 nonce_data.deadline,
                                 deadline,
-                            ));
+                                state.generation_signature_bytes,
+                            );
                         }
 
                         if nonce_data.reader_task_processed {
