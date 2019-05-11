@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_submit_params_cmp() {
-        let mut submit_params_1 = SubmissionParameters {
+        let submit_params_1 = SubmissionParameters {
             account_id: 1337,
             nonce: 12,
             height: 112,
