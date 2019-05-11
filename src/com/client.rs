@@ -51,7 +51,7 @@ impl Ord for SubmissionParameters {
             }
         } else {
             // switched to a new chain
-            Ordering::Greater
+            Ordering::Less
         }
     }
 }
@@ -221,6 +221,35 @@ mod tests {
     use tokio;
 
     static BASE_URL: &str = "http://94.130.178.37:31000";
+
+    #[test]
+    fn test_submit_params_cmp() {
+        let mut submit_params_1 = SubmissionParameters {
+            account_id: 1337,
+            nonce: 12,
+            height: 112,
+            deadline_unadjusted: 7123,
+            deadline: 1193,
+            gen_sig: [0; 32],
+        };
+
+        let mut submit_params_2 = submit_params_1.clone();
+        submit_params_2.height += 1;
+        assert!(submit_params_1 < submit_params_2);
+
+        let mut submit_params_2 = submit_params_1.clone();
+        submit_params_2.deadline -= 1;
+        assert!(submit_params_1 < submit_params_2);
+
+        let mut submit_params_2 = submit_params_1.clone();
+        submit_params_2.gen_sig[0] = 1;
+        submit_params_2.deadline += 1;
+        assert!(submit_params_1 < submit_params_2);
+
+        let mut submit_params_2 = submit_params_1.clone();
+        submit_params_2.deadline += 1;
+        assert!(submit_params_1 > submit_params_2);
+    }
 
     #[test]
     fn test_get_mining_info() {
