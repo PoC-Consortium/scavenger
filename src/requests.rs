@@ -97,9 +97,13 @@ impl RequestHandler {
                                     e.code,
                                     &e.message,
                                 );
-                                let res = tx_submit_data.unbounded_send(submission_params);
-                                if let Err(e) = res {
-                                    error!("can't send submission params: {}", e);
+                                // Very intuitive, if some pools send an empty message they are
+                                // experiencing too much load expect the submission to be resent later.
+                                if e.message.is_empty() {
+                                    let res = tx_submit_data.unbounded_send(submission_params);
+                                    if let Err(e) = res {
+                                        error!("can't send submission params: {}", e);
+                                    }
                                 }
                             }
                             Err(_) => {
