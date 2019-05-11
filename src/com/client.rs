@@ -259,6 +259,7 @@ mod tests {
             height: 112,
             deadline_unadjusted: 7123,
             deadline: 1193,
+            gen_sig: [0; 32],
         }));
 
         if let Err(e) = nonce_submission_response {
