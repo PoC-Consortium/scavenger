@@ -205,3 +205,38 @@ fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64) {
         account_id, nonce, deadline
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio;
+
+    static BASE_URL: &str = "http://94.130.178.37:31000";
+
+    #[test]
+    fn test_submit_nonce() {
+        let rt = tokio::runtime::Runtime::new().expect("can't create runtime");
+
+        let request_handler = RequestHandler::new(
+            BASE_URL.parse().unwrap(),
+            HashMap::new(),
+            3,
+            12,
+            true,
+            HashMap::new(),
+            rt.executor(),
+        );
+
+        request_handler.submit_nonce(
+            1337,
+            12,
+            111,
+            7123,
+            1193,
+            [0; 32],
+        );
+
+        rt.shutdown_on_idle();
+    }
+}
+

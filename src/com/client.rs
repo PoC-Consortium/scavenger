@@ -44,7 +44,7 @@ impl Ord for SubmissionParameters {
             Ordering::Greater
         } else if self.gen_sig == other.gen_sig {
             // on the same chain, best deadline wins
-            if self.deadline < other.deadline {
+            if self.deadline <= other.deadline {
                 Ordering::Greater
             } else {
                 Ordering::Less
