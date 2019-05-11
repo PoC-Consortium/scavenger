@@ -117,7 +117,7 @@ pub fn hash(
         if read_reply.info.len == 1 && read_reply.info.gpu_signal > 0 {
             return;
         }
-        
+
         #[allow(unused_assignments)]
         let mut deadline: u64 = u64::MAX;
         #[allow(unused_assignments)]
@@ -293,9 +293,9 @@ mod tests {
         let gensig =
             hex::decode("4a6f686e6e7946464d206861742064656e206772f6df74656e2050656e697321")
                 .unwrap();
-        
+
         let mut gensig_array = [0u8; 32];
-        gensig_array.copy_from_slice(&gensig[..]); 
+        gensig_array.copy_from_slice(&gensig[..]);
 
         let winner: [u8; 64] = [0; 64];
         let loser: [u8; 64] = [5; 64];

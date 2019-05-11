@@ -1,3 +1,4 @@
+use crate::com::api::MiningInfoResponse as MiningInfo;
 use crate::config::Cfg;
 use crate::cpu_worker::create_cpu_worker_task;
 use crate::future::interval::Interval;
@@ -13,7 +14,6 @@ use crate::plot::{Plot, SCOOP_SIZE};
 use crate::poc_hashing;
 use crate::reader::Reader;
 use crate::requests::RequestHandler;
-use crate::com::api::MiningInfoResponse as MiningInfo;
 use crate::utils::{get_device_id, new_thread_pool};
 use crossbeam_channel;
 use filetime::FileTime;
@@ -438,7 +438,7 @@ impl Miner {
                 (total_size * 4 / 1024 / 1024) as usize,
                 cfg.send_proxy_details,
                 cfg.additional_headers,
-                executor.clone()
+                executor.clone(),
             ),
             state: Arc::new(Mutex::new(State::new())),
             // floor at 1s to protect servers
