@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_mining_info() {
+    fn test_requests() {
         let mut rt = tokio::runtime::Runtime::new().expect("can't create runtime");
 
         let client = Client::new(
@@ -264,28 +264,16 @@ mod tests {
             HashMap::new(),
         );
 
-        if let Err(e) = rt.block_on(client.get_mining_info()) {
-            assert!(false, format!("can't get mining info: {:?}", e));
-        }
-    }
+        let height = match rt.block_on(client.get_mining_info()) {
+            Err(e) => panic!(format!("can't get mining info: {:?}", e)),
+            Ok(mining_info) => mining_info.height,
+        };
 
-    #[test]
-    fn test_submit_nonce() {
-        let mut rt = tokio::runtime::Runtime::new().expect("can't create runtime");
-
-        let client = Client::new(
-            BASE_URL.parse().unwrap(),
-            HashMap::new(),
-            3,
-            12,
-            ProxyDetails::Enabled,
-            HashMap::new(),
-        );
-
+        // this fails if pinocchio switches to a new block height in the meantime
         let nonce_submission_response = rt.block_on(client.submit_nonce(&SubmissionParameters {
             account_id: 1337,
             nonce: 12,
-            height: 112,
+            height,
             deadline_unadjusted: 7123,
             deadline: 1193,
             gen_sig: [0; 32],
