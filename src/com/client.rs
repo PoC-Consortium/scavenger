@@ -236,7 +236,7 @@ mod tests {
         };
 
         let mut submit_params_2 = submit_params_1.clone();
-        submit_params_2.height += 1;
+        submit_params_2.block += 1;
         assert!(submit_params_1 < submit_params_2);
 
         let mut submit_params_2 = submit_params_1.clone();
@@ -260,7 +260,7 @@ mod tests {
         let client = Client::new(
             BASE_URL.parse().unwrap(),
             HashMap::new(),
-            3,
+            5000,
             12,
             ProxyDetails::Enabled,
             HashMap::new(),
@@ -270,13 +270,14 @@ mod tests {
             Err(e) => panic!(format!("can't get mining info: {:?}", e)),
             Ok(mining_info) => mining_info.height,
         };
+        println!("{}",height);
 
         // this fails if pinocchio switches to a new block height in the meantime
         let nonce_submission_response = rt.block_on(client.submit_nonce(&SubmissionParameters {
             account_id: 1337,
             nonce: 12,
             height,
-            block: 0,
+            block: 1,
             deadline_unadjusted: 7123,
             deadline: 1193,
             gen_sig: [0; 32],
