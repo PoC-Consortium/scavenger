@@ -89,21 +89,27 @@ impl RequestHandler {
                                 }
                             }
                             Err(FetchError::Pool(e)) => {
-                                log_submission_not_accepted(
-                                    submission_params.height,
-                                    submission_params.account_id,
-                                    submission_params.nonce,
-                                    submission_params.deadline,
-                                    e.code,
-                                    &e.message,
-                                );
                                 // Very intuitive, if some pools send an empty message they are
                                 // experiencing too much load expect the submission to be resent later.
-                                if e.message.is_empty() {
+                                if e.message.is_empty() || e.message == "limit exceeded" {
+                                    log_pool_busy(
+                                        submission_params.account_id,
+                                        submission_params.nonce,
+                                        submission_params.deadline,
+                                    );
                                     let res = tx_submit_data.unbounded_send(submission_params);
                                     if let Err(e) = res {
                                         error!("can't send submission params: {}", e);
                                     }
+                                } else {
+                                    log_submission_not_accepted(
+                                        submission_params.height,
+                                        submission_params.account_id,
+                                        submission_params.nonce,
+                                        submission_params.deadline,
+                                        e.code,
+                                        &e.message,
+                                    );
                                 }
                             }
                             Err(_) => {
@@ -208,6 +214,13 @@ fn log_submission_not_accepted(
 fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64) {
     info!(
         "deadline accepted: account={}, nonce={}, deadline={}",
+        account_id, nonce, deadline
+    );
+}
+
+fn log_pool_busy(account_id: u64, nonce: u64, deadline: u64) {
+    info!(
+        "pool busy, retrying...: account={}, nonce={}, deadline={}",
         account_id, nonce, deadline
     );
 }

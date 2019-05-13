@@ -382,7 +382,7 @@ mod tests {
                     offset = 0;
                 }
                 let mut gensig_array = [0; 32];
-                gensig_array.copy_from_slice(&gensig[..gensig.len()]); 
+                gensig_array.copy_from_slice(&gensig[..gensig.len()]);
                 let result = find_best_deadline_rust(&data, (i + 1) as u64, &gensig_array);
                 deadline = result.0;
                 offset = result.1;
