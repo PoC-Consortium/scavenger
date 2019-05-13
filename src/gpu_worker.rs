@@ -27,6 +27,7 @@ pub fn create_gpu_worker_task(
                         .clone()
                         .send(NonceData {
                             height: read_reply.info.height,
+                            block: read_reply.info.block,
                             base_target: read_reply.info.base_target,
                             deadline,
                             nonce: 0,
@@ -64,6 +65,7 @@ pub fn create_gpu_worker_task(
                 .clone()
                 .send(NonceData {
                     height: read_reply.info.height,
+                    block: read_reply.info.block,
                     base_target: read_reply.info.base_target,
                     deadline,
                     nonce: offset + read_reply.info.start_nonce,

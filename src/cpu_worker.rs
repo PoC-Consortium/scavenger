@@ -98,6 +98,7 @@ pub fn hash(
                     .clone()
                     .send(NonceData {
                         height: read_reply.info.height,
+                        block: read_reply.info.block,
                         base_target: read_reply.info.base_target,
                         deadline,
                         nonce: 0,
@@ -210,6 +211,7 @@ pub fn hash(
             .clone()
             .send(NonceData {
                 height: read_reply.info.height,
+                block: read_reply.info.block,
                 base_target: read_reply.info.base_target,
                 deadline,
                 nonce: offset + read_reply.info.start_nonce,
@@ -228,6 +230,7 @@ pub fn hash(
 mod tests {
     use crate::poc_hashing::find_best_deadline_rust;
     use hex;
+    use libc::{c_void, uint64_t};
     use std::u64;
 
     cfg_if! {
@@ -378,13 +381,11 @@ mod tests {
                     deadline = u64::MAX;
                     offset = 0;
                 }
-                find_best_deadline_sph(
-                    data.as_ptr() as *mut c_void,
-                    (i + 1) as u64,
-                    gensig.as_ptr() as *const c_void,
-                    &mut deadline,
-                    &mut offset,
-                );
+                let mut gensig_array = [0; 32];
+                gensig_array.copy_from_slice(&gensig[..gensig.len()]); 
+                let result = find_best_deadline_rust(&data, (i + 1) as u64, &gensig_array);
+                deadline = result.0;
+                offset = result.1;
                 assert_eq!(3084580316385335914u64, deadline);
                 deadline = u64::MAX;
                 offset = 0;

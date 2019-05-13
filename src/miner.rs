@@ -50,6 +50,7 @@ pub struct State {
     generation_signature: String,
     generation_signature_bytes: [u8; 32],
     height: u64,
+    block: u64,
     account_id_to_best_deadline: HashMap<u64, u64>,
     server_target_deadline: u64,
     base_target: u64,
@@ -66,6 +67,7 @@ impl State {
         Self {
             generation_signature: "".to_owned(),
             height: 0,
+            block: 0,
             scoop: 0,
             account_id_to_best_deadline: HashMap::new(),
             server_target_deadline: u64::MAX,
@@ -84,6 +86,7 @@ impl State {
             *best_deadlines = u64::MAX;
         }
         self.height = mining_info.height;
+        self.block += 1;
         self.base_target = mining_info.base_target;
         self.server_target_deadline = mining_info.target_deadline;
 
@@ -107,6 +110,7 @@ impl State {
 
 pub struct NonceData {
     pub height: u64,
+    pub block: u64,
     pub base_target: u64,
     pub deadline: u64,
     pub nonce: u64,
@@ -479,6 +483,7 @@ impl Miner {
 
                                     reader.lock().unwrap().start_reading(
                                         mining_info.height,
+                                        state.block,
                                         mining_info.base_target,
                                         state.scoop,
                                         &Arc::new(state.generation_signature_bytes),
@@ -550,6 +555,7 @@ impl Miner {
                                 nonce_data.account_id,
                                 nonce_data.nonce,
                                 nonce_data.height,
+                                nonce_data.block,
                                 nonce_data.deadline,
                                 deadline,
                                 state.generation_signature_bytes,

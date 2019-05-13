@@ -136,6 +136,7 @@ impl RequestHandler {
         account_id: u64,
         nonce: u64,
         height: u64,
+        block: u64,
         deadline_unadjusted: u64,
         deadline: u64,
         gen_sig: [u8; 32],
@@ -144,6 +145,7 @@ impl RequestHandler {
             account_id,
             nonce,
             height,
+            block,
             deadline_unadjusted,
             deadline,
             gen_sig,
@@ -231,16 +233,8 @@ mod tests {
             rt.executor(),
         );
 
-        request_handler.submit_nonce(
-            1337,
-            12,
-            111,
-            7123,
-            1193,
-            [0; 32],
-        );
+        request_handler.submit_nonce(1337, 12, 111, 0, 7123, 1193, [0; 32]);
 
         rt.shutdown_on_idle();
     }
 }
-

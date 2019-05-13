@@ -27,6 +27,7 @@ pub struct SubmissionParameters {
     pub account_id: u64,
     pub nonce: u64,
     pub height: u64,
+    pub block: u64,
     pub deadline_unadjusted: u64,
     pub deadline: u64,
     pub gen_sig: [u8; 32],
@@ -38,9 +39,9 @@ pub struct SubmissionParameters {
 /// parameters the old ones need to be replaced.
 impl Ord for SubmissionParameters {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.height < other.height {
+        if self.block < other.block {
             Ordering::Less
-        } else if self.height > other.height {
+        } else if self.block > other.block {
             Ordering::Greater
         } else if self.gen_sig == other.gen_sig {
             // on the same chain, best deadline wins
@@ -228,6 +229,7 @@ mod tests {
             account_id: 1337,
             nonce: 12,
             height: 112,
+            block: 0,
             deadline_unadjusted: 7123,
             deadline: 1193,
             gen_sig: [0; 32],
@@ -274,6 +276,7 @@ mod tests {
             account_id: 1337,
             nonce: 12,
             height,
+            block: 0,
             deadline_unadjusted: 7123,
             deadline: 1193,
             gen_sig: [0; 32],

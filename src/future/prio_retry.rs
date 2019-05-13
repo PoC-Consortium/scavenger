@@ -85,7 +85,9 @@ where
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
             match self.stream.poll() {
-                Ok(Async::NotReady) => { break; }
+                Ok(Async::NotReady) => {
+                    break;
+                }
                 Ok(Async::Ready(Some(new_item))) => {
                     // check if we currently have a delay item
                     if let Some(ref mut delayed_item) = self.delayed_item {
@@ -144,9 +146,7 @@ mod tests {
         let len = items.len();
         let items = Interval::new(Instant::now(), Duration::from_millis(200))
             .take(len as u64)
-            .map(move |_| {
-                items.next().unwrap()
-            })
+            .map(move |_| items.next().unwrap())
             .map_err(|e| error!("can't consume interval: {:?}", e));
         let exp: Vec<i64> = vec![0, 1, 2, 3, 3, 3, 6, 7];
         let stream = PrioRetry::new(items, Duration::from_millis(100));

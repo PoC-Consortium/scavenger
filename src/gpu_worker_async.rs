@@ -22,6 +22,7 @@ pub fn create_gpu_worker_task_async(
         let mut last_buffer_info_a = BufferInfo {
             len: 0,
             height: 0,
+            block: 0,
             base_target: 0,
             gensig: Arc::new([0u8; 32]),
             start_nonce: 0,
@@ -43,6 +44,7 @@ pub fn create_gpu_worker_task_async(
                         .clone()
                         .send(NonceData {
                             height: read_reply.info.height,
+                            block: read_reply.info.block,
                             base_target: read_reply.info.base_target,
                             deadline,
                             nonce: 0,
@@ -89,6 +91,7 @@ pub fn create_gpu_worker_task_async(
                         .clone()
                         .send(NonceData {
                             height: last_buffer_info_a.height,
+                            block: last_buffer_info_a.block,
                             base_target: last_buffer_info_a.base_target,
                             deadline,
                             nonce: offset + last_buffer_info_a.start_nonce,
@@ -129,6 +132,7 @@ pub fn create_gpu_worker_task_async(
                     .clone()
                     .send(NonceData {
                         height: last_buffer_info_a.height,
+                        block: last_buffer_info_a.block,
                         base_target: last_buffer_info_a.base_target,
                         deadline,
                         nonce: offset + last_buffer_info_a.start_nonce,
