@@ -271,6 +271,7 @@ impl Reader {
                             info: BufferInfo {
                                 len: bytes_read,
                                 height,
+                                block,
                                 base_target,
                                 gensig: gensig.clone(),
                                 start_nonce,
