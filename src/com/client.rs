@@ -270,7 +270,6 @@ mod tests {
             Err(e) => panic!(format!("can't get mining info: {:?}", e)),
             Ok(mining_info) => mining_info.height,
         };
-        println!("{}",height);
 
         // this fails if pinocchio switches to a new block height in the meantime
         let nonce_submission_response = rt.block_on(client.submit_nonce(&SubmissionParameters {

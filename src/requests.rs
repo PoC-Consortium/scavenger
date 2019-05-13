@@ -5,6 +5,7 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures::sync::mpsc;
 use std::collections::HashMap;
+use std::error::Error;
 use std::time::Duration;
 use std::u64;
 use tokio;
@@ -112,12 +113,12 @@ impl RequestHandler {
                                     );
                                 }
                             }
-                            Err(_) => {
+                            Err(FetchError::Http(x)) => {
                                 log_submission_failed(
-                                    0,
                                     submission_params.account_id,
                                     submission_params.nonce,
                                     submission_params.deadline,
+                                    x.description(),
                                 );
                                 let res = tx_submit_data.unbounded_send(submission_params);
                                 if let Err(e) = res {
@@ -176,24 +177,14 @@ fn log_deadline_mismatch(
     );
 }
 
-fn log_submission_failed(retry: u8, account_id: u64, nonce: u64, deadline: u64) {
-    if retry < 3 {
-        warn!(
-            "{: <80}",
-            format!(
-                "submission failed:, attempt={}, account={}, nonce={}, deadline={}",
-                retry, account_id, nonce, deadline
-            )
-        );
-    } else {
-        error!(
-            "{: <80}",
-            format!(
-                "submission retries exhausted: account={}, nonce={}, deadline={}",
-                account_id, nonce, deadline
-            )
-        );
-    }
+fn log_submission_failed(account_id: u64, nonce: u64, deadline: u64, err: &str) {
+    warn!(
+        "{: <80}",
+        format!(
+            "submission failed, retrying: account={}, nonce={}, deadline={}, description={}",
+            account_id, nonce, deadline, err
+        )
+    );
 }
 
 fn log_submission_not_accepted(
@@ -220,7 +211,7 @@ fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64) {
 
 fn log_pool_busy(account_id: u64, nonce: u64, deadline: u64) {
     info!(
-        "pool busy, retrying...: account={}, nonce={}, deadline={}",
+        "pool busy, retrying: account={}, nonce={}, deadline={}",
         account_id, nonce, deadline
     );
 }
