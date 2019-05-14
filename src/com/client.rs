@@ -146,7 +146,7 @@ impl Client {
     /// Get current mining info.
     pub fn get_mining_info(&self) -> impl Future<Item = MiningInfoResponse, Error = FetchError> {
         self.inner
-            .get(self.base_uri.join("/burst").unwrap())
+            .get(self.uri_for("burst"))
             .query(&GetMiningInfoRequest {
                 request_type: &"getMiningInfo",
             })
@@ -160,6 +160,16 @@ impl Client {
                 Ok(x) => Ok(x),
                 Err(e) => Err(e.into()),
             })
+    }
+
+    pub fn uri_for(&self, path: &str) -> Url {
+        let mut url = self.base_uri.clone();
+        url.path_segments_mut()
+            .map_err(|_| "cannot be base")
+            .unwrap()
+            .pop_if_empty()
+            .push(path);
+        url
     }
 
     /// Submit nonce to the pool and get the corresponding deadline.
@@ -200,7 +210,7 @@ impl Client {
         );
 
         self.inner
-            .post(self.base_uri.join("/burst").unwrap())
+            .post(self.uri_for("burst"))
             .headers(headers)
             .query(&query)
             .send()
