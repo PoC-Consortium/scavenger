@@ -56,7 +56,7 @@ impl Interval {
     ///
     /// This function panics if `duration` is zero.
     pub fn new_interval(duration: Duration) -> Interval {
-        Interval::new(clock::now() + duration, duration)
+        Interval::new(clock::now(), duration)
     }
 
     pub(crate) fn new_with_delay(delay: Delay, duration: Duration) -> Interval {
