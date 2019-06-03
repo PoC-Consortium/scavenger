@@ -147,6 +147,7 @@ impl Client {
     pub fn get_mining_info(&self) -> impl Future<Item = MiningInfoResponse, Error = FetchError> {
         self.inner
             .get(self.uri_for("burst"))
+            .headers((*self.headers).clone())
             .query(&GetMiningInfoRequest {
                 request_type: &"getMiningInfo",
             })
