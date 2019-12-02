@@ -1,0 +1,1 @@
+﻿Install-ChocolateyZipPackage -packagename Scavenger -unziplocation $env:ChocolateyPackageFolder  -Url 'https://github.com/PoC-Consortium/scavenger/releases/download/1.7.8/scavenger-1.7.8-x86_64-pc-windows-msvc-cpu-only.zip' -checksum '644749baec70653fd5fc4c107b282273f6be4ae196f68b3cf8280d24dd9fab98' -checksumtype 'sha256'
