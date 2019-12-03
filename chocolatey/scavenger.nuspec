@@ -9,6 +9,7 @@
     <authors>JohnnyFFM</authors>
     <projectUrl>https://github.com/PoC-Consortium/scavenger/wiki</projectUrl>
     <copyright>Copyright (c) 2019</copyright>
+    <licenseUrl>https://raw.githubusercontent.com/PoC-Consortium/scavenger/master/LICENSE</licenseUrl>
     <projectSourceUrl>https://github.com/PoC-Consortium/scavenger</projectSourceUrl>
     <tags>scavenger burstcoin mining</tags>
     <summary>The Scavenger is the reference Burstcoin (or Burst) cross-platform mining software, endorsed by the PoC Consortium, created to further improve and optimize Burst mining.</summary>
