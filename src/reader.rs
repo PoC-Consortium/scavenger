@@ -24,7 +24,7 @@ pub struct BufferInfo {
     pub gpu_signal: u64,
 }
 pub struct ReadReply {
-    pub buffer: Box<Buffer + Send>,
+    pub buffer: Box<dyn Buffer + Send>,
     pub info: BufferInfo,
 }
 
@@ -33,8 +33,8 @@ pub struct Reader {
     drive_id_to_plots: HashMap<String, Arc<Vec<Mutex<Plot>>>>,
     pub total_size: u64,
     pool: rayon::ThreadPool,
-    rx_empty_buffers: Receiver<Box<Buffer + Send>>,
-    tx_empty_buffers: Sender<Box<Buffer + Send>>,
+    rx_empty_buffers: Receiver<Box<dyn Buffer + Send>>,
+    tx_empty_buffers: Sender<Box<dyn Buffer + Send>>,
     tx_read_replies_cpu: Sender<ReadReply>,
     tx_read_replies_gpu: Option<Vec<Sender<ReadReply>>>,
     interupts: Vec<Sender<()>>,
@@ -47,8 +47,8 @@ impl Reader {
         drive_id_to_plots: HashMap<String, Arc<Vec<Mutex<Plot>>>>,
         total_size: u64,
         num_threads: usize,
-        rx_empty_buffers: Receiver<Box<Buffer + Send>>,
-        tx_empty_buffers: Sender<Box<Buffer + Send>>,
+        rx_empty_buffers: Receiver<Box<dyn Buffer + Send>>,
+        tx_empty_buffers: Sender<Box<dyn Buffer + Send>>,
         tx_read_replies_cpu: Sender<ReadReply>,
         tx_read_replies_gpu: Option<Vec<Sender<ReadReply>>>,
         show_progress: bool,
@@ -97,7 +97,7 @@ impl Reader {
         for i in 0..self.tx_read_replies_gpu.as_ref().unwrap().len() {
             self.tx_read_replies_gpu.as_ref().unwrap()[i]
                 .send(ReadReply {
-                    buffer: Box::new(CpuBuffer::new(0)) as Box<Buffer + Send>,
+                    buffer: Box::new(CpuBuffer::new(0)) as Box<dyn Buffer + Send>,
                     info: BufferInfo {
                         len: 1,
                         height,
@@ -302,7 +302,7 @@ impl Reader {
                         for i in 0..tx_read_replies_gpu.as_ref().unwrap().len() {
                             tx_read_replies_gpu.as_ref().unwrap()[i]
                                 .send(ReadReply {
-                                    buffer: Box::new(CpuBuffer::new(0)) as Box<Buffer + Send>,
+                                    buffer: Box::new(CpuBuffer::new(0)) as Box<dyn Buffer + Send>,
                                     info: BufferInfo {
                                         len: 1,
                                         height,

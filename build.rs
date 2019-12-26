@@ -86,7 +86,7 @@ fn main() {
                 let mut config = shared_config.clone();
 
                 #[cfg(target_env = "msvc")]
-                config.flag("/arch:AVX512F");
+                config.flag("/arch:AVX512");
 
                 #[cfg(not(target_env = "msvc"))]
                 config.flag("-mavx512f");

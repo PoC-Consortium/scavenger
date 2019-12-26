@@ -94,7 +94,7 @@ cfg_if! {
 }
 
 impl Plot {
-    pub fn new(path: &PathBuf, mut use_direct_io: bool, dummy: bool) -> Result<Plot, Box<Error>> {
+    pub fn new(path: &PathBuf, mut use_direct_io: bool, dummy: bool) -> Result<Plot, Box<dyn Error>> {
         if !path.is_file() {
             return Err(From::from(format!(
                 "{} is not a file",

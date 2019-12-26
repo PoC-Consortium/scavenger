@@ -353,7 +353,7 @@ impl Miner {
         for _ in 0..cpu_buffer_count {
             let cpu_buffer = CpuBuffer::new(buffer_size_cpu);
             tx_empty_buffers
-                .send(Box::new(cpu_buffer) as Box<Buffer + Send>)
+                .send(Box::new(cpu_buffer) as Box<dyn Buffer + Send>)
                 .unwrap();
         }
 
@@ -368,7 +368,7 @@ impl Miner {
             {
                 let gpu_buffer = GpuBuffer::new(&context.clone(), i + 1);
                 tx_empty_buffers
-                    .send(Box::new(gpu_buffer) as Box<Buffer + Send>)
+                    .send(Box::new(gpu_buffer) as Box<dyn Buffer + Send>)
                     .unwrap();
             }
         }
