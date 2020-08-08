@@ -9,10 +9,10 @@ plot_dirs:
    - 'test_data'
 #  - 'C:\second\windows\plot\dir'
 #  - '/first/linux/plot/dir'
-#  - '/second/linux/plot/dir'
+#  - '/Volumes/mac/plot/dir'
 
-url: 'http://50-50-pool.burst.cryptoguru.org:8124'  # cryptoguru 50-50 pool
-#url: 'http://dummypool.megash.it'                  # dummypool with constant scoop number for benchmarking
+url: 'https://bmf100pool.burstcoin.ro:443'  # BURST Marketing Fund 0-100 pool
+#url: 'http://dummypool.megash.it'          # dummypool with constant scoop number for benchmarking
 
 hdd_reader_thread_count: 0            # default 0 (=auto: number of disks)
 hdd_use_direct_io: true               # default true
