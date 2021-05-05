@@ -11,7 +11,7 @@ use std::u64;
 pub fn create_gpu_worker_task_async(
     benchmark: bool,
     rx_read_replies: Receiver<ReadReply>,
-    tx_empty_buffers: Sender<Box<Buffer + Send>>,
+    tx_empty_buffers: Sender<Box<dyn Buffer + Send>>,
     tx_nonce_data: mpsc::Sender<NonceData>,
     context_mu: Arc<GpuContext>,
     num_drives: usize,

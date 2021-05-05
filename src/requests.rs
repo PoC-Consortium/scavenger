@@ -5,7 +5,6 @@ use futures::future::Future;
 use futures::stream::Stream;
 use futures::sync::mpsc;
 use std::collections::HashMap;
-use std::error::Error;
 use std::time::Duration;
 use std::u64;
 use tokio;
@@ -118,7 +117,7 @@ impl RequestHandler {
                                     submission_params.account_id,
                                     submission_params.nonce,
                                     submission_params.deadline,
-                                    x.description(),
+                                    &x.to_string(),
                                 );
                                 let res = tx_submit_data.unbounded_send(submission_params);
                                 if let Err(e) = res {

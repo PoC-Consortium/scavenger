@@ -178,29 +178,24 @@ impl Client {
         &self,
         submission_data: &SubmissionParameters,
     ) -> impl Future<Item = SubmitNonceResponse, Error = FetchError> {
+        let empty = "".to_owned();
         let secret_phrase = self
             .account_id_to_secret_phrase
-            .get(&submission_data.account_id);
+            .get(&submission_data.account_id).unwrap_or(&empty);
+
+        let mut query = format!(
+            "requestType=submitNonce&accountId={}&nonce={}&secretPhrase={}&blockheight={}",
+            submission_data.account_id, submission_data.nonce, secret_phrase, submission_data.height
+        );
 
         // If we don't have a secret phrase then we most likely talk to a pool or a proxy.
         // Both can make use of the deadline, e.g. a proxy won't validate deadlines but still
         // needs to rank the deadlines.
         // The best thing is that legacy proxies use the unadjusted deadlines so...
         // yay another parameter!
-        let deadline = if secret_phrase.is_none() {
-            Some(submission_data.deadline_unadjusted)
-        } else {
-            None
-        };
-
-        let query = SubmitNonceRequest {
-            request_type: &"submitNonce",
-            account_id: submission_data.account_id,
-            nonce: submission_data.nonce,
-            secret_phrase,
-            blockheight: submission_data.height,
-            deadline,
-        };
+        if secret_phrase == "" {
+            query += &format!("&deadline={}", submission_data.deadline_unadjusted);
+        }        
 
         // Some "Extrawurst" for the CreepMiner proxy (I think?) which needs the deadline inside
         // the "X-Deadline" header.
@@ -210,10 +205,12 @@ impl Client {
             submission_data.deadline.to_string().parse().unwrap(),
         );
 
+        let mut uri = self.uri_for("burst");
+        uri.set_query(Some(&query));
+
         self.inner
-            .post(self.uri_for("burst"))
+            .post(uri)
             .headers(headers)
-            .query(&query)
             .send()
             .and_then(|mut res| {
                 let body = mem::replace(res.body_mut(), Decoder::empty());
@@ -232,7 +229,7 @@ mod tests {
     use super::*;
     use tokio;
 
-    static BASE_URL: &str = "http://94.130.178.37:31000";
+    static BASE_URL: &str = "https://wallet.burstcoin.ro/";
 
     #[test]
     fn test_submit_params_cmp() {
@@ -268,9 +265,11 @@ mod tests {
     fn test_requests() {
         let mut rt = tokio::runtime::Runtime::new().expect("can't create runtime");
 
+        let mut secret = HashMap::new();
+        secret.insert(1337u64,"secret".to_owned());
         let client = Client::new(
             BASE_URL.parse().unwrap(),
-            HashMap::new(),
+            secret,
             5000,
             12,
             ProxyDetails::Enabled,
@@ -278,7 +277,7 @@ mod tests {
         );
 
         let height = match rt.block_on(client.get_mining_info()) {
-            Err(e) => panic!(format!("can't get mining info: {:?}", e)),
+            Err(e) => panic!("can't get mining info: {:?}", e),
             Ok(mining_info) => mining_info.height,
         };
 
@@ -294,7 +293,7 @@ mod tests {
         }));
 
         if let Err(e) = nonce_submission_response {
-            assert!(false, format!("can't submit nonce: {:?}", e));
+            assert!(false, "can't submit nonce: {:?}", e);
         }
     }
 }
