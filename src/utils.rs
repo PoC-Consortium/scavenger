@@ -66,7 +66,8 @@ cfg_if! {
                 }
             }
             if sector_size == 0 {
-                panic!("Abort: Unable to determine disk physical sector size from diskutil info")
+                warn!("failed to determine sector size, defaulting to 4096.");
+                sector_size = 4096;
             }
             sector_size
         }

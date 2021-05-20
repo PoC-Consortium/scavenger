@@ -1,7 +1,7 @@
 # PLEASE ONLY ENTER YOUR PASSPHRASE BELOW IF YOU ARE GOING TO MINE SOLO!
 # YOU DO NOT NEED TO ENTER YOUR PASSPHRASE FOR POOL MINING.
 # NEVER POST YOUR CONFIG.YAML INCLUDING YOUR PASSPHRASE TO ANY BOARD OR CHAT!
-account_id_to_secret_phrase:                   # define accounts and passphrases for solo mining 
+account_id_to_secret_phrase:          # define accounts and passphrases for solo mining 
   10282355196851764065: 'glad suffer red during single glow shut slam hill death lust although'          # Bold's example wallet
   1796535821016683299: 'stand rude those door invite reflection anywhere lace safe hidden fur horrible'  # Johnny's example wallet
 
@@ -11,8 +11,8 @@ plot_dirs:
 #  - '/first/linux/plot/dir'
 #  - '/second/linux/plot/dir'
 
-url: 'http://50-50-pool.burst.cryptoguru.org:8124'  # cryptoguru 50-50 pool
-#url: 'http://dummypool.megash.it'                  # dummypool with constant scoop number for benchmarking
+url: 'http://pool.burstcoin.ro:8080'  # pool mining (BMF pool as example)
+#url: 'http://127.0.0.1:8125'         # solo mining with local wallet
 
 hdd_reader_thread_count: 0            # default 0 (=auto: number of disks)
 hdd_use_direct_io: true               # default true
@@ -31,9 +31,9 @@ gpu_nonces_per_cache: 262144          # default 262144
 gpu_mem_mapping: false                # default false
 gpu_async: false                      # default false
 
-target_deadline: 18446744073709551615 # default u32::MAX
+target_deadline: 31536000             # default 31536000 (1 year)
 account_id_to_target_deadline:        # target dls for multi-id (optional)
- 10282355196851764065: 18446744073709551615
+ 10282355196851764065: 600000
  1796535821016683299: 55555555
 
 get_mining_info_interval: 3000        # default 3000ms
