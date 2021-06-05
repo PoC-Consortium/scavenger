@@ -10,6 +10,7 @@ use std::u64;
 use tokio;
 use tokio::runtime::TaskExecutor;
 use url::Url;
+use stopwatch::Stopwatch;
 
 #[derive(Clone)]
 pub struct RequestHandler {
@@ -66,10 +67,13 @@ impl RequestHandler {
         let stream = PrioRetry::new(rx, Duration::from_secs(3))
             .and_then(move |submission_params| {
                 let tx_submit_data = tx_submit_data.clone();
+                let mut sw = Stopwatch::new();
+                sw.start();
                 client
                     .clone()
                     .submit_nonce(&submission_params)
                     .then(move |res| {
+                        sw.stop();
                         match res {
                             Ok(res) => {
                                 if submission_params.deadline != res.deadline {
@@ -85,6 +89,7 @@ impl RequestHandler {
                                         submission_params.account_id,
                                         submission_params.nonce,
                                         submission_params.deadline,
+                                        sw.elapsed_ms()
                                     );
                                 }
                             }
@@ -201,10 +206,10 @@ fn log_submission_not_accepted(
     );
 }
 
-fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64) {
+fn log_submission_accepted(account_id: u64, nonce: u64, deadline: u64, latency: i64) {
     info!(
-        "deadline accepted: account={}, nonce={}, deadline={}",
-        account_id, nonce, deadline
+        "deadline accepted: account={}, nonce={}, deadline={}, latency={}ms",
+        account_id, nonce, deadline, latency
     );
 }
 
