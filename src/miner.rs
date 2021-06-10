@@ -534,7 +534,8 @@ impl Miner {
                 .for_each(move |nonce_data| {
                     let mut state = state.lock().unwrap();
                     let deadline = nonce_data.deadline / nonce_data.base_target;
-                    if state.height == nonce_data.height {
+                    // FIX: burst became forky as hell, showing some weaknesses in Scavengers update mechanism.                    
+                    if state.block == nonce_data.block {
                         let best_deadline = *state
                             .account_id_to_best_deadline
                             .get(&nonce_data.account_id)
